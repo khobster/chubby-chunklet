@@ -5,380 +5,446 @@
 <title>Chubby Chunklet</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --text-color:#111;          /* Change to #1034a6 for “royal” blue text */
-  --accent:#222;
-  --key-top:#d9dadc;
-  --key-side:#b4b6bb;
-  --key-shadow:#6a6d73;
-  --key-pressed-shift:6px;
-  --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --talk-speed:26; /* ms per char */
+  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+
+  /* Color / typography */
+  --terminal-color:#1034a6; /* royal blue; change to #111 for black */
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+
+  /* Mouth positioning (tweak these quickly without hunting in markup) */
+  --mouth-top:108px;
+  --mouth-left:50%;
+  --mouth-w:44px;
+  --mouth-h:44px;
+
+  /* Typing speed */
+  --char-ms:28;
+
+  /* Scales for stop‑motion mouth (closed → open) */
+  --mouth-scale-0:0.18;
+  --mouth-scale-1:0.45;
+  --mouth-scale-2:0.75;
+  --mouth-scale-3:1.05;
+  --mouth-scale-4:1.35;
 }
+
 * { box-sizing:border-box; }
 html,body {
   margin:0;
-  font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen;
-  color:var(--text-color);
-  background:#fff;
+  padding:0;
   -webkit-font-smoothing:antialiased;
+  font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto;
+  background:#fff;
+  color:#111;
+  height:100%;
 }
+
 body {
+  min-height:100vh;
   display:flex;
   flex-direction:column;
   align-items:center;
-  padding:48px 16px 120px;
+  justify-content:flex-start;
+  padding:32px 20px 40px;
 }
-h1 {
-  margin:0 0 48px;
-  font-size:20px;
+
+.wrapper {
+  flex:1;
+  width:100%;
+  max-width:1100px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:space-between;
+  gap:40px;
+}
+
+.header {
+  font-size:clamp(16px,2.2vw,22px);
   font-weight:600;
-  letter-spacing:.5px;
+  letter-spacing:.4px;
+  text-align:center;
+  margin:0;
 }
-h1 span { font-weight:700; }
-.stage {
+
+.header span { font-weight:700; }
+
+.figure-zone {
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:68px;
+  gap:54px;
+  margin-top:8px;
 }
+
 .chunklet-wrap {
   position:relative;
-  width:190px;
-  height:240px;
+  width:180px;
+  height:230px;
   display:flex;
   align-items:flex-end;
   justify-content:center;
+  pointer-events:none;
 }
-.chunklet-photo {
-  max-width:160px;
-  width:160px;
+
+.chunklet-img {
+  width:170px;
+  max-width:100%;
   user-select:none;
   -webkit-user-drag:none;
-  filter:drop-shadow(0 8px 18px rgba(0,0,0,.18));
+  filter:drop-shadow(0 12px 32px rgba(0,0,0,.22));
+  image-rendering:-webkit-optimize-contrast;
 }
+
+/* Mouth overlay */
 .mouth-overlay {
   position:absolute;
-  left:50%;
-  top:106px; /* tune to match mouth position in photo */
-  width:42px;
-  height:42px;
+  top:var(--mouth-top);
+  left:var(--mouth-left);
+  width:var(--mouth-w);
+  height:var(--mouth-h);
   transform:translate(-50%,-50%);
   display:flex;
   align-items:center;
   justify-content:center;
   pointer-events:none;
 }
+
 .mouth-overlay svg {
   width:100%; height:100%;
 }
-#mouthShape {
+
+#mouth {
   transform-origin:50% 50%;
-  transition:transform .08s linear;
+  /* Start closed */
+  transform:scaleY(var(--mouth-scale-0));
 }
-/* Key button */
-.key-button {
+
+/* Retro button using PNG */
+.trigger-button {
   position:relative;
-  width:120px;
-  height:120px;
-  cursor:pointer;
   border:none;
   background:transparent;
   padding:0;
+  cursor:pointer;
   outline:none;
   -webkit-tap-highlight-color:transparent;
+  display:block;
 }
-.keycap {
-  position:absolute;
-  left:50%; top:0;
-  transform:translate(-50%,0);
-  width:94px;
-  height:94px;
-  background:var(--key-top);
-  border-radius:10px;
-  border:2px solid #c6c8cc;
-  box-shadow:0 6px 0 var(--key-side),
-             0 10px 14px rgba(0,0,0,.28);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:42px;
-  font-weight:600;
-  font-family:var(--mono);
-  color:#383b40;
-  letter-spacing:1px;
-  transition:transform .12s cubic-bezier(.33,.9,.3,1), box-shadow .12s, filter .2s;
+
+.trigger-button img {
+  width:118px;
+  height:auto;
+  display:block;
+  transition:transform .12s cubic-bezier(.33,.9,.3,1), filter .15s;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18));
 }
-.keycap:before {
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:inherit;
-  background:
-    linear-gradient(145deg,rgba(255,255,255,.85),rgba(255,255,255,0)),
-    linear-gradient( to bottom, rgba(0,0,0,.05), rgba(0,0,0,0) 55%);
-  mix-blend-mode:overlay;
-  pointer-events:none;
+
+.trigger-button:active img,
+.trigger-button.pressed img {
+  transform:translateY(7px) scale(.985);
+  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.93) contrast(1.05);
 }
-.key-button:active .keycap,
-.key-button.pressed .keycap {
-  transform:translate(-50%,var(--key-pressed-shift));
-  box-shadow:0 2px 0 var(--key-side),
-             0 4px 10px rgba(0,0,0,.25);
-}
-.key-button:focus-visible .keycap {
+
+.trigger-button:focus-visible img {
   outline:4px solid #5b8dff;
   outline-offset:4px;
 }
-/* Terminal line */
+
+/* Output / terminal line */
 .output {
-  font-family:var(--mono);
-  font-size:28px;
-  line-height:1.35;
-  font-weight:500;
+  font-family:var(--font-mono);
+  font-size:clamp(14px,1.35vw,18px);
+  line-height:1.45;
   letter-spacing:.5px;
-  white-space:pre-wrap;
+  color:var(--terminal-color);
   max-width:820px;
-  min-height:3ch;
-  margin-top:64px;
+  min-height:2.2em;
+  text-align:left;
+  margin:24px auto 0;
+  white-space:pre-wrap;
   position:relative;
 }
+
 .cursor {
   display:inline-block;
-  width:.65ch;
-  background:var(--text-color);
-  animation:blink 1.05s steps(1) infinite;
-  vertical-align:baseline;
+  width:.6ch;
+  background:var(--terminal-color);
   height:1em;
+  vertical-align:baseline;
+  animation:blink 1s steps(1,end) infinite;
   transform:translateY(2px);
 }
+
 .typing .cursor { animation:none; }
-@keyframes blink { 0%,55% {opacity:1;} 56%,100% {opacity:0;} }
-.status {
-  margin-top:20px;
-  font-size:14px;
-  opacity:.55;
+
+@keyframes blink {
+  0%,55% {opacity:1;}
+  56%,100% {opacity:0;}
 }
-.status.error { color:#c0392b; opacity:1; }
-.notice {
-  margin-top:40px;
-  font-size:12px;
-  opacity:.45;
-  max-width:600px;
+
+.status {
+  font:500 12px/1.3 var(--font-mono);
+  opacity:.55;
+  margin-top:12px;
   text-align:center;
 }
-.hidden { display:none; }
-.fade-in { animation:fade .5s ease; }
-@keyframes fade { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
-.talking #mouthShape {
-  animation:idleMouth .9s ease-in-out infinite;
+
+.status.error { color:#c0392b; opacity:1; }
+
+.footer-note {
+  font:500 11px/1.35 var(--font-mono);
+  opacity:.40;
+  margin-top:22px;
+  text-align:center;
+  max-width:540px;
+}
+
+/* Mouth talking class (we drive discrete steps in JS; keyframes only as fallback idle) */
+body.idle #mouth {
+  animation:idleMouth 1.4s ease-in-out infinite;
 }
 @keyframes idleMouth {
-  0%,100% {transform:scaleY(.6);}
-  50% {transform:scaleY(.85);}
+  0%,100% { transform:scaleY(.22);}
+  50% { transform:scaleY(.38);}
 }
+
+/* Small screens tighten spacing */
+@media (max-height:740px) {
+  .figure-zone { gap:38px; }
+  .chunklet-wrap { height:200px; }
+}
+@media (max-width:520px){
+  .chunklet-wrap { width:150px; height:200px; }
+  .chunklet-img { width:140px; }
+  :root {
+    --mouth-top:92px;
+    --mouth-w:36px;
+    --mouth-h:36px;
+  }
+  .trigger-button img { width:102px; }
+}
+
 </style>
 </head>
-<body>
-  <h1>oh wow hey it's <span>chubby chunklet</span></h1>
+<body class="idle">
+  <div class="wrapper">
+    <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
-  <div class="stage">
-    <div class="chunklet-wrap">
-      <!-- Your actual image file; adjust src to your asset path -->
-      <img id="chunkletImg" class="chunklet-photo" src="littlemantalk.png" alt="Chubby Chunklet">
-      <!-- Mouth overlay (animated oval) -->
-      <div class="mouth-overlay">
-        <svg viewBox="0 0 100 100">
-          <ellipse id="mouthShape" cx="50" cy="50" rx="26" ry="20" fill="#111"/>
-        </svg>
+    <div class="figure-zone">
+      <div class="chunklet-wrap">
+        <img src="littlemantalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
+        <div class="mouth-overlay">
+          <!-- Simple oval “mouth” -->
+          <svg viewBox="0 0 100 100">
+            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+          </svg>
+        </div>
       </div>
+
+      <button id="trigger" class="trigger-button" aria-label="Speak">
+        <img id="keyImage" src="button.png" alt="Speak button">
+        <!-- If you get a pressed image, store its path in data-pressed-src and swap in JS -->
+        <!-- <img id="keyImage" src="button.png" data-pressed-src="button-pressed.png" alt="Speak button"> -->
+      </button>
     </div>
 
-    <button id="trigger" class="key-button" aria-label="Summon Chunklet">
-      <div class="keycap">*</div>
-    </button>
+    <div class="output" id="output"><span id="typed"></span><span id="cursor" class="cursor"></span></div>
+    <div id="status" class="status"></div>
+    <div class="footer-note">Press the key. Chunklet speaks. Retro typed output. Audio + mouth sync if available.</div>
   </div>
 
-  <div id="out" class="output"><span id="line"></span><span id="cursor" class="cursor"></span></div>
-  <div id="status" class="status"></div>
-  <div class="notice">Press the key. Chunklet speaks. Text typed retro style. Audio + mouth sync if available.</div>
-
 <script>
-const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet'; // update if redeployed
+/* ================= CONFIG ================= */
+const ENDPOINT = document.documentElement.style.getPropertyValue('--endpoint') || 
+  'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+const CHAR_MS = parseInt(getComputedStyle(document.documentElement)
+                .getPropertyValue('--char-ms'),10) || 28;
+const STOP_MOTION_FPS = 8;          // frames/sec for mouth quantization
+const OPEN_STEPS = [
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-scale-0')),
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-scale-1')),
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-scale-2')),
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-scale-3')),
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-scale-4'))
+];
+/* ========================================== */
 
 const trigger   = document.getElementById('trigger');
-const keycap    = trigger.querySelector('.keycap');
-const lineSpan  = document.getElementById('line');
-const cursorSpan= document.getElementById('cursor');
+const keyImg    = document.getElementById('keyImage');
+const typedSpan = document.getElementById('typed');
+const cursor    = document.getElementById('cursor');
 const statusEl  = document.getElementById('status');
-const mouth     = document.getElementById('mouthShape');
+const mouth     = document.getElementById('mouth');
+let busy=false, typing=false;
 
-let typing = false;
-let audioCtx;
-let currentSource;
-let timings = [];
-let startTime = 0;
-let raf;
-let lastText = '';
-let busy = false;
+let audioCtx, currentSource, timings=[], startTime=0, raf;
+let lastText='';
 
-/* Utility */
-function setStatus(msg, isErr=false){
+function setStatus(msg, error=false){
   statusEl.textContent = msg || '';
-  statusEl.classList.toggle('error', !!isErr);
+  statusEl.classList.toggle('error', !!error);
 }
+
 function sanitize(text){
   text = (text||'').trim();
-  if(!text) return 'Ambient dust performs a silent tap routine.';
-  return text.replace(/!+$/,'').replace(/\s+/g,' ').trim() + (/[.?!]$/.test(text)?'':'.');
+  if(!text) return 'A phantom noodle hummed your fortune.';
+  text = text.replace(/!+$/,'').replace(/\s+/g,' ').trim();
+  return /[.?!]$/.test(text) ? text : text + '.';
 }
 
-/* Fetch + type sequence */
-async function summon(){
-  if(busy) return;
-  busy = true;
-  trigger.classList.add('pressed');
-  setStatus('Chunklet thinking...');
-  stopAudio();
-  stopMouth();
-  lineSpan.textContent = '';
-  cursorSpan.classList.remove('hidden');
-  document.getElementById('out').classList.remove('fade-in');
-
-  try{
-    const res = await fetch(ENDPOINT);
-    if(!res.ok) throw new Error('Server '+res.status);
-    const data = await res.json();
-    let text = sanitize(data.text);
-    lastText = text;
-    timings = Array.isArray(data.timings) ? data.timings : [];
-    typeLine(text, async () => {
-      if(data.audioBase64){
-        await playAudio(data.audioBase64);
-      } else {
-        fakeTimingsFromText(text);
-        startMouth();
-        setTimeout(stopMouth, 2500);
-      }
-      setStatus('Ready.');
-      document.getElementById('out').classList.add('fade-in');
-    });
-  }catch(err){
-    console.error(err);
-    typeLine('Static crackles; Chunklet hides. Try again.', ()=>setStatus('Temporary hiccup.', true));
-  }finally{
-    setTimeout(()=> trigger.classList.remove('pressed'), 140);
-    busy = false;
-  }
-}
-
-function typeLine(text, done){
-  typing = true;
-  document.getElementById('out').classList.add('typing');
-  lineSpan.textContent = '';
-  cursorSpan.classList.remove('hidden');
+/* Typing effect */
+function typeOut(text, done){
+  typing=true;
+  document.getElementById('output').classList.add('typing');
+  typedSpan.textContent='';
+  cursor.classList.remove('hidden');
   let i=0;
-  const speed = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--talk-speed'),10) || 28;
   function step(){
-    // Simulate old terminal: occasionally insert a tiny jitter
-    const jitter = (i%7===0)? Math.random()*12 : 0;
-    lineSpan.textContent = text.slice(0,i);
+    const jitter = (i%7===0)? Math.random()*14 : 0;
+    typedSpan.textContent = text.slice(0,i);
     i++;
     if(i<=text.length){
-      setTimeout(step, speed + jitter);
+      setTimeout(step, CHAR_MS + jitter);
     }else{
-      typing = false;
-      document.getElementById('out').classList.remove('typing');
-      if(typeof done === 'function') done();
+      typing=false;
+      document.getElementById('output').classList.remove('typing');
+      if(done) done();
     }
   }
   step();
 }
 
-/* Audio + mouth sync */
+/* Audio + mouth */
 function ensureCtx(){
   if(!audioCtx){
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   }
   if(audioCtx.state === 'suspended') audioCtx.resume();
 }
+
 async function playAudio(b64){
   ensureCtx();
   const raw = atob(b64.replace(/^data:audio\/[a-zA-Z0-9.+-]+;base64,/, ''));
-  const buf = new Uint8Array(raw.length);
-  for(let i=0;i<raw.length;i++) buf[i]=raw.charCodeAt(i);
+  const buf = new Uint8Array(raw.length); for(let i=0;i<raw.length;i++) buf[i]=raw.charCodeAt(i);
   const decoded = await audioCtx.decodeAudioData(buf.buffer);
   currentSource = audioCtx.createBufferSource();
   currentSource.buffer = decoded;
   currentSource.connect(audioCtx.destination);
-  if(!timings.length) fakeTimingsFromText(lastText);
-  startMouth();
   startTime = audioCtx.currentTime;
+  startMouth();
   currentSource.start();
-  currentSource.onended = () => { stopMouth(); };
+  currentSource.onended = () => stopMouth();
 }
 
 function stopAudio(){
   if(currentSource){
-    try{currentSource.stop();}catch{}
+    try{ currentSource.stop(); }catch{}
     currentSource.disconnect();
-    currentSource = null;
+    currentSource=null;
   }
+}
+
+/* Generate fake timings if backend omitted them */
+function fabricateTimings(text){
+  const total = Math.min(6, Math.max(2.3, text.length/18));
+  const frames = Math.max(8, Math.min(40, Math.round(text.length/2.4)));
+  const step = total / frames;
+  timings = [];
+  for(let i=0;i<=frames;i++){
+    const open = (i%2)? 1 : Math.random()*0.25;
+    timings.push({t:i*step, open});
+  }
+}
+
+function quantize(open){
+  // Convert raw 0..1 to discrete step 0..4
+  const idx = Math.min(4, Math.max(0, Math.round(open * 4)));
+  return OPEN_STEPS[idx];
 }
 
 function startMouth(){
-  document.body.classList.add('talking');
+  document.body.classList.remove('idle');
   cancelAnimationFrame(raf);
   animateMouth();
 }
+
 function stopMouth(){
-  document.body.classList.remove('talking');
   cancelAnimationFrame(raf);
-  mouth.style.transform = 'scaleY(0.65)';
+  mouth.style.transform = `scaleY(${OPEN_STEPS[0]})`;
+  document.body.classList.add('idle');
 }
 
 function animateMouth(){
-  const now = audioCtx ? (audioCtx.currentTime - startTime) : performance.now()/1000;
+  const t = audioCtx ? (audioCtx.currentTime - startTime) : performance.now()/1000;
+  let open = 0.1;
   if(timings.length){
-    let open = 0.25;
     for(let i=0;i<timings.length;i++){
-      if(now >= timings[i].t) open = timings[i].open;
+      if(t >= timings[i].t) open = timings[i].open;
       else break;
     }
-    // Clamp
-    open = Math.max(0, Math.min(1, open));
-    const scale = 0.35 + open*0.85;
-    mouth.style.transform = `scaleY(${scale})`;
+  } else {
+    // fallback slow pulse
+    open = (Math.sin(t*3)+1)/2;
   }
+  const scale = quantize(open);
+  mouth.style.transform = `scaleY(${scale})`;
   raf = requestAnimationFrame(animateMouth);
 }
 
-/* Heuristic phoneme timing approximation */
-function fakeTimingsFromText(text){
-  const est = Math.max(6, Math.min(30, Math.round(text.length/3)));
-  const total = Math.min(6, Math.max(2.8, text.length/18));
-  const step = total/est;
-  timings = [];
-  for(let i=0;i<=est;i++){
-    const open = (i%2)? 1 : 0.05 + Math.random()*0.15;
-    timings.push({t:i*step, open});
+/* Summon */
+async function summon(){
+  if(busy) return;
+  busy=true;
+  trigger.classList.add('pressed');
+  setStatus('Chunklet cogitates...');
+  stopAudio(); stopMouth();
+  typedSpan.textContent='';
+  cursor.classList.remove('hidden');
+
+  try{
+    const res = await fetch(ENDPOINT);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    let text = sanitize(data.text);
+    lastText = text;
+    timings = Array.isArray(data.timings) ? data.timings : [];
+    typeOut(text, async ()=>{
+      if(data.audioBase64){
+        if(!timings.length) fabricateTimings(text);
+        await playAudio(data.audioBase64);
+      } else {
+        fabricateTimings(text);
+        startMouth();
+        setTimeout(stopMouth, 3000);
+      }
+      setStatus('Ready.');
+    });
+  }catch(e){
+    console.error(e);
+    typeOut('A shy packet tripped. Try again.', ()=> setStatus('Temporary hiccup.', true));
+  }finally{
+    setTimeout(()=>trigger.classList.remove('pressed'), 160);
+    busy=false;
   }
 }
 
 /* Events */
 trigger.addEventListener('click', summon);
-document.addEventListener('keydown',(e)=>{
-  if(e.key === ' ' || e.key === 'Enter'){
-    if(document.activeElement !== trigger) trigger.focus();
+document.addEventListener('keydown', e=>{
+  if(e.key===' '||e.key==='Enter'){
     summon();
+    if(document.activeElement!==trigger) trigger.focus();
   }
 });
 
-/* Optional: first auto‑load (comment out if not wanted) */
-// summon();
+/* Idle mouth gentle motion already via CSS */
 
+/* Optional auto first line: uncomment if desired */
+// summon();
 </script>
 </body>
 </html>
