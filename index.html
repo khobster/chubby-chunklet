@@ -1,469 +1,427 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>Chubby Chunklet</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  :root {
-    --bg: #eef0f3;
-    --panel: #ffffff;
-    --accent: #213247;
-    --accent-hi: #2f4b68;
-    --wood-dark: #5c3317;
-    --wood-mid: #7b4a22;
-    --wood-light: #a56a38;
-    --face: #ffd58f;
-    --shadow: rgba(0,0,0,0.22);
-    --pop-height: 150px;
-    --door-thickness: 18px;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin:0;
-    font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-    background: var(--bg);
-    color:#222;
-    -webkit-font-smoothing: antialiased;
-  }
-  h1 {
-    text-align:center;
-    margin:32px 0 4px;
-    font-size: clamp(2rem,4vw,3rem);
-  }
-  p.sub {
-    text-align:center;
-    margin:0 0 32px;
-    color:#4a5561;
-  }
-  .stage {
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:32px;
-    padding-bottom:80px;
-  }
+:root {
+  --bg:#eef0f3;
+  --accent:#213247;
+  --accent-hi:#2f4b68;
+  --face:#ffd9af;
+  --body:#ffd54c;
+  --body-shadow:#d49a25;
+  --base:#f1f1f1;
+  --shadow:rgba(0,0,0,0.22);
+  --fg:#1e2730;
+}
 
-  /* Cuckoo box wrapper */
-  .box-wrapper {
-    position:relative;
-    width:340px;
-    height:340px;
-    perspective: 1400px;
-  }
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--fg);
+  -webkit-font-smoothing:antialiased;
+}
+h1{
+  text-align:center;
+  margin:34px 0 6px;
+  font-size:clamp(2.2rem,6vw,3rem);
+}
+p.sub{
+  text-align:center;
+  margin:0 0 32px;
+  color:#4a5762;
+}
 
-  .box {
-    position:absolute;
-    inset:0;
-    background: linear-gradient(180deg,var(--wood-mid),var(--wood-dark));
-    border-radius:14px;
-    box-shadow:0 12px 30px -8px var(--shadow), 0 4px 10px -2px rgba(0,0,0,0.15);
-    overflow:hidden;
-  }
+main.stage{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:32px;
+  padding-bottom:80px;
+}
 
-  /* Inner recess to give depth */
-  .box::before {
-    content:"";
-    position:absolute;
-    left:10%;
-    top:14%;
-    width:80%;
-    height:76%;
-    background: linear-gradient(180deg,#693b1d,#47240f);
-    border-radius:8px;
-    box-shadow: inset 0 0 0 4px rgba(255,255,255,0.05), inset 0 6px 18px -6px rgba(0,0,0,0.8);
-  }
+.figure-wrap{
+  position:relative;
+  width:240px;
+  height:280px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 
-  /* Door (front panel) */
-  .door {
-    position:absolute;
-    left:0;right:0;top:0;
-    height:52%;
-    transform-origin: top center;
-    background: linear-gradient(180deg,var(--wood-light),var(--wood-mid));
-    border-top-left-radius:14px;
-    border-top-right-radius:14px;
-    box-shadow: inset 0 -6px 14px -6px rgba(0,0,0,0.6);
-    transition: transform 0.65s cubic-bezier(.55,.12,.25,1.35);
-    will-change: transform;
-  }
-  .door.open {
-    transform: rotateX(-105deg) translateZ(0);
-  }
+.chunklet{
+  position:relative;
+  width:170px;
+  height:260px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  filter:drop-shadow(0 14px 30px -10px var(--shadow)) drop-shadow(0 5px 14px -6px rgba(0,0,0,0.3));
+  animation:float 6s ease-in-out infinite;
+}
 
-  /* Character */
-  .chunklet {
-    --pop: 0;
-    position:absolute;
-    left:50%;
-    top:58%;
-    transform: translate(-50%, calc(40px - var(--pop)));
-    width:140px;
-    height:140px;
-    transition: transform .5s ease;
-    display:flex;
-    justify-content:center;
-    align-items:flex-end;
-    pointer-events:none;
-  }
+@keyframes float {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(-6px); }
+}
 
-  .figure {
-    position:relative;
-    width:110px;
-    height:110px;
-    background: radial-gradient(circle at 40% 25%, #ffecbe, var(--face) 60%);
-    border-radius:50% 50% 44% 44%;
-    box-shadow:0 6px 14px -4px var(--shadow), inset 0 -8px 16px -10px rgba(0,0,0,0.2);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-  }
-  .figure::after {
-    /* Body */
-    content:"";
-    position:absolute;
-    bottom:-38px;
-    left:50%;
-    transform:translateX(-50%);
-    width:130px;
-    height:90px;
-    background: linear-gradient(180deg,#ffc76f,#e8a247);
-    border-radius:50%/60% 60% 40% 40%;
-    box-shadow:0 8px 16px -6px var(--shadow), inset 0 -10px 22px -14px rgba(0,0,0,0.4);
-  }
+.head{
+  position:relative;
+  margin-top:6px;
+  width:150px;
+  height:150px;
+  background:radial-gradient(circle at 40% 28%, #ffe9ce, var(--face) 60%);
+  border-radius:50%;
+  box-shadow:inset 0 -10px 18px -12px rgba(0,0,0,0.25);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 
-  .eyes {
-    position:absolute;
-    top:42%;
-    left:50%;
-    width:56px;
-    height:20px;
-    transform:translateX(-50%);
-    display:flex;
-    justify-content:space-between;
-  }
-  .eye {
-    width:14px;height:14px;
-    background:#222;
-    border-radius:50%;
-    position:relative;
-    overflow:hidden;
-  }
-  .eye .spark {
-    position:absolute;
-    top:2px;left:3px;
-    width:5px;height:5px;
-    background:#fff;
-    border-radius:50%;
-    opacity:0.8;
-  }
+.face-features{
+  position:absolute;
+  top:45%;
+  left:50%;
+  width:70px;
+  height:55px;
+  transform:translate(-50%,-50%);
+}
 
-  .mouth {
-    position:absolute;
-    top:63%;
-    left:50%;
-    transform:translateX(-50%);
-    width:46px;
-    height:22px;
-    background:#2c1c12;
-    border-radius:0 0 50% 50%/0 0 70% 70%;
-    box-shadow: inset 0 0 0 3px #40261a;
-    transition: height 0.08s ease, transform 0.08s ease;
-  }
-  .mouth.open {
-    height:40px;
-    transform:translate(-50%, -6px);
-    border-radius:0 0 50% 50% / 0 0 55% 55%;
-  }
+.eye{
+  position:absolute;
+  top:8px;
+  width:16px;
+  height:16px;
+  background:#111;
+  border-radius:50%;
+  animation:blink 5.5s linear infinite;
+}
+.eye.left{ left:0; }
+.eye.right{ right:0; }
 
-  .platform {
-    position:absolute;
-    left:50%;
-    top:72%;
-    transform:translateX(-50%);
-    width:200px;
-    height:60px;
-    background: linear-gradient(180deg,#6b3d1e,#482611);
-    border-radius:16px;
-    box-shadow:
-      0 12px 26px -10px var(--shadow),
-      inset 0 8px 14px -12px rgba(255,255,255,0.2),
-      inset 0 -10px 20px -14px rgba(0,0,0,0.8);
-  }
+.eye .spark{
+  position:absolute;
+  top:3px;
+  left:4px;
+  width:5px;
+  height:5px;
+  background:#fff;
+  border-radius:50%;
+  opacity:.85;
+}
 
-  button.trigger {
-    font-size:1.15rem;
-    background: var(--accent);
-    color:#fff;
-    padding:20px 60px;
-    border:none;
-    border-radius:44px;
-    font-weight:600;
-    letter-spacing:.5px;
-    cursor:pointer;
-    box-shadow:0 10px 24px -10px var(--shadow), 0 3px 8px -4px rgba(0,0,0,0.25);
-    transition: background .25s ease, transform .25s ease;
-  }
-  button.trigger:hover:not([disabled]) {
-    background:var(--accent-hi);
-    transform:translateY(-2px);
-  }
-  button.trigger:active:not([disabled]) {
-    transform:translateY(1px);
-  }
-  button.trigger[disabled] {
-    opacity:.6;
-    cursor:progress;
-  }
+@keyframes blink {
+  0%,92%,100% { transform:scaleY(1); }
+  95% { transform:scaleY(.1); }
+}
 
-  .output-wrap {
-    width:min(760px,90%);
-    background: var(--panel);
-    margin:4px auto 0;
-    padding:20px 26px;
-    border-radius:18px;
-    font-size:1.15rem;
-    line-height:1.45;
-    box-shadow:0 8px 18px -8px var(--shadow);
-    min-height:70px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    text-align:center;
-    position:relative;
-  }
-  .output-wrap.fade {
-    animation:fadeIn .4s ease;
-  }
-  @keyframes fadeIn {
-    from { opacity:0; transform:translateY(6px); }
-    to { opacity:1; transform:translateY(0); }
-  }
+.swirl{
+  position:absolute;
+  top:-14px;
+  left:50%;
+  width:34px;
+  height:34px;
+  transform:translateX(-50%);
+  pointer-events:none;
+}
+.swirl svg{
+  width:100%; height:100%;
+  stroke:#111;
+  stroke-width:4;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
 
-  .status {
-    text-align:center;
-    margin-top:12px;
-    font-size:.85rem;
-    color:#b3572b;
-    font-weight:500;
-    min-height:1.2em;
-  }
+.mouth{
+  --open:0;
+  position:absolute;
+  left:50%;
+  bottom:0;
+  transform:translate(-50%, 0);
+  width:42px;
+  height:42px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  /* Black oval that scales vertically for speech */
+}
+.mouth .oval{
+  width:42px;
+  height:42px;
+  background:#111;
+  border-radius:50%;
+  transform:scaleY(var(--open));
+  transform-origin:center center;
+  transition:transform 0.07s linear;
+  box-shadow:0 0 0 4px #221812 inset;
+}
 
-  footer {
-    margin-top:50px;
-    text-align:center;
-    font-size:.72rem;
-    color:#616e78;
-    letter-spacing:.5px;
-  }
+.body{
+  margin-top:-18px;
+  width:160px;
+  height:150px;
+  background:linear-gradient(180deg,var(--body),var(--body-shadow));
+  border-radius:46% 46% 40% 40% / 58% 58% 38% 38%;
+  position:relative;
+  box-shadow:inset 0 -18px 34px -20px rgba(0,0,0,0.5);
+}
 
-  .blink {
-    animation: blink 4.9s linear infinite;
-  }
-  @keyframes blink {
-    0%, 92%, 100% { transform:scaleY(1); }
-    94%, 96% { transform:scaleY(0.1); }
-  }
+.base{
+  position:relative;
+  margin-top:-38px;
+  width:150px;
+  height:70px;
+  background:linear-gradient(180deg,#fafafa,#dadada);
+  border-radius:60% 60% 45% 45% / 70% 70% 35% 35%;
+  box-shadow: inset 0 -12px 24px -18px rgba(0,0,0,0.55);
+}
 
-  .hidden { display:none !important; }
+button.trigger{
+  font-size:1.05rem;
+  background:var(--accent);
+  color:#fff;
+  padding:18px 56px;
+  border:none;
+  border-radius:44px;
+  font-weight:600;
+  letter-spacing:.5px;
+  cursor:pointer;
+  box-shadow:0 10px 24px -10px var(--shadow),0 3px 8px -5px rgba(0,0,0,0.25);
+  transition:background .25s ease, transform .2s ease;
+}
+button.trigger:hover:not([disabled]){ background:var(--accent-hi); transform:translateY(-2px);}
+button.trigger:active:not([disabled]){ transform:translateY(1px);}
+button.trigger[disabled]{ opacity:.55; cursor:progress; }
 
-  .loading-line {
-    position:absolute;
-    left:0;bottom:0;
-    height:4px;
-    width:100%;
-    background:linear-gradient(90deg,#ffb347,#ff8847,#ffb347);
-    background-size:200% 100%;
-    animation:load 1s linear infinite;
-    border-radius:0 0 18px 18px;
-  }
-  @keyframes load {
-    0% { background-position:0 0;}
-    100% { background-position:-200% 0;}
-  }
+.output{
+  width:min(760px,90%);
+  background:#fff;
+  margin-top:14px;
+  padding:20px 26px;
+  border-radius:18px;
+  font-size:1.15rem;
+  line-height:1.45;
+  box-shadow:0 8px 18px -8px var(--shadow);
+  min-height:72px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  position:relative;
+}
+.output.fade{ animation:fade .4s ease; }
+@keyframes fade {
+  from{opacity:0; transform:translateY(6px);}
+  to{opacity:1; transform:translateY(0);}
+}
 
-  @media (max-width:600px){
-    .box-wrapper { width:270px; height:270px; }
-    .chunklet { --pop-height:120px; }
-  }
+.status{
+  text-align:center;
+  margin-top:10px;
+  font-size:.82rem;
+  font-weight:500;
+  color:#c05724;
+  min-height:1.1em;
+}
+
+.loading-bar{
+  position:absolute;
+  left:0; bottom:0;
+  width:100%; height:4px;
+  background:linear-gradient(90deg,#ffb347,#ff8847,#ffb347);
+  background-size:200% 100%;
+  animation:load 1s linear infinite;
+  border-radius:0 0 18px 18px;
+}
+.hidden{display:none!important;}
+@keyframes load {
+  0%{background-position:0 0;}
+  100%{background-position:-200% 0;}
+}
+
+footer{
+  margin-top:60px;
+  text-align:center;
+  font-size:.7rem;
+  letter-spacing:.4px;
+  color:#66727c;
+  padding-bottom:40px;
+}
+
+@media (max-width:600px){
+  .figure-wrap{ width:200px; height:250px; }
+  .head{ width:130px; height:130px; }
+  .mouth .oval{ width:36px; height:36px; }
+  .body{ width:140px; height:130px; }
+  .base{ width:130px; height:64px; }
+}
 </style>
 </head>
 <body>
   <h1>Chubby Chunklet</h1>
-  <p class="sub">Knock the box. Neighbor pops out with a surreal morsel every time.</p>
+  <p class="sub">He just *says things*. Pull the line (or press space) to hear him.</p>
 
   <main class="stage">
-
-    <div class="box-wrapper">
-      <div class="box" id="box">
-        <div class="door" id="door"></div>
-        <div class="chunklet" id="chunklet">
-          <div class="figure">
-            <div class="eyes">
-              <div class="eye blink"><div class="spark"></div></div>
-              <div class="eye blink"><div class="spark"></div></div>
+    <div class="figure-wrap">
+      <div class="chunklet" id="chunklet">
+        <div class="head">
+          <div class="swirl">
+            <!-- Simple swirl hair -->
+            <svg viewBox="0 0 100 100">
+              <path d="M50 70c14 0 22-13 16-24-5-10-19-10-24-1-4 8 1 14 7 15 8 1 13-6 11-12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="face-features">
+            <div class="eye left"><div class="spark"></div></div>
+            <div class="eye right"><div class="spark"></div></div>
+            <div class="mouth" id="mouth">
+              <div class="oval"></div>
             </div>
-            <div class="mouth" id="mouth"></div>
           </div>
         </div>
-        <div class="platform"></div>
+        <div class="body"></div>
+        <div class="base"></div>
       </div>
     </div>
 
-    <button class="trigger" id="knockBtn">KNOCK / PULL STRING</button>
+    <button class="trigger" id="talkBtn">PULL STRING</button>
 
-    <div class="output-wrap" id="outputWrap">
-      <span id="line">Knock to wake Chunklet…</span>
-      <div class="loading-line hidden" id="loadingLine"></div>
+    <div class="output" id="output"><span id="line">Chunklet is idle…</span>
+      <div id="loader" class="loading-bar hidden"></div>
     </div>
     <div class="status" id="status"></div>
-
   </main>
 
-  <footer>Whimsical neighbor simulator. Audio + timing for playful animation.</footer>
+  <footer>Chubby Chunklet • playful TTS & mouth animation demo.</footer>
 
 <script>
 /* ================= CONFIG =================== */
-const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet'; // <-- REPLACE THIS WITH YOUR DEPLOYED URL
+const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet
+'; // <-- REPLACE with your API Gateway endpoint
 
 /* =============== ELEMENTS =================== */
-const btn        = document.getElementById('knockBtn');
-const door       = document.getElementById('door');
-const chunkletEl = document.getElementById('chunklet');
-const mouth      = document.getElementById('mouth');
-const lineEl     = document.getElementById('line');
+const talkBtn    = document.getElementById('talkBtn');
+const lineSpan   = document.getElementById('line');
 const statusEl   = document.getElementById('status');
-const outputWrap = document.getElementById('outputWrap');
-const loadingBar = document.getElementById('loadingLine');
+const loader     = document.getElementById('loader');
+const outputBox  = document.getElementById('output');
+const mouth      = document.getElementById('mouth').querySelector('.oval');
 
 /* =============== STATE ====================== */
-let busy = false;
-let rafId = null;
-let currentAudio = null;
-let currentTimings = null;
-let timingStartEpoch = null; // fallback when no audio
+let busy=false;
+let audio=null;
+let timings=null;
+let rafId=null;
+let fallbackStart=0;
 
 /* =============== HELPERS ==================== */
-
 function setBusy(on){
-  busy = on;
-  btn.disabled = on;
-  loadingBar.classList.toggle('hidden', !on);
-  if(on) statusEl.textContent = '';
+  busy=on;
+  talkBtn.disabled=on;
+  loader.classList.toggle('hidden', !on);
+  if(on) statusEl.textContent='';
 }
 
-function popOpen(){
-  door.classList.add('open');
-  chunkletEl.style.setProperty('--pop', 'var(--pop-height)');
+function cancelAnim(){
+  if(rafId) cancelAnimationFrame(rafId);
+  rafId=null;
+  mouth.style.setProperty('--open','0');
 }
 
-function popClose(){
-  door.classList.remove('open');
-  chunkletEl.style.setProperty('--pop', '0px');
+function applyLine(text){
+  lineSpan.textContent=text;
+  outputBox.classList.remove('fade');
+  void outputBox.offsetWidth;
+  outputBox.classList.add('fade');
 }
 
-function animateMouth(time){
-  if(!currentTimings) return;
-  const t = time;
-  // If we have phoneme timings, open during vowels (rough)
-  const phonemes = currentTimings.phonemes;
-  // Find current phoneme quickly (linear scan is fine: short)
-  let open = false;
-  for(const p of phonemes){
-    if(t >= p.start && t < p.end){
-      if(/[aeiouy]/i.test(p.token)) open = true;
+function animateMouthFrame(ts){
+  if(!timings){ mouth.style.setProperty('--open','0'); return;}
+  let t;
+  if(audio){
+    t = audio.currentTime;
+  } else {
+    t = (performance.now()-fallbackStart)/1000;
+  }
+  // Find phoneme (linear okay)
+  let openAmt=0.15;
+  for(const p of timings.phonemes){
+    if(t>=p.start && t<p.end){
+      if(/[aeiou]/i.test(p.token)){
+        // Scale vowel openness by length a bit
+        const span = p.end - p.start;
+        // Smooth ramp
+        const local = (t - p.start)/span;
+        const env = local<0.25 ? local/0.25 :
+                    local>0.75 ? (1-(local-0.75)/0.25) : 1;
+        openAmt = 0.25 + Math.min(1, span*3)*0.55*env;
+      } else {
+        openAmt = 0.15;
+      }
       break;
     }
   }
-  mouth.classList.toggle('open', open);
-}
-
-function stopAnimation(){
-  if(rafId) cancelAnimationFrame(rafId);
-  rafId = null;
-  mouth.classList.remove('open');
-}
-
-function runTimingLoop(){
-  if(!currentTimings) return;
-  const total = currentTimings.totalDuration || 0;
-  let currentTime = 0;
-
-  function frame(){
-    if(currentAudio){
-      currentTime = currentAudio.currentTime;
-    }else{
-      currentTime = (performance.now() - timingStartEpoch)/1000;
-    }
-    animateMouth(currentTime);
-    if(currentTime < total + 0.3 && (currentAudio ? !currentAudio.ended : currentTime < total)){
-      rafId = requestAnimationFrame(frame);
-    }else{
-      mouth.classList.remove('open');
-      setTimeout(()=>popClose(), 450);
-    }
-  }
-  frame();
-}
-
-function playLine(data){
-  lineEl.textContent = data.text;
-  outputWrap.classList.remove('fade');
-  void outputWrap.offsetWidth;
-  outputWrap.classList.add('fade');
-
-  currentTimings = data.timings;
-  if(data.audioBase64){
-    const src = 'data:audio/'+(data.audioFormat||'mp3')+';base64,'+data.audioBase64;
-    currentAudio = new Audio(src);
-    currentAudio.oncanplay = () => {
-      popOpen();
-      currentAudio.play().catch(()=>{ /* ignore */ });
-      runTimingLoop();
-    };
-    currentAudio.onended = () => {
-      setTimeout(()=>popClose(), 450);
-    };
+  mouth.style.setProperty('--open', openAmt.toFixed(3));
+  if(audio ? !audio.ended : t < (timings.totalDuration||0)){
+    rafId = requestAnimationFrame(animateMouthFrame);
   } else {
-    currentAudio = null;
-    timingStartEpoch = performance.now();
-    popOpen();
-    runTimingLoop();
+    mouth.style.setProperty('--open','0');
   }
 }
 
-function tameNetworkError(err){
-  console.error(err);
-  statusEl.textContent = "Temporary hiccup. Try again.";
-  lineEl.textContent = "Chunklet sneezes in Morse code—try again.";
+function startMouth(){
+  cancelAnim();
+  rafId = requestAnimationFrame(animateMouthFrame);
 }
 
-async function fetchLine(){
+function networkError(e){
+  console.error(e);
+  lineSpan.textContent="Chunklet coughs out static. Try again.";
+  statusEl.textContent="Temporary hiccup.";
+}
+
+/* =============== FETCH ====================== */
+async function pullLine(){
   if(busy) return;
   setBusy(true);
-  stopAnimation();
-  popClose();
+  cancelAnim();
   try{
-    const resp = await fetch(ENDPOINT, { method:'GET'});
-    if(!resp.ok) throw new Error('Bad response '+resp.status);
-    const data = await resp.json();
-    playLine(data);
+    const r = await fetch(ENDPOINT);
+    if(!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    applyLine(data.text);
+    timings = data.timings;
+    if(data.audioBase64){
+      audio = new Audio('data:audio/'+(data.audioFormat||'mp3')+';base64,'+data.audioBase64);
+      audio.oncanplay = () => {
+        audio.play().catch(()=>{});
+        startMouth();
+      };
+      audio.onended = () => {
+        mouth.style.setProperty('--open','0');
+      };
+    }else{
+      audio=null;
+      fallbackStart=performance.now();
+      startMouth();
+    }
   }catch(e){
-    tameNetworkError(e);
+    networkError(e);
   }finally{
     setBusy(false);
   }
 }
 
 /* =============== EVENTS ===================== */
-btn.addEventListener('click', fetchLine);
-
-/* Optional: spacebar to trigger */
+talkBtn.addEventListener('click', pullLine);
 window.addEventListener('keydown', e=>{
-  if(e.code === 'Space'){
-    e.preventDefault();
-    fetchLine();
-  }
+  if(e.code==='Space'){ e.preventDefault(); pullLine(); }
 });
 </script>
 </body>
