@@ -4,425 +4,309 @@
 <meta charset="UTF-8">
 <title>Chubby Chunklet</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:#eef0f3;
-  --accent:#213247;
-  --accent-hi:#2f4b68;
-  --face:#ffd9af;
-  --body:#ffd54c;
-  --body-shadow:#d49a25;
-  --base:#f1f1f1;
-  --shadow:rgba(0,0,0,0.22);
-  --fg:#1e2730;
-}
-
-*{box-sizing:border-box;}
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-  background:var(--bg);
-  color:var(--fg);
-  -webkit-font-smoothing:antialiased;
-}
-h1{
-  text-align:center;
-  margin:34px 0 6px;
-  font-size:clamp(2.2rem,6vw,3rem);
-}
-p.sub{
-  text-align:center;
-  margin:0 0 32px;
-  color:#4a5762;
-}
-
-main.stage{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:32px;
-  padding-bottom:80px;
-}
-
-.figure-wrap{
-  position:relative;
-  width:240px;
-  height:280px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.chunklet{
-  position:relative;
-  width:170px;
-  height:260px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-  filter:drop-shadow(0 14px 30px -10px var(--shadow)) drop-shadow(0 5px 14px -6px rgba(0,0,0,0.3));
-  animation:float 6s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%,100% { transform:translateY(0); }
-  50% { transform:translateY(-6px); }
-}
-
-.head{
-  position:relative;
-  margin-top:6px;
-  width:150px;
-  height:150px;
-  background:radial-gradient(circle at 40% 28%, #ffe9ce, var(--face) 60%);
-  border-radius:50%;
-  box-shadow:inset 0 -10px 18px -12px rgba(0,0,0,0.25);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.face-features{
-  position:absolute;
-  top:45%;
-  left:50%;
-  width:70px;
-  height:55px;
-  transform:translate(-50%,-50%);
-}
-
-.eye{
-  position:absolute;
-  top:8px;
-  width:16px;
-  height:16px;
-  background:#111;
-  border-radius:50%;
-  animation:blink 5.5s linear infinite;
-}
-.eye.left{ left:0; }
-.eye.right{ right:0; }
-
-.eye .spark{
-  position:absolute;
-  top:3px;
-  left:4px;
-  width:5px;
-  height:5px;
-  background:#fff;
-  border-radius:50%;
-  opacity:.85;
-}
-
-@keyframes blink {
-  0%,92%,100% { transform:scaleY(1); }
-  95% { transform:scaleY(.1); }
-}
-
-.swirl{
-  position:absolute;
-  top:-14px;
-  left:50%;
-  width:34px;
-  height:34px;
-  transform:translateX(-50%);
-  pointer-events:none;
-}
-.swirl svg{
-  width:100%; height:100%;
-  stroke:#111;
-  stroke-width:4;
-  fill:none;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-}
-
-.mouth{
-  --open:0;
-  position:absolute;
-  left:50%;
-  bottom:0;
-  transform:translate(-50%, 0);
-  width:42px;
-  height:42px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  /* Black oval that scales vertically for speech */
-}
-.mouth .oval{
-  width:42px;
-  height:42px;
-  background:#111;
-  border-radius:50%;
-  transform:scaleY(var(--open));
-  transform-origin:center center;
-  transition:transform 0.07s linear;
-  box-shadow:0 0 0 4px #221812 inset;
-}
-
-.body{
-  margin-top:-18px;
-  width:160px;
-  height:150px;
-  background:linear-gradient(180deg,var(--body),var(--body-shadow));
-  border-radius:46% 46% 40% 40% / 58% 58% 38% 38%;
-  position:relative;
-  box-shadow:inset 0 -18px 34px -20px rgba(0,0,0,0.5);
-}
-
-.base{
-  position:relative;
-  margin-top:-38px;
-  width:150px;
-  height:70px;
-  background:linear-gradient(180deg,#fafafa,#dadada);
-  border-radius:60% 60% 45% 45% / 70% 70% 35% 35%;
-  box-shadow: inset 0 -12px 24px -18px rgba(0,0,0,0.55);
-}
-
-button.trigger{
-  font-size:1.05rem;
-  background:var(--accent);
-  color:#fff;
-  padding:18px 56px;
-  border:none;
-  border-radius:44px;
-  font-weight:600;
-  letter-spacing:.5px;
-  cursor:pointer;
-  box-shadow:0 10px 24px -10px var(--shadow),0 3px 8px -5px rgba(0,0,0,0.25);
-  transition:background .25s ease, transform .2s ease;
-}
-button.trigger:hover:not([disabled]){ background:var(--accent-hi); transform:translateY(-2px);}
-button.trigger:active:not([disabled]){ transform:translateY(1px);}
-button.trigger[disabled]{ opacity:.55; cursor:progress; }
-
-.output{
-  width:min(760px,90%);
-  background:#fff;
-  margin-top:14px;
-  padding:20px 26px;
-  border-radius:18px;
-  font-size:1.15rem;
-  line-height:1.45;
-  box-shadow:0 8px 18px -8px var(--shadow);
-  min-height:72px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  position:relative;
-}
-.output.fade{ animation:fade .4s ease; }
-@keyframes fade {
-  from{opacity:0; transform:translateY(6px);}
-  to{opacity:1; transform:translateY(0);}
-}
-
-.status{
-  text-align:center;
-  margin-top:10px;
-  font-size:.82rem;
-  font-weight:500;
-  color:#c05724;
-  min-height:1.1em;
-}
-
-.loading-bar{
-  position:absolute;
-  left:0; bottom:0;
-  width:100%; height:4px;
-  background:linear-gradient(90deg,#ffb347,#ff8847,#ffb347);
-  background-size:200% 100%;
-  animation:load 1s linear infinite;
-  border-radius:0 0 18px 18px;
-}
-.hidden{display:none!important;}
-@keyframes load {
-  0%{background-position:0 0;}
-  100%{background-position:-200% 0;}
-}
-
-footer{
-  margin-top:60px;
-  text-align:center;
-  font-size:.7rem;
-  letter-spacing:.4px;
-  color:#66727c;
-  padding-bottom:40px;
-}
-
-@media (max-width:600px){
-  .figure-wrap{ width:200px; height:250px; }
-  .head{ width:130px; height:130px; }
-  .mouth .oval{ width:36px; height:36px; }
-  .body{ width:140px; height:130px; }
-  .base{ width:130px; height:64px; }
-}
+  :root {
+    --bg:#eef1f3;
+    --dark:#222;
+    --accent:#ffb400;
+    --accent-shadow:#d69700;
+  }
+  body {
+    margin:0;
+    font-family:"Inter",system-ui,sans-serif;
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:60px 20px 120px;
+    color:var(--dark);
+  }
+  h1 {margin:0 0 6px;font-size:42px;letter-spacing:.5px;}
+  .tag {margin:0 0 50px;font-size:15px;opacity:.7;}
+  button {
+    cursor:pointer;
+    border:none;
+    background:#243141;
+    color:#fff;
+    font-size:20px;
+    padding:22px 70px;
+    border-radius:50px;
+    letter-spacing:.5px;
+    box-shadow:0 12px 28px rgba(0,0,0,.22);
+    transition:transform .2s, box-shadow .2s;
+  }
+  button:hover {transform:translateY(-4px);box-shadow:0 16px 34px rgba(0,0,0,.28);}
+  button:active {transform:scale(.93);box-shadow:0 8px 18px rgba(0,0,0,.35);}
+  .figure-wrapper {
+    position:relative;
+    width:260px;
+    height:360px;
+    margin:0 0 46px;
+    perspective:900px;
+  }
+  /* Shadow / ground */
+  .ground {
+    position:absolute;
+    left:50%;top:100%;
+    transform:translate(-50%, -40%);
+    width:180px;height:42px;
+    background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.28),rgba(0,0,0,0));
+    filter:blur(8px);
+    opacity:.42;
+    transition:opacity .4s;
+  }
+  .chunklet {
+    --pop:0;
+    position:absolute;
+    left:50%;top:55%;
+    transform:translate(-50%,-50%) translateY(calc(var(--pop)*-40px));
+    width:190px;
+    transition:transform .5s cubic-bezier(.19,1,.22,1);
+  }
+  .chunklet.pop {--pop:1;}
+  .speech {
+    font-size:18px;
+    background:#fff;
+    padding:18px 22px;
+    border-radius:16px;
+    max-width:560px;
+    margin-top:40px;
+    box-shadow:0 8px 24px rgba(0,0,0,.15);
+    min-height:92px;
+    line-height:1.4;
+    white-space:pre-wrap;
+  }
+  .status {font-size:14px;margin-top:14px;opacity:.65;}
+  .mouth {
+    transform-origin:50% 50%;
+  }
+  .talking .mouth {
+    animation:mouthIdle .9s ease-in-out infinite;
+  }
+  @keyframes mouthIdle {
+    0%,100% {transform:scaleY(.65);}
+    50% {transform:scaleY(.9);}
+  }
+  .hidden {display:none;}
+  .small-note {font-size:12px;opacity:.55;margin-top:30px;}
+  .error {color:#c0392b;}
+  /* Accessibility focus */
+  button:focus-visible {outline:3px solid #ffcf4d;outline-offset:3px;}
 </style>
 </head>
 <body>
   <h1>Chubby Chunklet</h1>
-  <p class="sub">He just *says things*. Pull the line (or press space) to hear him.</p>
+  <p class="tag">Knock / pull the string. Chunklet mutters something odd every time.</p>
 
-  <main class="stage">
-    <div class="figure-wrap">
-      <div class="chunklet" id="chunklet">
-        <div class="head">
-          <div class="swirl">
-            <!-- Simple swirl hair -->
-            <svg viewBox="0 0 100 100">
-              <path d="M50 70c14 0 22-13 16-24-5-10-19-10-24-1-4 8 1 14 7 15 8 1 13-6 11-12" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="face-features">
-            <div class="eye left"><div class="spark"></div></div>
-            <div class="eye right"><div class="spark"></div></div>
-            <div class="mouth" id="mouth">
-              <div class="oval"></div>
-            </div>
-          </div>
-        </div>
-        <div class="body"></div>
-        <div class="base"></div>
-      </div>
-    </div>
+  <div class="figure-wrapper">
+    <!-- The figure is an SVG so we can animate the mouth path scale -->
+    <svg id="chunklet" class="chunklet" viewBox="0 0 200 300" aria-hidden="true">
+      <!-- body shadow / depth -->
+      <defs>
+        <linearGradient id="torsoGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop stop-color="#ffd654" offset="0"/>
+          <stop stop-color="#ffb400" offset=".75"/>
+        </linearGradient>
+        <linearGradient id="headGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop stop-color="#ffd9cf" offset="0"/>
+          <stop stop-color="#f5bcae" offset="1"/>
+        </linearGradient>
+      </defs>
 
-    <button class="trigger" id="talkBtn">PULL STRING</button>
+      <!-- subtle drop shadow ellipse behind -->
+      <ellipse cx="100" cy="240" rx="78" ry="26" fill="rgba(0,0,0,.15)"/>
 
-    <div class="output" id="output"><span id="line">Chunklet is idle…</span>
-      <div id="loader" class="loading-bar hidden"></div>
-    </div>
-    <div class="status" id="status"></div>
-  </main>
+      <!-- torso (yellow) -->
+      <g filter="url(#torsoShadow)">
+        <path d="M55 150 Q100 120 145 150 L155 245 Q100 270 45 245 Z"
+              fill="url(#torsoGrad)" stroke="#d09a00" stroke-width="3"/>
+        <path d="M55 150 Q100 120 145 150 Q100 160 55 150"
+              fill="rgba(255,255,255,.25)"/>
+      </g>
 
-  <footer>Chubby Chunklet • playful TTS & mouth animation demo.</footer>
+      <!-- head -->
+      <g id="headGroup">
+        <circle cx="100" cy="115" r="55" fill="url(#headGrad)" stroke="#c48d7f" stroke-width="3"/>
+        <!-- swirl hair -->
+        <path d="M105 72 q15 10 0 24 q-12 10 -18 0 q-4 -8 5 -13"
+              fill="none" stroke="#3b2b29" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- eyes -->
+        <circle cx="80" cy="110" r="6" fill="#2a1c1b"/>
+        <circle cx="120" cy="110" r="6" fill="#2a1c1b"/>
+        <!-- mouth (animated) -->
+        <ellipse id="mouth" class="mouth" cx="100" cy="140" rx="15" ry="11" fill="#111"/>
+      </g>
+    </svg>
+    <div class="ground" id="ground"></div>
+  </div>
+
+  <button id="goBtn" type="button">KNOCK / PULL STRING</button>
+
+  <div id="speech" class="speech"></div>
+  <div id="status" class="status"></div>
+  <div class="small-note">Output is whimsical & safe. Animation sync approximated from phoneme timings.</div>
 
 <script>
-/* ================= CONFIG =================== */
-const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet
-'; // <-- REPLACE with your API Gateway endpoint
+const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet'; // update if redeployed
 
-/* =============== ELEMENTS =================== */
-const talkBtn    = document.getElementById('talkBtn');
-const lineSpan   = document.getElementById('line');
-const statusEl   = document.getElementById('status');
-const loader     = document.getElementById('loader');
-const outputBox  = document.getElementById('output');
-const mouth      = document.getElementById('mouth').querySelector('.oval');
+const btn     = document.getElementById('goBtn');
+const speech  = document.getElementById('speech');
+const statusEl= document.getElementById('status');
+const chunklet= document.getElementById('chunklet');
+const mouthEl = document.getElementById('mouth');
+const ground  = document.getElementById('ground');
 
-/* =============== STATE ====================== */
-let busy=false;
-let audio=null;
-let timings=null;
-let rafId=null;
-let fallbackStart=0;
+let audioCtx;
+let currentSource;
+let talkRAF;
+let timings = []; // [{t:seconds, open:0..1}]
+let startTime = 0;
 
-/* =============== HELPERS ==================== */
-function setBusy(on){
-  busy=on;
-  talkBtn.disabled=on;
-  loader.classList.toggle('hidden', !on);
-  if(on) statusEl.textContent='';
+function setStatus(msg, isError=false){
+  statusEl.textContent = msg;
+  statusEl.classList.toggle('error', !!isError);
 }
 
-function cancelAnim(){
-  if(rafId) cancelAnimationFrame(rafId);
-  rafId=null;
-  mouth.style.setProperty('--open','0');
+function sanitizeEnding(text){
+  // Remove overdone bang if model keeps adding them:
+  return text.replace(/!+$/,'').trim() + '.';
 }
 
-function applyLine(text){
-  lineSpan.textContent=text;
-  outputBox.classList.remove('fade');
-  void outputBox.offsetWidth;
-  outputBox.classList.add('fade');
-}
-
-function animateMouthFrame(ts){
-  if(!timings){ mouth.style.setProperty('--open','0'); return;}
-  let t;
-  if(audio){
-    t = audio.currentTime;
-  } else {
-    t = (performance.now()-fallbackStart)/1000;
-  }
-  // Find phoneme (linear okay)
-  let openAmt=0.15;
-  for(const p of timings.phonemes){
-    if(t>=p.start && t<p.end){
-      if(/[aeiou]/i.test(p.token)){
-        // Scale vowel openness by length a bit
-        const span = p.end - p.start;
-        // Smooth ramp
-        const local = (t - p.start)/span;
-        const env = local<0.25 ? local/0.25 :
-                    local>0.75 ? (1-(local-0.75)/0.25) : 1;
-        openAmt = 0.25 + Math.min(1, span*3)*0.55*env;
-      } else {
-        openAmt = 0.15;
-      }
-      break;
-    }
-  }
-  mouth.style.setProperty('--open', openAmt.toFixed(3));
-  if(audio ? !audio.ended : t < (timings.totalDuration||0)){
-    rafId = requestAnimationFrame(animateMouthFrame);
-  } else {
-    mouth.style.setProperty('--open','0');
-  }
-}
-
-function startMouth(){
-  cancelAnim();
-  rafId = requestAnimationFrame(animateMouthFrame);
-}
-
-function networkError(e){
-  console.error(e);
-  lineSpan.textContent="Chunklet coughs out static. Try again.";
-  statusEl.textContent="Temporary hiccup.";
-}
-
-/* =============== FETCH ====================== */
-async function pullLine(){
-  if(busy) return;
-  setBusy(true);
-  cancelAnim();
+async function fetchChunklet(){
+  btn.disabled = true;
+  setStatus('Summoning Chunklet...');
+  chunklet.classList.remove('pop');
+  ground.style.opacity = 0.2;
+  speech.textContent = '';
   try{
     const r = await fetch(ENDPOINT);
-    if(!r.ok) throw new Error(r.status);
+    if(!r.ok) throw new Error('Server '+r.status);
     const data = await r.json();
-    applyLine(data.text);
-    timings = data.timings;
+    // Data expected: { text, audioBase64?, timings? }
+    let line = (data.text||'').trim();
+    if(!line) line = 'Silence swirls.';
+    line = sanitizeEnding(line);
+    speech.textContent = line;
+
+    // Appear / pop
+    requestAnimationFrame(()=> {
+      chunklet.classList.add('pop');
+      ground.style.opacity = 0.42;
+    });
+
     if(data.audioBase64){
-      audio = new Audio('data:audio/'+(data.audioFormat||'mp3')+';base64,'+data.audioBase64);
-      audio.oncanplay = () => {
-        audio.play().catch(()=>{});
-        startMouth();
-      };
-      audio.onended = () => {
-        mouth.style.setProperty('--open','0');
-      };
-    }else{
-      audio=null;
-      fallbackStart=performance.now();
+      timings = Array.isArray(data.timings)? data.timings : [];
+      await playAudio(data.audioBase64);
+    } else {
+      // Fallback: fake simple mouth animation for 3 seconds
+      fakeTimingsFromText(line);
       startMouth();
+      setTimeout(stopMouth, 3000);
     }
+    setStatus('Ready.');
   }catch(e){
-    networkError(e);
+    console.error(e);
+    speech.textContent = 'Chunklet sneezes in Morse code... try again.';
+    setStatus('Temporary hiccup.', true);
   }finally{
-    setBusy(false);
+    btn.disabled = false;
   }
 }
 
-/* =============== EVENTS ===================== */
-talkBtn.addEventListener('click', pullLine);
-window.addEventListener('keydown', e=>{
-  if(e.code==='Space'){ e.preventDefault(); pullLine(); }
-});
+function ensureAudioCtx(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+/* ----- Audio Playback with mouth sync ----- */
+async function playAudio(b64){
+  ensureAudioCtx();
+  stopAudio();
+  startTime = 0;
+  const binary = atob(b64.replace(/^data:audio\/[a-zA-Z0-9.+-]+;base64,/, ''));
+  const len = binary.length;
+  const buf = new Uint8Array(len);
+  for(let i=0;i<len;i++) buf[i] = binary.charCodeAt(i);
+  const decoded = await audioCtx.decodeAudioData(buf.buffer);
+  currentSource = audioCtx.createBufferSource();
+  currentSource.buffer = decoded;
+  currentSource.connect(audioCtx.destination);
+  // If no timings, approximate:
+  if(!timings.length){
+    fakeTimingsFromText(speech.textContent);
+  }
+  startMouth();
+  startTime = audioCtx.currentTime;
+  currentSource.start();
+  currentSource.onended = ()=> {
+    stopMouth();
+  };
+}
+
+function stopAudio(){
+  if(currentSource){
+    try{currentSource.stop();}catch{}
+    currentSource.disconnect();
+    currentSource = null;
+  }
+  stopMouth();
+}
+
+/* ----- Mouth animation ----- */
+function startMouth(){
+  document.body.classList.add('talking');
+  cancelAnimationFrame(talkRAF);
+  talkLoop();
+}
+
+function stopMouth(){
+  document.body.classList.remove('talking');
+  cancelAnimationFrame(talkRAF);
+  mouthEl.setAttribute('ry','11');
+}
+
+function talkLoop(){
+  const now = audioCtx ? (audioCtx.currentTime - startTime) : (performance.now()/1000);
+  // Find most recent timing <= now
+  if(timings.length){
+    // timings sorted
+    let open = 0.3;
+    for(let i=0;i<timings.length;i++){
+      if(now >= timings[i].t) open = timings[i].open;
+      else break;
+    }
+    // Smooth open value
+    const ry = 6 + open*8;    // vertical size
+    const rx = 11 + open*5;   // horizontal subtle
+    mouthEl.setAttribute('ry', ry.toFixed(2));
+    mouthEl.setAttribute('rx', rx.toFixed(2));
+  }
+  talkRAF = requestAnimationFrame(talkLoop);
+}
+
+/* Approximate timings from text if backend didn't provide real ones */
+function fakeTimingsFromText(txt){
+  const syllables = Math.max(4, Math.min(24, Math.round(txt.split(/\b[aeiouyAEIOUY]/).length*0.9)));
+  const total = Math.min(6, Math.max(2.5, txt.length/18));
+  const step = total / syllables;
+  timings = [];
+  for(let i=0;i<=syllables;i++){
+    const t = i*step;
+    const open = (i%2) ? 1 : 0.1;
+    timings.push({t, open});
+  }
+}
+
+/* ----- Event bindings ----- */
+btn.addEventListener('click', fetchChunklet);
+
+/* Optional: prefetch first line on load */
+setTimeout(()=>{ /* You can auto-load: fetchChunklet(); */ }, 600);
+
 </script>
 </body>
 </html>
