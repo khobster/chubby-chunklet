@@ -1,405 +1,470 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Chubby Chunklet</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <style>
-  :root{
-    --box:#8248ff;
-    --lid:#6d33e6;
-    --spring:#555;
-    --bg:#f6f6fb;
-    --accent:#ffcc33;
-    --char:#ffe14d;
-    --char-outline:#222;
+  :root {
+    --bg: #eef0f3;
+    --panel: #ffffff;
+    --accent: #213247;
+    --accent-hi: #2f4b68;
+    --wood-dark: #5c3317;
+    --wood-mid: #7b4a22;
+    --wood-light: #a56a38;
+    --face: #ffd58f;
+    --shadow: rgba(0,0,0,0.22);
+    --pop-height: 150px;
+    --door-thickness: 18px;
   }
-  body{
+  * { box-sizing: border-box; }
+  body {
     margin:0;
-    font-family: system-ui,-apple-system,Segoe UI,Inter,sans-serif;
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background: var(--bg);
+    color:#222;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 {
+    text-align:center;
+    margin:32px 0 4px;
+    font-size: clamp(2rem,4vw,3rem);
+  }
+  p.sub {
+    text-align:center;
+    margin:0 0 32px;
+    color:#4a5561;
+  }
+  .stage {
     display:flex;
     flex-direction:column;
     align-items:center;
-    justify-content:center;
     gap:32px;
-    min-height:100vh;
-    background:radial-gradient(circle at 50% 30%,#ffffff 0%,#ecebfa 70%);
-    color:#222;
-  }
-  h1{
-    font-size:clamp(1.8rem,4vw,3rem);
-    margin:0 0 0.25em;
-    letter-spacing:.5px;
-    background:linear-gradient(90deg,#8248ff,#ff9c3d);
-    -webkit-background-clip:text;
-    color:transparent;
-  }
-  .sub{
-    margin-top:-18px;
-    font-size:.9rem;
-    opacity:.65;
-  }
-  .stage{
-    position:relative;
-    width:240px;
-    height:300px;
-    perspective:900px;
+    padding-bottom:80px;
   }
 
-  /* Box base */
-  .box{
-    position:absolute;
-    bottom:0;
-    left:50%;
-    transform:translateX(-50%);
-    width:180px;
-    height:160px;
-    background:linear-gradient(135deg,var(--box) 0%,#5b23c5 100%);
-    border-radius:14px;
-    box-shadow:0 12px 28px -6px rgba(60,35,120,.45),0 4px 8px rgba(0,0,0,.2);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:visible;
+  /* Cuckoo box wrapper */
+  .box-wrapper {
+    position:relative;
+    width:340px;
+    height:340px;
+    perspective: 1400px;
   }
-  .box::before{
-    content:"";
+
+  .box {
     position:absolute;
     inset:0;
-    border:3px solid rgba(255,255,255,.15);
+    background: linear-gradient(180deg,var(--wood-mid),var(--wood-dark));
     border-radius:14px;
-    pointer-events:none;
+    box-shadow:0 12px 30px -8px var(--shadow), 0 4px 10px -2px rgba(0,0,0,0.15);
+    overflow:hidden;
   }
 
-  /* Lid */
-  .lid{
+  /* Inner recess to give depth */
+  .box::before {
+    content:"";
     position:absolute;
-    width:180px;
-    height:30px;
-    left:50%;
-    bottom:160px;
-    transform:translate(-50%,0) rotateX(0deg);
-    transform-origin:50% 100%;
-    background:linear-gradient(135deg,var(--lid) 0%,#4c18a5 100%);
-    border-radius:12px 12px 6px 6px;
-    box-shadow:0 6px 14px rgba(0,0,0,.25);
-    transition:transform .7s cubic-bezier(.45,.1,.25,1.4);
-  }
-  .lid.open{
-    transform:translate(-50%,0) rotateX(150deg);
+    left:10%;
+    top:14%;
+    width:80%;
+    height:76%;
+    background: linear-gradient(180deg,#693b1d,#47240f);
+    border-radius:8px;
+    box-shadow: inset 0 0 0 4px rgba(255,255,255,0.05), inset 0 6px 18px -6px rgba(0,0,0,0.8);
   }
 
-  /* Spring */
-  .spring{
+  /* Door (front panel) */
+  .door {
     position:absolute;
-    bottom:160px;
-    left:50%;
-    width:14px;
-    height:0;
-    transform:translateX(-50%);
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        var(--spring) 0 6px,
-        transparent 6px 12px
-      );
-    filter:drop-shadow(0 0 2px rgba(0,0,0,.25));
-    transition:height .55s cubic-bezier(.45,.05,.35,1.3);
-    border-radius:6px;
+    left:0;right:0;top:0;
+    height:52%;
+    transform-origin: top center;
+    background: linear-gradient(180deg,var(--wood-light),var(--wood-mid));
+    border-top-left-radius:14px;
+    border-top-right-radius:14px;
+    box-shadow: inset 0 -6px 14px -6px rgba(0,0,0,0.6);
+    transition: transform 0.65s cubic-bezier(.55,.12,.25,1.35);
+    will-change: transform;
+  }
+  .door.open {
+    transform: rotateX(-105deg) translateZ(0);
   }
 
   /* Character */
-  .character{
+  .chunklet {
+    --pop: 0;
     position:absolute;
-    bottom:160px;
     left:50%;
-    width:110px;
-    height:110px;
-    transform:translate(-50%,0) scale(0);
-    transform-origin:50% 100%;
-    transition:
-      transform .55s cubic-bezier(.35,1.6,.35,1.05),
-      filter .25s;
-    filter:drop-shadow(0 6px 10px rgba(0,0,0,.3));
-  }
-  .character.pop{
-    transform:translate(-50%,0) scale(1);
+    top:58%;
+    transform: translate(-50%, calc(40px - var(--pop)));
+    width:140px;
+    height:140px;
+    transition: transform .5s ease;
+    display:flex;
+    justify-content:center;
+    align-items:flex-end;
+    pointer-events:none;
   }
 
-  /* Simple face */
-  .face{
+  .figure {
     position:relative;
-    width:100%;
-    height:100%;
-    background:radial-gradient(circle at 35% 30%,#fff 0%,var(--char) 70%);
-    border:4px solid var(--char-outline);
+    width:110px;
+    height:110px;
+    background: radial-gradient(circle at 40% 25%, #ffecbe, var(--face) 60%);
+    border-radius:50% 50% 44% 44%;
+    box-shadow:0 6px 14px -4px var(--shadow), inset 0 -8px 16px -10px rgba(0,0,0,0.2);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  .figure::after {
+    /* Body */
+    content:"";
+    position:absolute;
+    bottom:-38px;
+    left:50%;
+    transform:translateX(-50%);
+    width:130px;
+    height:90px;
+    background: linear-gradient(180deg,#ffc76f,#e8a247);
+    border-radius:50%/60% 60% 40% 40%;
+    box-shadow:0 8px 16px -6px var(--shadow), inset 0 -10px 22px -14px rgba(0,0,0,0.4);
+  }
+
+  .eyes {
+    position:absolute;
+    top:42%;
+    left:50%;
+    width:56px;
+    height:20px;
+    transform:translateX(-50%);
+    display:flex;
+    justify-content:space-between;
+  }
+  .eye {
+    width:14px;height:14px;
+    background:#222;
     border-radius:50%;
+    position:relative;
+    overflow:hidden;
+  }
+  .eye .spark {
+    position:absolute;
+    top:2px;left:3px;
+    width:5px;height:5px;
+    background:#fff;
+    border-radius:50%;
+    opacity:0.8;
+  }
+
+  .mouth {
+    position:absolute;
+    top:63%;
+    left:50%;
+    transform:translateX(-50%);
+    width:46px;
+    height:22px;
+    background:#2c1c12;
+    border-radius:0 0 50% 50%/0 0 70% 70%;
+    box-shadow: inset 0 0 0 3px #40261a;
+    transition: height 0.08s ease, transform 0.08s ease;
+  }
+  .mouth.open {
+    height:40px;
+    transform:translate(-50%, -6px);
+    border-radius:0 0 50% 50% / 0 0 55% 55%;
+  }
+
+  .platform {
+    position:absolute;
+    left:50%;
+    top:72%;
+    transform:translateX(-50%);
+    width:200px;
+    height:60px;
+    background: linear-gradient(180deg,#6b3d1e,#482611);
+    border-radius:16px;
+    box-shadow:
+      0 12px 26px -10px var(--shadow),
+      inset 0 8px 14px -12px rgba(255,255,255,0.2),
+      inset 0 -10px 20px -14px rgba(0,0,0,0.8);
+  }
+
+  button.trigger {
+    font-size:1.15rem;
+    background: var(--accent);
+    color:#fff;
+    padding:20px 60px;
+    border:none;
+    border-radius:44px;
+    font-weight:600;
+    letter-spacing:.5px;
+    cursor:pointer;
+    box-shadow:0 10px 24px -10px var(--shadow), 0 3px 8px -4px rgba(0,0,0,0.25);
+    transition: background .25s ease, transform .25s ease;
+  }
+  button.trigger:hover:not([disabled]) {
+    background:var(--accent-hi);
+    transform:translateY(-2px);
+  }
+  button.trigger:active:not([disabled]) {
+    transform:translateY(1px);
+  }
+  button.trigger[disabled] {
+    opacity:.6;
+    cursor:progress;
+  }
+
+  .output-wrap {
+    width:min(760px,90%);
+    background: var(--panel);
+    margin:4px auto 0;
+    padding:20px 26px;
+    border-radius:18px;
+    font-size:1.15rem;
+    line-height:1.45;
+    box-shadow:0 8px 18px -8px var(--shadow);
+    min-height:70px;
     display:flex;
     align-items:center;
     justify-content:center;
-    box-sizing:border-box;
-  }
-  .eye{
-    position:absolute;
-    width:14px;
-    height:14px;
-    background:#111;
-    border-radius:50%;
-    top:40%;
-  }
-  .eye.left{ left:30%; }
-  .eye.right{ right:30%; }
-
-  .mouth{
-    width:34px;
-    height:34px;
-    background:#111;
-    border-radius:50%;
-    transition:transform .09s ease;
-  }
-  .mouth.speaking{
-    transform:scaleY(.35) scaleX(1.15);
-  }
-  .mouth.wide{
-    transform:scaleY(.75) scaleX(.9);
-  }
-
-  /* Shake animation while "thinking" */
-  .thinking .box{
-    animation:shakeBox .7s linear infinite;
-  }
-  @keyframes shakeBox{
-    0%,100%{ transform:translateX(-50%) rotate(0deg); }
-    20%{ transform:translateX(calc(-50% - 4px)) rotate(-2deg); }
-    40%{ transform:translateX(calc(-50% + 4px)) rotate(2deg); }
-    60%{ transform:translateX(calc(-50% - 3px)) rotate(-1.5deg); }
-    80%{ transform:translateX(calc(-50% + 3px)) rotate(1.5deg); }
-  }
-
-  /* Floating confetti (simple) */
-  .confetti{
-    position:absolute;
-    top:0;
-    width:10px;
-    height:10px;
-    background:var(--c,#ffcc33);
-    animation:fall 900ms ease-out forwards;
-    border-radius:2px;
-    pointer-events:none;
-    mix-blend-mode:multiply;
-  }
-  @keyframes fall{
-    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
-    100%{ transform:translateY(260px) rotate(540deg); opacity:0; }
-  }
-
-  /* CTA button */
-  .trigger-btn{
-    background:#8248ff;
-    color:#fff;
-    border:none;
-    font-size:1.05rem;
-    padding:14px 38px;
-    border-radius:40px;
-    cursor:pointer;
-    letter-spacing:.4px;
-    box-shadow:0 8px 20px -6px rgba(130,72,255,.55);
-    transition:transform .2s, box-shadow .2s;
-  }
-  .trigger-btn:disabled{
-    opacity:.5;
-    cursor:not-allowed;
-  }
-  .trigger-btn:not(:disabled):hover{
-    transform:translateY(-3px);
-    box-shadow:0 14px 28px -6px rgba(130,72,255,.6);
-  }
-  .output{
-    max-width:520px;
-    min-height:48px;
     text-align:center;
-    font-size:1.1rem;
-    line-height:1.4;
-    padding:10px 14px;
+    position:relative;
   }
-  .output em{
-    font-style:normal;
-    background:linear-gradient(90deg,#ffbf49,#ff7f50);
-    -webkit-background-clip:text;
-    color:transparent;
+  .output-wrap.fade {
+    animation:fadeIn .4s ease;
   }
-
-  .footer{
-    font-size:.7rem;
-    opacity:.5;
-    margin-top:10px;
+  @keyframes fadeIn {
+    from { opacity:0; transform:translateY(6px); }
+    to { opacity:1; transform:translateY(0); }
   }
 
-  @media (max-width:520px){
-    .stage{ transform:scale(.9); }
+  .status {
+    text-align:center;
+    margin-top:12px;
+    font-size:.85rem;
+    color:#b3572b;
+    font-weight:500;
+    min-height:1.2em;
+  }
+
+  footer {
+    margin-top:50px;
+    text-align:center;
+    font-size:.72rem;
+    color:#616e78;
+    letter-spacing:.5px;
+  }
+
+  .blink {
+    animation: blink 4.9s linear infinite;
+  }
+  @keyframes blink {
+    0%, 92%, 100% { transform:scaleY(1); }
+    94%, 96% { transform:scaleY(0.1); }
+  }
+
+  .hidden { display:none !important; }
+
+  .loading-line {
+    position:absolute;
+    left:0;bottom:0;
+    height:4px;
+    width:100%;
+    background:linear-gradient(90deg,#ffb347,#ff8847,#ffb347);
+    background-size:200% 100%;
+    animation:load 1s linear infinite;
+    border-radius:0 0 18px 18px;
+  }
+  @keyframes load {
+    0% { background-position:0 0;}
+    100% { background-position:-200% 0;}
+  }
+
+  @media (max-width:600px){
+    .box-wrapper { width:270px; height:270px; }
+    .chunklet { --pop-height:120px; }
   }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Chubby Chunklet</h1>
-    <p class="sub">Knock / pull the string to see what the little weirdo says.</p>
+  <h1>Chubby Chunklet</h1>
+  <p class="sub">Knock the box. Neighbor pops out with a surreal morsel every time.</p>
 
-    <div class="stage" id="stage">
-      <div class="lid" id="lid"></div>
-      <div class="spring" id="spring"></div>
+  <main class="stage">
+
+    <div class="box-wrapper">
       <div class="box" id="box">
-        <!-- box interior just empty -->
-      </div>
-      <div class="character" id="character">
-        <div class="face">
-          <div class="eye left"></div>
+        <div class="door" id="door"></div>
+        <div class="chunklet" id="chunklet">
+          <div class="figure">
+            <div class="eyes">
+              <div class="eye blink"><div class="spark"></div></div>
+              <div class="eye blink"><div class="spark"></div></div>
+            </div>
             <div class="mouth" id="mouth"></div>
-          <div class="eye right"></div>
+          </div>
         </div>
+        <div class="platform"></div>
       </div>
     </div>
 
-    <div style="text-align:center;margin-top:8px;">
-      <button id="trigger" class="trigger-btn" aria-label="Knock and get a line">Knock / Pull String</button>
-    </div>
+    <button class="trigger" id="knockBtn">KNOCK / PULL STRING</button>
 
-    <div id="output" class="output" aria-live="polite"></div>
-
-    <div class="footer">
-      Browser speech synthesis is used locally; nothing except the line request hits your server.
+    <div class="output-wrap" id="outputWrap">
+      <span id="line">Knock to wake Chunklet…</span>
+      <div class="loading-line hidden" id="loadingLine"></div>
     </div>
+    <div class="status" id="status"></div>
+
   </main>
 
+  <footer>Whimsical neighbor simulator. Audio + timing for playful animation.</footer>
+
 <script>
-/* --- Config: replace with your deployed endpoint if it changes --- */
-const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+/* ================= CONFIG =================== */
+const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet'; // <-- REPLACE THIS WITH YOUR DEPLOYED URL
 
-const triggerBtn = document.getElementById('trigger');
-const stage      = document.getElementById('stage');
-const lid        = document.getElementById('lid');
-const spring     = document.getElementById('spring');
-const character  = document.getElementById('character');
+/* =============== ELEMENTS =================== */
+const btn        = document.getElementById('knockBtn');
+const door       = document.getElementById('door');
+const chunkletEl = document.getElementById('chunklet');
 const mouth      = document.getElementById('mouth');
-const outputEl   = document.getElementById('output');
+const lineEl     = document.getElementById('line');
+const statusEl   = document.getElementById('status');
+const outputWrap = document.getElementById('outputWrap');
+const loadingBar = document.getElementById('loadingLine');
 
-let speakingInterval = null;
+/* =============== STATE ====================== */
+let busy = false;
+let rafId = null;
+let currentAudio = null;
+let currentTimings = null;
+let timingStartEpoch = null; // fallback when no audio
 
-/* Utility: simple confetti */
-function confettiBurst(){
-  for(let i=0;i<18;i++){
-    const span=document.createElement('span');
-    span.className='confetti';
-    span.style.setProperty('--c',['#ffcc33','#ff884d','#8248ff','#ff4fa2','#8ce0ff'][Math.random()*5|0]);
-    span.style.left=(Math.random()*180 + 30)+'px';
-    span.style.animationDelay=(Math.random()*0.25)+'s';
-    stage.appendChild(span);
-    setTimeout(()=>span.remove(),900);
-  }
+/* =============== HELPERS ==================== */
+
+function setBusy(on){
+  busy = on;
+  btn.disabled = on;
+  loadingBar.classList.toggle('hidden', !on);
+  if(on) statusEl.textContent = '';
 }
 
-/* Mouth "animation" loop while speaking */
-function startMouth(){
-  clearInterval(speakingInterval);
-  mouth.classList.add('speaking');
-  speakingInterval=setInterval(()=>{
-    // alternate between two shapes
-    if(Math.random()<0.4){
-      mouth.classList.toggle('wide');
-    }else{
-      mouth.classList.toggle('speaking');
-      void mouth.offsetWidth;
-      mouth.classList.add('speaking');
+function popOpen(){
+  door.classList.add('open');
+  chunkletEl.style.setProperty('--pop', 'var(--pop-height)');
+}
+
+function popClose(){
+  door.classList.remove('open');
+  chunkletEl.style.setProperty('--pop', '0px');
+}
+
+function animateMouth(time){
+  if(!currentTimings) return;
+  const t = time;
+  // If we have phoneme timings, open during vowels (rough)
+  const phonemes = currentTimings.phonemes;
+  // Find current phoneme quickly (linear scan is fine: short)
+  let open = false;
+  for(const p of phonemes){
+    if(t >= p.start && t < p.end){
+      if(/[aeiouy]/i.test(p.token)) open = true;
+      break;
     }
-  }, 130);
-}
-function stopMouth(){
-  clearInterval(speakingInterval);
-  mouth.classList.remove('speaking','wide');
-}
-
-/* Speech (falls back silently if unsupported) */
-function speak(text){
-  if(!('speechSynthesis' in window)){
-    return; // silent fallback
   }
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 1.0;
-  utter.pitch = 1.02;
-  utter.onstart = startMouth;
-  utter.onend   = stopMouth;
-  utter.onerror = stopMouth;
-  // Try to prefer a neutral / US English voice if available
-  const voices = speechSynthesis.getVoices();
-  const preferred = voices.find(v=>/en-US/i.test(v.lang)&&/female/i.test(v.name)) ||
-                    voices.find(v=>/en/i.test(v.lang));
-  if(preferred) utter.voice = preferred;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(utter);
+  mouth.classList.toggle('open', open);
 }
 
-/* Animation flow */
-async function pullString(){
-  if(triggerBtn.disabled) return;
-  triggerBtn.disabled = true;
-  outputEl.textContent = '';
+function stopAnimation(){
+  if(rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  mouth.classList.remove('open');
+}
 
-  // Reset / close
-  lid.classList.remove('open');
-  character.classList.remove('pop');
-  spring.style.height='0px';
-  stage.classList.add('thinking');
+function runTimingLoop(){
+  if(!currentTimings) return;
+  const total = currentTimings.totalDuration || 0;
+  let currentTime = 0;
 
-  let line = '';
+  function frame(){
+    if(currentAudio){
+      currentTime = currentAudio.currentTime;
+    }else{
+      currentTime = (performance.now() - timingStartEpoch)/1000;
+    }
+    animateMouth(currentTime);
+    if(currentTime < total + 0.3 && (currentAudio ? !currentAudio.ended : currentTime < total)){
+      rafId = requestAnimationFrame(frame);
+    }else{
+      mouth.classList.remove('open');
+      setTimeout(()=>popClose(), 450);
+    }
+  }
+  frame();
+}
+
+function playLine(data){
+  lineEl.textContent = data.text;
+  outputWrap.classList.remove('fade');
+  void outputWrap.offsetWidth;
+  outputWrap.classList.add('fade');
+
+  currentTimings = data.timings;
+  if(data.audioBase64){
+    const src = 'data:audio/'+(data.audioFormat||'mp3')+';base64,'+data.audioBase64;
+    currentAudio = new Audio(src);
+    currentAudio.oncanplay = () => {
+      popOpen();
+      currentAudio.play().catch(()=>{ /* ignore */ });
+      runTimingLoop();
+    };
+    currentAudio.onended = () => {
+      setTimeout(()=>popClose(), 450);
+    };
+  } else {
+    currentAudio = null;
+    timingStartEpoch = performance.now();
+    popOpen();
+    runTimingLoop();
+  }
+}
+
+function tameNetworkError(err){
+  console.error(err);
+  statusEl.textContent = "Temporary hiccup. Try again.";
+  lineEl.textContent = "Chunklet sneezes in Morse code—try again.";
+}
+
+async function fetchLine(){
+  if(busy) return;
+  setBusy(true);
+  stopAnimation();
+  popClose();
   try{
-    const res = await fetch(ENDPOINT);
-    if(!res.ok) throw new Error('Network '+res.status);
-    const data = await res.json();
-    line = data.text || '(silence)';
+    const resp = await fetch(ENDPOINT, { method:'GET'});
+    if(!resp.ok) throw new Error('Bad response '+resp.status);
+    const data = await resp.json();
+    playLine(data);
   }catch(e){
-    console.error(e);
-    line = 'Static silence. (Network burp.)';
+    tameNetworkError(e);
+  }finally{
+    setBusy(false);
   }
-
-  // Simulate "machination" delay even if fast
-  await wait(400 + Math.random()*300);
-
-  stage.classList.remove('thinking');
-  lid.classList.add('open');
-
-  await wait(180);
-  spring.style.height='150px';
-
-  await wait(160);
-  character.classList.add('pop');
-  confettiBurst();
-
-  // Display text
-  outputEl.innerHTML = `<em>${escapeHTML(line)}</em>`;
-  speak(line);
-
-  triggerBtn.disabled = false;
 }
 
-/* Helpers */
-function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function escapeHTML(s){
-  return s.replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-}
+/* =============== EVENTS ===================== */
+btn.addEventListener('click', fetchLine);
 
-/* Event wiring */
-triggerBtn.addEventListener('click', pullString);
-stage.addEventListener('click', ()=>{
-  // Clicking the stage also triggers (optional)
-  pullString();
+/* Optional: spacebar to trigger */
+window.addEventListener('keydown', e=>{
+  if(e.code === 'Space'){
+    e.preventDefault();
+    fetchLine();
+  }
 });
-
-/* First prefetch (optional) — we won’t; user triggers explicitly */
-
-/* Make sure voices are loaded (Chrome quirk) */
-if('speechSynthesis' in window){
-  speechSynthesis.onvoiceschanged = ()=>{};
-}
 </script>
 </body>
 </html>
