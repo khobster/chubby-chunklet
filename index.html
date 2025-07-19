@@ -1,268 +1,405 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+<meta charset="UTF-8">
 <title>Chubby Chunklet</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{
-  --bg:#f2f2f2; --wood:#8b4d20; --wood-dark:#5b2c0d;
-  --accent:#ffc931; --btn:#2c3e50; --danger:#e95800;
-}
-*{box-sizing:border-box;font-family:"Inter",system-ui,sans-serif;}
-body{
-  margin:0; background:var(--bg); min-height:100vh;
-  display:flex; justify-content:center; align-items:center; padding:32px;
-  overflow:hidden;
-}
-.wrapper{text-align:center;max-width:560px;width:100%;}
-h1{margin:0 0 10px;font-size:32px;font-weight:700;letter-spacing:.5px;}
-.subtitle{margin:0 0 26px;color:#555;font-size:14px;line-height:1.4;}
+  :root{
+    --box:#8248ff;
+    --lid:#6d33e6;
+    --spring:#555;
+    --bg:#f6f6fb;
+    --accent:#ffcc33;
+    --char:#ffe14d;
+    --char-outline:#222;
+  }
+  body{
+    margin:0;
+    font-family: system-ui,-apple-system,Segoe UI,Inter,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:32px;
+    min-height:100vh;
+    background:radial-gradient(circle at 50% 30%,#ffffff 0%,#ecebfa 70%);
+    color:#222;
+  }
+  h1{
+    font-size:clamp(1.8rem,4vw,3rem);
+    margin:0 0 0.25em;
+    letter-spacing:.5px;
+    background:linear-gradient(90deg,#8248ff,#ff9c3d);
+    -webkit-background-clip:text;
+    color:transparent;
+  }
+  .sub{
+    margin-top:-18px;
+    font-size:.9rem;
+    opacity:.65;
+  }
+  .stage{
+    position:relative;
+    width:240px;
+    height:300px;
+    perspective:900px;
+  }
 
-.stage{position:relative;width:320px;height:300px;margin:0 auto;}
-.box{
-  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
-  width:240px;height:170px;background:var(--wood);
-  border:6px solid var(--wood-dark);border-radius:14px;
-  box-shadow:0 14px 26px rgba(0,0,0,.18);
-  display:flex;justify-content:center;align-items:flex-end;
-}
-.box.shake{animation:shake .6s infinite;}
-@keyframes shake{
-  0%,100%{transform:translate(-50%,0) rotate(0deg);}
-  20%{transform:translate(calc(-50% - 3px),1px) rotate(-2deg);}
-  40%{transform:translate(calc(-50% + 3px),-1px) rotate(2deg);}
-  60%{transform:translate(calc(-50% - 2px),1px) rotate(-1.4deg);}
-  80%{transform:translate(calc(-50% + 2px),0) rotate(1.2deg);}
-}
-.lid{
-  position:absolute;top:-70px;left:0;width:100%;height:70px;
-  background:var(--wood);border:6px solid var(--wood-dark);border-bottom:none;
-  border-radius:14px 14px 0 0;transform-origin:bottom center;
-  transition:transform 480ms cubic-bezier(.25,.8,.3,1.4);
-  box-shadow:0 6px 18px -4px rgba(0,0,0,.35);
-}
-.popped .lid{transform:rotateX(78deg);}
-.spring-wrapper{
-  position:absolute;bottom:8px;left:50%;transform:translate(-50%,0) scaleY(.08);
-  transform-origin:bottom center;transition:transform 360ms cubic-bezier(.25,.8,.3,1.4);
-}
-.popped .spring-wrapper{transform:translate(-50%,0) scaleY(1);}
-.spring{
-  width:30px;height:160px;
-  background:repeating-linear-gradient(#333 0 6px,#ddd 6px 12px);
-  border-radius:10px;margin:0 auto;position:relative;
-}
-.character{
-  position:absolute;bottom:150px;left:50%;transform:translate(-50%,0);
-  width:110px;height:110px;background:var(--accent);
-  border:6px solid #e7b418;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 8px 20px rgba(0,0,0,.25);
-}
-.face{position:relative;width:70px;height:70px;}
-.eye{width:14px;height:14px;background:#111;border-radius:50%;position:absolute;top:18px;}
-.eye.left{left:10px;} .eye.right{right:10px;}
-.mouth{
-  width:22px;height:22px;background:#111;border-radius:50%;
-  position:absolute;left:50%;bottom:10px;transform:translateX(-50%) scaleY(.35);
-  transition:transform 70ms;
-}
-.mouth.open{transform:translateX(-50%) scaleY(1);}
-.bob{animation:bob 2.4s ease-in-out infinite;}
-@keyframes bob{
-  0%,100%{transform:translate(-50%,0);}
-  50%{transform:translate(-50%,6px);}
-}
-#pullBtn{
-  margin:26px auto 14px;display:inline-block;background:var(--btn);color:#fff;
-  border:none;font-size:20px;font-weight:600;padding:22px 50px;border-radius:60px;
-  cursor:pointer;letter-spacing:.4px;
-  box-shadow:10px 10px 24px rgba(0,0,0,.28),-10px -10px 24px rgba(255,255,255,.7);
-  transition:transform .2s, box-shadow .2s;
-}
-#pullBtn:hover{
-  transform:translateY(-4px);
-  box-shadow:14px 14px 30px rgba(0,0,0,.32),-14px -14px 30px rgba(255,255,255,.72);
-}
-#pullBtn:active{
-  transform:scale(.93);
-  box-shadow:inset 8px 8px 16px rgba(0,0,0,.3),inset -8px -8px 16px rgba(255,255,255,.85);
-}
-.caption{
-  min-height:54px;font-size:18px;line-height:1.3;color:#222;font-weight:500;
-  padding:14px 22px;background:#fff;border:1px solid #ddd;border-radius:18px;
-  width:480px;max-width:95%;margin:8px auto 0;
-  opacity:0;transform:translateY(6px);transition:opacity .4s,transform .4s;
-  box-shadow:0 0 0 transparent;
-}
-.caption.show{opacity:1;transform:translateY(0);}
-small.note{display:block;margin-top:14px;color:#666;font-size:12px;}
-.error{color:var(--danger);font-size:14px;margin-top:8px;}
-@keyframes ring{
-  0%{transform:translate(-50%,-50%) scale(.3);opacity:.85;}
-  100%{transform:translate(-50%,-50%) scale(3.2);opacity:0;}
-}
-body::before{
-  content:'';position:fixed;top:50%;left:50%;width:340px;height:340px;
-  border-radius:50%;pointer-events:none;opacity:0;z-index:-1;
-}
-body.burst::before{
-  background:radial-gradient(circle,var(--accent) 0%,rgba(255,201,49,0) 70%);
-  animation:ring .9s ease-out;
-}
-@keyframes confetti{
-  0%{transform:translateY(0) rotate(0deg);opacity:1;}
-  100%{transform:translateY(620px) rotate(760deg);opacity:0;}
-}
-.confetti{
-  position:fixed;top:-40px;width:12px;height:16px;border-radius:2px;
-  background:var(--c);pointer-events:none;z-index:999;animation:confetti 1.4s ease-out forwards;
-}
-@media (max-height:660px){
-  body{align-items:flex-start;padding-top:40px;}
-  .stage{transform:scale(.9);}
-}
+  /* Box base */
+  .box{
+    position:absolute;
+    bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    width:180px;
+    height:160px;
+    background:linear-gradient(135deg,var(--box) 0%,#5b23c5 100%);
+    border-radius:14px;
+    box-shadow:0 12px 28px -6px rgba(60,35,120,.45),0 4px 8px rgba(0,0,0,.2);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:visible;
+  }
+  .box::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border:3px solid rgba(255,255,255,.15);
+    border-radius:14px;
+    pointer-events:none;
+  }
+
+  /* Lid */
+  .lid{
+    position:absolute;
+    width:180px;
+    height:30px;
+    left:50%;
+    bottom:160px;
+    transform:translate(-50%,0) rotateX(0deg);
+    transform-origin:50% 100%;
+    background:linear-gradient(135deg,var(--lid) 0%,#4c18a5 100%);
+    border-radius:12px 12px 6px 6px;
+    box-shadow:0 6px 14px rgba(0,0,0,.25);
+    transition:transform .7s cubic-bezier(.45,.1,.25,1.4);
+  }
+  .lid.open{
+    transform:translate(-50%,0) rotateX(150deg);
+  }
+
+  /* Spring */
+  .spring{
+    position:absolute;
+    bottom:160px;
+    left:50%;
+    width:14px;
+    height:0;
+    transform:translateX(-50%);
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        var(--spring) 0 6px,
+        transparent 6px 12px
+      );
+    filter:drop-shadow(0 0 2px rgba(0,0,0,.25));
+    transition:height .55s cubic-bezier(.45,.05,.35,1.3);
+    border-radius:6px;
+  }
+
+  /* Character */
+  .character{
+    position:absolute;
+    bottom:160px;
+    left:50%;
+    width:110px;
+    height:110px;
+    transform:translate(-50%,0) scale(0);
+    transform-origin:50% 100%;
+    transition:
+      transform .55s cubic-bezier(.35,1.6,.35,1.05),
+      filter .25s;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.3));
+  }
+  .character.pop{
+    transform:translate(-50%,0) scale(1);
+  }
+
+  /* Simple face */
+  .face{
+    position:relative;
+    width:100%;
+    height:100%;
+    background:radial-gradient(circle at 35% 30%,#fff 0%,var(--char) 70%);
+    border:4px solid var(--char-outline);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-sizing:border-box;
+  }
+  .eye{
+    position:absolute;
+    width:14px;
+    height:14px;
+    background:#111;
+    border-radius:50%;
+    top:40%;
+  }
+  .eye.left{ left:30%; }
+  .eye.right{ right:30%; }
+
+  .mouth{
+    width:34px;
+    height:34px;
+    background:#111;
+    border-radius:50%;
+    transition:transform .09s ease;
+  }
+  .mouth.speaking{
+    transform:scaleY(.35) scaleX(1.15);
+  }
+  .mouth.wide{
+    transform:scaleY(.75) scaleX(.9);
+  }
+
+  /* Shake animation while "thinking" */
+  .thinking .box{
+    animation:shakeBox .7s linear infinite;
+  }
+  @keyframes shakeBox{
+    0%,100%{ transform:translateX(-50%) rotate(0deg); }
+    20%{ transform:translateX(calc(-50% - 4px)) rotate(-2deg); }
+    40%{ transform:translateX(calc(-50% + 4px)) rotate(2deg); }
+    60%{ transform:translateX(calc(-50% - 3px)) rotate(-1.5deg); }
+    80%{ transform:translateX(calc(-50% + 3px)) rotate(1.5deg); }
+  }
+
+  /* Floating confetti (simple) */
+  .confetti{
+    position:absolute;
+    top:0;
+    width:10px;
+    height:10px;
+    background:var(--c,#ffcc33);
+    animation:fall 900ms ease-out forwards;
+    border-radius:2px;
+    pointer-events:none;
+    mix-blend-mode:multiply;
+  }
+  @keyframes fall{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(260px) rotate(540deg); opacity:0; }
+  }
+
+  /* CTA button */
+  .trigger-btn{
+    background:#8248ff;
+    color:#fff;
+    border:none;
+    font-size:1.05rem;
+    padding:14px 38px;
+    border-radius:40px;
+    cursor:pointer;
+    letter-spacing:.4px;
+    box-shadow:0 8px 20px -6px rgba(130,72,255,.55);
+    transition:transform .2s, box-shadow .2s;
+  }
+  .trigger-btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+  .trigger-btn:not(:disabled):hover{
+    transform:translateY(-3px);
+    box-shadow:0 14px 28px -6px rgba(130,72,255,.6);
+  }
+  .output{
+    max-width:520px;
+    min-height:48px;
+    text-align:center;
+    font-size:1.1rem;
+    line-height:1.4;
+    padding:10px 14px;
+  }
+  .output em{
+    font-style:normal;
+    background:linear-gradient(90deg,#ffbf49,#ff7f50);
+    -webkit-background-clip:text;
+    color:transparent;
+  }
+
+  .footer{
+    font-size:.7rem;
+    opacity:.5;
+    margin-top:10px;
+  }
+
+  @media (max-width:520px){
+    .stage{ transform:scale(.9); }
+  }
 </style>
 </head>
 <body>
-  <div class="wrapper">
+  <main>
     <h1>Chubby Chunklet</h1>
-    <p class="subtitle">Knock the string. Neighbor pops out with an absurd door‑answer every time.</p>
+    <p class="sub">Knock / pull the string to see what the little weirdo says.</p>
 
-    <div class="stage">
-      <div id="box" class="box">
-        <div class="lid"></div>
-        <div class="spring-wrapper">
-          <div class="spring"></div>
-          <div class="character">
-            <div class="face">
-              <div class="eye left"></div>
-              <div class="eye right"></div>
-              <div class="mouth" id="mouth"></div>
-            </div>
-          </div>
+    <div class="stage" id="stage">
+      <div class="lid" id="lid"></div>
+      <div class="spring" id="spring"></div>
+      <div class="box" id="box">
+        <!-- box interior just empty -->
+      </div>
+      <div class="character" id="character">
+        <div class="face">
+          <div class="eye left"></div>
+            <div class="mouth" id="mouth"></div>
+          <div class="eye right"></div>
         </div>
       </div>
     </div>
 
-    <button id="pullBtn">KNOCK / PULL STRING</button>
-    <div id="caption" class="caption"></div>
-    <div id="err" class="error" style="display:none;"></div>
-    <small class="note">Safe whimsical output. Prefetch keeps it snappy.</small>
-  </div>
+    <div style="text-align:center;margin-top:8px;">
+      <button id="trigger" class="trigger-btn" aria-label="Knock and get a line">Knock / Pull String</button>
+    </div>
+
+    <div id="output" class="output" aria-live="polite"></div>
+
+    <div class="footer">
+      Browser speech synthesis is used locally; nothing except the line request hits your server.
+    </div>
+  </main>
 
 <script>
-const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet'; // change
-const PREFETCH_MIN_DELAY_MS = 450;
+/* --- Config: replace with your deployed endpoint if it changes --- */
+const ENDPOINT = 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
 
-let prefetched = null;
-let busy = false;
-const box = document.getElementById('box');
-const pullBtn = document.getElementById('pullBtn');
-const caption = document.getElementById('caption');
-const errEl = document.getElementById('err');
-const mouth = document.getElementById('mouth');
+const triggerBtn = document.getElementById('trigger');
+const stage      = document.getElementById('stage');
+const lid        = document.getElementById('lid');
+const spring     = document.getElementById('spring');
+const character  = document.getElementById('character');
+const mouth      = document.getElementById('mouth');
+const outputEl   = document.getElementById('output');
 
-function burst(){
-  document.body.classList.add('burst');
-  setTimeout(()=>document.body.classList.remove('burst'),900);
-  const colors=['#ffc931','#ff9f3d','#ffd447','#ffb347','#ffe28f'];
-  for(let i=0;i<28;i++){
-    const el=document.createElement('span');
-    el.className='confetti';
-    el.style.setProperty('--c',colors[Math.random()*colors.length|0]);
-    el.style.left=(Math.random()*100)+'vw';
-    el.style.transform=`scale(${0.7+Math.random()*0.9})`;
-    document.body.appendChild(el);
-    setTimeout(()=>el.remove(),1400);
+let speakingInterval = null;
+
+/* Utility: simple confetti */
+function confettiBurst(){
+  for(let i=0;i<18;i++){
+    const span=document.createElement('span');
+    span.className='confetti';
+    span.style.setProperty('--c',['#ffcc33','#ff884d','#8248ff','#ff4fa2','#8ce0ff'][Math.random()*5|0]);
+    span.style.left=(Math.random()*180 + 30)+'px';
+    span.style.animationDelay=(Math.random()*0.25)+'s';
+    stage.appendChild(span);
+    setTimeout(()=>span.remove(),900);
   }
 }
 
-async function getLine(){
-  const r = await fetch(ENDPOINT + '?t=' + Date.now());
-  if(!r.ok) throw new Error('server '+r.status);
-  return r.json();
-}
-
-async function ensurePrefetch(){
-  if(!prefetched){
-    try{ prefetched = await getLine(); }
-    catch(e){ console.warn('prefetch fail', e); }
-  }
-}
-
-function playBase64Audio(b64, mime, onStart, onEnd){
-  const audio = new Audio(`data:${mime};base64,${b64}`);
-  const ctx = new (window.AudioContext||window.webkitAudioContext)();
-  const src = ctx.createMediaElementSource(audio);
-  const analyser = ctx.createAnalyser();
-  analyser.fftSize = 256;
-  src.connect(analyser); analyser.connect(ctx.destination);
-  const data = new Uint8Array(analyser.frequencyBinCount);
-
-  function loop(){
-    if(audio.paused || audio.ended){ mouth.classList.remove('open'); return; }
-    analyser.getByteFrequencyData(data);
-    const avg = data.reduce((a,b)=>a+b,0)/data.length;
-    if(avg > 40) mouth.classList.add('open'); else mouth.classList.remove('open');
-    requestAnimationFrame(loop);
-  }
-
-  audio.addEventListener('play', ()=>{ onStart&&onStart(); requestAnimationFrame(loop); });
-  audio.addEventListener('ended', ()=>{ mouth.classList.remove('open'); onEnd&&onEnd(); });
-  audio.play().catch(err=>{ console.warn(err); onEnd&&onEnd(); });
-}
-
-pullBtn.addEventListener('click', async ()=>{
-  if(busy) return;
-  busy = true; errEl.style.display='none';
-  caption.classList.remove('show'); caption.textContent='';
-  box.classList.add('shake');
-
-  const start = performance.now();
-  let packet = prefetched;
-  if(!packet){
-    try { packet = await getLine(); }
-    catch(e){
-      packet = { text:"Chunklet sneezes in Morse code... try again!", audioBase64:null, mime:"audio/mpeg" };
-      errEl.textContent = "Temporary hiccup.";
-      errEl.style.display='block';
+/* Mouth "animation" loop while speaking */
+function startMouth(){
+  clearInterval(speakingInterval);
+  mouth.classList.add('speaking');
+  speakingInterval=setInterval(()=>{
+    // alternate between two shapes
+    if(Math.random()<0.4){
+      mouth.classList.toggle('wide');
+    }else{
+      mouth.classList.toggle('speaking');
+      void mouth.offsetWidth;
+      mouth.classList.add('speaking');
     }
+  }, 130);
+}
+function stopMouth(){
+  clearInterval(speakingInterval);
+  mouth.classList.remove('speaking','wide');
+}
+
+/* Speech (falls back silently if unsupported) */
+function speak(text){
+  if(!('speechSynthesis' in window)){
+    return; // silent fallback
   }
-  prefetched = null;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.0;
+  utter.pitch = 1.02;
+  utter.onstart = startMouth;
+  utter.onend   = stopMouth;
+  utter.onerror = stopMouth;
+  // Try to prefer a neutral / US English voice if available
+  const voices = speechSynthesis.getVoices();
+  const preferred = voices.find(v=>/en-US/i.test(v.lang)&&/female/i.test(v.name)) ||
+                    voices.find(v=>/en/i.test(v.lang));
+  if(preferred) utter.voice = preferred;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+}
 
-  const elapsed = performance.now()-start;
-  if(elapsed < PREFETCH_MIN_DELAY_MS){
-    await new Promise(r=>setTimeout(r, PREFETCH_MIN_DELAY_MS - elapsed));
+/* Animation flow */
+async function pullString(){
+  if(triggerBtn.disabled) return;
+  triggerBtn.disabled = true;
+  outputEl.textContent = '';
+
+  // Reset / close
+  lid.classList.remove('open');
+  character.classList.remove('pop');
+  spring.style.height='0px';
+  stage.classList.add('thinking');
+
+  let line = '';
+  try{
+    const res = await fetch(ENDPOINT);
+    if(!res.ok) throw new Error('Network '+res.status);
+    const data = await res.json();
+    line = data.text || '(silence)';
+  }catch(e){
+    console.error(e);
+    line = 'Static silence. (Network burp.)';
   }
 
-  box.classList.remove('shake');
-  box.classList.add('popped');
-  burst();
-  caption.textContent = packet.text;
-  caption.classList.add('show');
-  box.querySelector('.spring-wrapper').classList.add('bob');
+  // Simulate "machination" delay even if fast
+  await wait(400 + Math.random()*300);
 
-  const settle = ()=>{
-    box.querySelector('.spring-wrapper').classList.remove('bob');
-    box.classList.remove('popped');
-    busy = false;
-    ensurePrefetch();
-  };
+  stage.classList.remove('thinking');
+  lid.classList.add('open');
 
-  if(packet.audioBase64){
-    playBase64Audio(packet.audioBase64, packet.mime || 'audio/mpeg', ()=>{}, ()=>settle());
-  } else {
-    setTimeout(()=>settle(), 2300);
-  }
+  await wait(180);
+  spring.style.height='150px';
 
-  ensurePrefetch();
+  await wait(160);
+  character.classList.add('pop');
+  confettiBurst();
+
+  // Display text
+  outputEl.innerHTML = `<em>${escapeHTML(line)}</em>`;
+  speak(line);
+
+  triggerBtn.disabled = false;
+}
+
+/* Helpers */
+function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function escapeHTML(s){
+  return s.replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+}
+
+/* Event wiring */
+triggerBtn.addEventListener('click', pullString);
+stage.addEventListener('click', ()=>{
+  // Clicking the stage also triggers (optional)
+  pullString();
 });
 
-ensurePrefetch();
+/* First prefetch (optional) — we won’t; user triggers explicitly */
+
+/* Make sure voices are loaded (Chrome quirk) */
+if('speechSynthesis' in window){
+  speechSynthesis.onvoiceschanged = ()=>{};
+}
 </script>
 </body>
 </html>
