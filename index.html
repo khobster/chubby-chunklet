@@ -10,21 +10,18 @@
 :root{
   --endpoint:https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-  /* figure + mouth placement */
   --figure-scale:1.15;
   --mouth-top:133px;
   --mouth-left:50%;
   --mouth-w:38px;
   --mouth-h:38px;
 
-  /* mouth open discrete steps */
   --mouth-scale-0:.05;
   --mouth-scale-1:.55;
   --mouth-scale-2:1.05;
   --mouth-scale-3:1.40;
   --mouth-scale-4:1.75;
 
-  /* typing + colour */
   --char-ms:18;
   --terminal-color:#1034a6;
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
@@ -172,9 +169,9 @@ let audioCtx,currentSource,audioEl;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 
 /* ---------- helpers ---------- */
-const sanitize = txt=>{
+const sanitize=txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
-  return /[.?!]$/.test(txt)?txt+'.':`${txt}.`;
+  return /[.?!]$/.test(txt)?txt:txt+'.';
 };
 
 function typeOut(text,done){
@@ -189,10 +186,12 @@ function typeOut(text,done){
 
 const quant=o=>OPEN_STEPS[Math.min(4,Math.max(0,Math.round(o*4)))];
 
+/* fabricate mouth if backend omitted */
 function fabricate(text){
   const dur=Math.min(7,Math.max(2.2,text.length/16));
   const frames=Math.round(dur*FPS),step=dur/frames;
-  timings=[];for(let i=0;i<=frames;i++){
+  timings=[];
+  for(let i=0;i<=frames;i++){
     const r=Math.random();
     timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
   }
@@ -257,11 +256,17 @@ async function summon(){
   /* button press effect */
   clickSound.currentTime=0;clickSound.play().catch(()=>{});
   trigger.classList.add('pressed');
-  setTimeout(()=>trigger.classList.remove('pressed'),160);  // <<< instant pop‑up
+  setTimeout(()=>trigger.classList.remove('pressed'),160); // instant pop‑up
 
   busy=true;
   stopAudio();stopMouth();
-  typed.textContent='';timings=[];totalDur=0;
+
+  /* clear previous text & attribution immediately */
+  typed.textContent='';
+  const oldTag=output.querySelector('.work-tag');
+  if(oldTag)oldTag.remove();
+
+  timings=[];totalDur=0;
 
   try{
     const res=await fetch(`${ENDPOINT}?style=shakespeare&modern=1&accent=scottish`);
