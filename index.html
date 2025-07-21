@@ -163,20 +163,19 @@ const cursor  = document.getElementById('cursor');
 const mouth   = document.getElementById('mouth');
 const output  = document.getElementById('output');
 
-/* --- click‑sound object ------------------------------------ */
-const clickSound = new Audio('click.mp3');  // ⬅ click‑sound
-clickSound.preload = 'auto';                // ⬅ click‑sound
+/* click‑sound */
+const clickSound = new Audio('click.mp3');
+clickSound.preload = 'auto';
 
 let busy=false;
 let audioCtx,currentSource,audioEl;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 
 /* ---------- helpers ---------- */
-function sanitize(txt){
+const sanitize = txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
-  if(!/[.?!]$/.test(txt)) txt+='.';
-  return txt||'A stealthy dust mote drafted a manifesto while you blinked.';
-}
+  return /[.?!]$/.test(txt)?txt+'.':`${txt}.`;
+};
 
 function typeOut(text,done){
   typed.textContent='';
@@ -188,14 +187,12 @@ function typeOut(text,done){
   })();
 }
 
-function quant(open){return OPEN_STEPS[Math.min(4,Math.max(0,Math.round(open*4)))]}
+const quant=o=>OPEN_STEPS[Math.min(4,Math.max(0,Math.round(o*4)))];
 
 function fabricate(text){
   const dur=Math.min(7,Math.max(2.2,text.length/16));
-  const frames=Math.round(dur*FPS);
-  const step=dur/frames;
-  timings=[];
-  for(let i=0;i<=frames;i++){
+  const frames=Math.round(dur*FPS),step=dur/frames;
+  timings=[];for(let i=0;i<=frames;i++){
     const r=Math.random();
     timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
   }
@@ -209,12 +206,10 @@ async function playAudio(b64,onEnd){
     ensureCtx();
     const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
     const buf=await audioCtx.decodeAudioData(bin.buffer);
-    currentSource=audioCtx.createBufferSource();
-    currentSource.buffer=buf;
+    currentSource=audioCtx.createBufferSource();currentSource.buffer=buf;
     currentSource.playbackRate.value=1.08;
     currentSource.connect(audioCtx.destination);
-    startTime=audioCtx.currentTime;
-    startMouth();
+    startTime=audioCtx.currentTime;startMouth();
     currentSource.start();
     currentSource.onended=()=>{stopMouth();onEnd&&onEnd();};
     return;
@@ -230,7 +225,7 @@ function stopAudio(){
   if(audioEl){audioEl.pause();audioEl.currentTime=0;}
 }
 
-/* ---------- mouth anim ---------- */
+/* ---------- mouth animation ---------- */
 function startMouth(){if(animating)return;animating=true;lastFrame=0;tick();}
 function stopMouth(){animating=false;cancelAnimationFrame(raf);mouth.style.transform=`scaleY(${OPEN_STEPS[0]})`;}
 function tick(now){
@@ -249,11 +244,9 @@ function tick(now){
 /* ---------- work tag ---------- */
 function showWork(w){
   if(!w)return;
+  const old=output.querySelector('.work-tag');if(old)old.remove();
   const span=document.createElement('span');
-  span.className='work-tag';
-  span.textContent='— '+w;
-  const old=output.querySelector('.work-tag');
-  if(old)old.remove();
+  span.className='work-tag';span.textContent='— '+w;
   output.appendChild(span);
 }
 
@@ -261,11 +254,12 @@ function showWork(w){
 async function summon(){
   if(busy)return;
 
-  clickSound.currentTime=0;          // ⬅ click‑sound
-  clickSound.play().catch(()=>{});   // ⬅ click‑sound
+  /* button press effect */
+  clickSound.currentTime=0;clickSound.play().catch(()=>{});
+  trigger.classList.add('pressed');
+  setTimeout(()=>trigger.classList.remove('pressed'),160);  // <<< instant pop‑up
 
   busy=true;
-  trigger.classList.add('pressed');
   stopAudio();stopMouth();
   typed.textContent='';timings=[];totalDur=0;
 
@@ -275,8 +269,7 @@ async function summon(){
     const data=await res.json();
     const work=data.work||null;
     const text=sanitize(data.text);
-    timings=Array.isArray(data.timings)?data.timings:[];
-    totalDur=timings.length?timings[timings.length-1].t:0;
+    timings=Array.isArray(data.timings)?data.timings:[];totalDur=timings.length?timings[timings.length-1].t:0;
 
     typeOut(text,async()=>{
       startTime=performance.now()/1000;
@@ -292,7 +285,6 @@ async function summon(){
     console.error(e);
     typeOut('A shy packet tripped. Try again.');
   }finally{
-    setTimeout(()=>trigger.classList.remove('pressed'),140);
     busy=false;
   }
 }
