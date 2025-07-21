@@ -10,178 +10,118 @@
 :root {
   --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
+  /* figure + mouth placement */
   --figure-scale:1.15;
   --mouth-top:133px;
   --mouth-left:50%;
   --mouth-w:38px;
   --mouth-h:38px;
 
+  /* mouth open discrete steps */
   --mouth-scale-0:.05;
   --mouth-scale-1:.55;
   --mouth-scale-2:1.05;
   --mouth-scale-3:1.40;
   --mouth-scale-4:1.75;
 
+  /* typing + colour */
   --char-ms:18;
   --terminal-color:#1034a6;
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 }
 
-* { box-sizing:border-box; }
-html,body {
-  margin:0;
-  padding:0;
+/* ---------- basic layout ---------- */
+*{box-sizing:border-box}
+html,body{
+  height:100%;margin:0;padding:0;
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-  background:#fff;
-  color:#111;
-  height:100%;
+  background:#fff;color:#111;
   -webkit-font-smoothing:antialiased;
 }
-body {
-  min-height:100vh;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
+body{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
   padding:28px 18px 32px;
 }
-.wrapper {
-  flex:1;
-  width:100%;
-  max-width:950px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
+.wrapper{
+  flex:1;width:100%;max-width:950px;
+  display:flex;flex-direction:column;align-items:center;
   gap:38px;
 }
-.header {
-  font-size:clamp(14px,1.9vw,20px);
-  font-weight:600;
-  letter-spacing:.4px;
-  text-align:center;
-  margin:0;
+.header{
+  font-size:clamp(14px,1.9vw,20px);font-weight:600;letter-spacing:.4px;
+  text-align:center;margin:0;
 }
-.header span { font-weight:700; }
+.header span{font-weight:700}
 
-.figure-zone {
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:42px;
-  margin-top:4px;
-}
-
-.chunklet-wrap {
+/* ---------- figure ---------- */
+.figure-zone{display:flex;flex-direction:column;align-items:center;gap:42px;margin-top:4px}
+.chunklet-wrap{
   position:relative;
-  width:calc(180px * var(--figure-scale));
-  height:calc(230px * var(--figure-scale));
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
+  width:calc(180px*var(--figure-scale));
+  height:calc(230px*var(--figure-scale));
+  display:flex;align-items:flex-end;justify-content:center;
   pointer-events:none;
 }
-.chunklet-img {
-  width:calc(170px * var(--figure-scale));
-  max-width:100%;
-  user-select:none;
-  -webkit-user-drag:none;
+.chunklet-img{
+  width:calc(170px*var(--figure-scale));max-width:100%;
+  user-select:none;-webkit-user-drag:none;
   filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
   image-rendering:-webkit-optimize-contrast;
 }
-
-/* Mouth */
-.mouth-overlay {
+/* mouth overlay */
+.mouth-overlay{
   position:absolute;
-  top:var(--mouth-top);
-  left:var(--mouth-left);
-  width:var(--mouth-w);
-  height:var(--mouth-h);
+  top:var(--mouth-top);left:var(--mouth-left);
+  width:var(--mouth-w);height:var(--mouth-h);
   transform:translate(-50%,-50%);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:flex;align-items:center;justify-content:center;
   pointer-events:none;
 }
-.mouth-overlay svg { width:100%; height:100%; }
-#mouth {
-  transform-origin:50% 50%;
-  transform:scaleY(var(--mouth-scale-0));
-}
+.mouth-overlay svg{width:100%;height:100%}
+#mouth{transform-origin:50% 50%;transform:scaleY(var(--mouth-scale-0))}
 
-/* Button */
-.trigger-button {
-  position:relative;
-  border:none;
-  background:transparent;
-  padding:0;
-  cursor:pointer;
-  outline:none;
-  -webkit-tap-highlight-color:transparent;
-  display:block;
-}
-.trigger-button img {
-  width:118px;
-  height:auto;
-  display:block;
-  transition:transform .10s cubic-bezier(.33,.9,.3,1), filter .12s;
-  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18));
+/* ---------- button ---------- */
+.trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
+.trigger-button img{
+  width:118px;height:auto;display:block;
+  transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
 }
 .trigger-button:active img,
-.trigger-button.pressed img {
+.trigger-button.pressed img{
   transform:translateY(8px) scale(.985);
-  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05);
+  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
 }
 
-/* Output */
-.output {
+/* ---------- output line ---------- */
+.output{
   font-family:var(--font-mono);
   font-size:clamp(9px,0.8vw,12px);
-  line-height:1.3;
-  letter-spacing:.4px;
+  line-height:1.3;letter-spacing:.4px;font-weight:500;
   color:var(--terminal-color);
-  max-width:620px;
-  min-height:1.6em;
-  text-align:left;
-  margin:8px auto 0;
-  white-space:pre-wrap;
-  position:relative;
-  font-weight:500;
+  max-width:620px;min-height:1.6em;text-align:left;
+  margin:8px auto 0;white-space:pre-wrap;position:relative;
 }
-.cursor {
-  display:inline-block;
-  width:.55ch;
-  background:var(--terminal-color);
-  height:1em;
-  vertical-align:baseline;
-  animation:blink 1s steps(1,end) infinite;
-  transform:translateY(1px);
+.cursor{
+  display:inline-block;width:.55ch;height:1em;
+  background:var(--terminal-color);vertical-align:baseline;
+  animation:blink 1s steps(1,end) infinite;transform:translateY(1px)
 }
-.typing .cursor { animation:none; }
-@keyframes blink {
-  0%,55% {opacity:1;}
-  56%,100% {opacity:0;}
-}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+.typing .cursor{animation:none}
+.output .work-tag{opacity:.65;font-style:italic;margin-left:.6em;font-size:.9em}
 
-.output .work-tag {
-  opacity:.65;
-  font-style:italic;
-  margin-left:.6em;
-  font-size:.9em;
+/* ---------- small‑screen tweaks ---------- */
+@media(max-height:640px){
+  .figure-zone{gap:30px}
+  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
 }
-
-@media (max-height:640px){
-  .figure-zone { gap:30px; }
-  .chunklet-wrap { height:calc(200px * var(--figure-scale)); }
-}
-@media (max-width:360px){
-  :root {
-    --mouth-top:72px;
-    --mouth-w:32px;
-    --mouth-h:32px;
-  }
-  .chunklet-wrap { width:calc(150px * var(--figure-scale)); height:calc(200px * var(--figure-scale)); }
-  .chunklet-img { width:calc(140px * var(--figure-scale)); }
-  .trigger-button img { width:96px; }
+@media(max-width:360px){
+  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
+  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
+  .chunklet-img{width:calc(140px*var(--figure-scale))}
+  .trigger-button img{width:96px}
 }
 </style>
 </head>
@@ -198,231 +138,150 @@ body {
           </svg>
         </div>
       </div>
+
       <button id="trigger" class="trigger-button" aria-label="Speak">
         <img id="keyImage" src="button.png" alt="Speak button">
       </button>
     </div>
 
-    <div class="output" id="output"><span id="typed"></span><span id="cursor" class="cursor"></span></div>
+    <div class="output" id="output">
+      <span id="typed"></span><span id="cursor" class="cursor"></span>
+    </div>
   </div>
 
 <script>
-/* ==== CONFIG ==== */
-const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint') || '').trim() ||
-  'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-const CHAR_MS = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
-const STOP_MOTION_FPS = 16;
-const FRAME_INTERVAL = 1 / STOP_MOTION_FPS;
+/* ========== CONFIG ========== */
+const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
+  || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
+const FPS      = 16;
+const FRAME_DT = 1 / FPS;
 const OPEN_STEPS = ['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
-  .map(v => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)));
+  .map(v=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)));
 
-const trigger   = document.getElementById('trigger');
-const typedSpan = document.getElementById('typed');
-const cursor    = document.getElementById('cursor');
-const mouth     = document.getElementById('mouth');
-const outputEl  = document.getElementById('output');
+const trigger = document.getElementById('trigger');
+const typed   = document.getElementById('typed');
+const cursor  = document.getElementById('cursor');
+const mouth   = document.getElementById('mouth');
+const output  = document.getElementById('output');
 
 let busy=false;
-let audioCtx, currentSource, startTime=0, timings=[];
-let raf, lastFrameTime=0, isAnimating=false;
-let totalTimingDuration=0;
+let audioCtx,currentSource,audioEl;
+let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 
-function sanitize(text){
-  text=(text||'').trim();
-  if(!text) text='A stealthy dust mote drafted a manifesto while you blinked.';
-  text=text.replace(/!+$/,'').replace(/\s+/g,' ').trim();
-  return /[.?!]$/.test(text)?text:text+'.';
+/* ---------- helpers ---------- */
+function sanitize(txt){
+  txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
+  if(!/[.?!]$/.test(txt)) txt+='.'; return txt||'A stealthy dust mote drafted a manifesto while you blinked.';
 }
 
-/* Typing */
-function typeOut(text, done){
-  typedSpan.textContent='';
-  // Remove any previous work tag
-  const oldTag = outputEl.querySelector('.work-tag');
-  if (oldTag) oldTag.remove();
-  let i=0;
-  (function step(){
-    typedSpan.textContent = text.slice(0,i);
-    i++;
-    if(i<=text.length){
-      const jitter = (i%7===0)? Math.random()*10 : 0;
-      setTimeout(step, CHAR_MS + jitter);
-    } else {
-      done&&done();
-    }
+function typeOut(text,done){
+  typed.textContent='';const len=text.length;
+  (function loop(i=0){
+    typed.textContent=text.slice(0,i);
+    if(i<len){setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));}
+    else{done&&done();}
   })();
 }
 
-/* Audio & filters */
-function ensureCtx(){
-  if(!audioCtx){
-    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+function quant(open){const idx=Math.min(4,Math.max(0,Math.round(open*4)));return OPEN_STEPS[idx];}
+
+function fabricate(text){
+  const dur=Math.min(7,Math.max(2.2,text.length/16));
+  const frames=Math.round(dur*FPS);
+  const step=dur/frames;
+  timings=[];for(let i=0;i<=frames;i++){
+    const r=Math.random();
+    let o=r<.15?.05:r<.30?.35:r<.60?.7:r<.85?.9:1;
+    timings.push({t:i*step,open:o});
   }
+  totalDur=dur;
+}
+
+/* ---------- audio (iOS‑safe) ---------- */
+function ensureCtx(){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended') audioCtx.resume();
 }
-
-async function playAudio(b64, onEnded){
-  ensureCtx();
-  const raw = atob(b64.replace(/^data:audio\/[a-zA-Z0-9.+-]+;base64,/, ''));
-  const buf = new Uint8Array(raw.length);
-  for(let i=0;i<raw.length;i++) buf[i]=raw.charCodeAt(i);
-  const decoded = await audioCtx.decodeAudioData(buf.buffer);
-
-  currentSource = audioCtx.createBufferSource();
-  currentSource.buffer = decoded;
-  currentSource.playbackRate.value = 1.08;
-
-  const hp = audioCtx.createBiquadFilter();
-  hp.type='highpass'; hp.frequency.value=180;
-  const shelf = audioCtx.createBiquadFilter();
-  shelf.type='highshelf'; shelf.frequency.value=3000; shelf.gain.value=4;
-
-  currentSource.connect(hp); hp.connect(shelf); shelf.connect(audioCtx.destination);
-
-  startTime = audioCtx.currentTime;
-  startMouth();
-  currentSource.start();
-  currentSource.onended = () => { stopMouth(); onEnded && onEnded(); };
-}
-
-function stopAudio(){
-  if(currentSource){
-    try{ currentSource.stop(); }catch{}
-    currentSource.disconnect();
-    currentSource=null;
-  }
-}
-
-/* Mouth timings fallback */
-function fabricateTimings(text){
-  const duration = Math.min(7, Math.max(2.2, text.length/16));
-  const frames = Math.round(duration * STOP_MOTION_FPS);
-  const step = duration / frames;
-  timings=[];
-  for(let i=0;i<=frames;i++){
-    const r=Math.random();
-    let open;
-    if(r<0.15) open=0.05;
-    else if(r<0.30) open=0.35;
-    else if(r<0.60) open=0.7;
-    else if(r<0.85) open=0.9;
-    else open=1;
-    timings.push({t:i*step, open});
-  }
-  totalTimingDuration = duration;
-}
-
-function quantize(open){
-  const idx = Math.min(4, Math.max(0, Math.round(open*4)));
-  return OPEN_STEPS[idx];
-}
-
-function startMouth(){
-  if(isAnimating) return;
-  isAnimating=true;
-  lastFrameTime=0;
-  animateMouth();
-}
-
-function stopMouth(){
-  isAnimating=false;
-  cancelAnimationFrame(raf);
-  mouth.style.transform=`scaleY(${OPEN_STEPS[0]})`;
-}
-
-function animateMouth(now){
-  if(!isAnimating) return;
-  raf=requestAnimationFrame(animateMouth);
-  if(!now) return;
-  if(!lastFrameTime) lastFrameTime=now;
-  const elapsed = (now-lastFrameTime)/1000;
-  if(elapsed < FRAME_INTERVAL) return;
-  lastFrameTime=now;
-
-  let t;
-  if(audioCtx && currentSource){
-    t = audioCtx.currentTime - startTime;
-  } else {
-    t = (performance.now()/1000) - startTime;
-  }
-
-  // If no audio and we've passed the timings end -> stop.
-  if(!currentSource && t > totalTimingDuration + 0.12){
-    stopMouth();
+async function playAudio(b64,onEnd){
+  /* try Web‑Audio */
+  try{
+    ensureCtx();
+    const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
+    const buf=await audioCtx.decodeAudioData(bin.buffer);
+    currentSource=audioCtx.createBufferSource();currentSource.buffer=buf;
+    currentSource.playbackRate.value=1.08;
+    currentSource.connect(audioCtx.destination);
+    startTime=audioCtx.currentTime;startMouth();
+    currentSource.start();
+    currentSource.onended=()=>{stopMouth();onEnd&&onEnd();};
     return;
-  }
+  }catch(e){console.warn('WebAudio failed, fallback',e);}
+  /* fallback <audio> */
+  if(!audioEl){audioEl=document.createElement('audio');audioEl.hidden=true;document.body.appendChild(audioEl);}
+  audioEl.src=b64;
+  audioEl.onplay=startMouth;
+  audioEl.onended=()=>{stopMouth();onEnd&&onEnd();};
+  await audioEl.play().catch(console.error);
+}
+function stopAudio(){
+  if(currentSource){try{currentSource.stop()}catch{} currentSource.disconnect();currentSource=null;}
+  if(audioEl){audioEl.pause();audioEl.currentTime=0;}
+}
 
+/* ---------- mouth anim ---------- */
+function startMouth(){if(animating)return;animating=true;lastFrame=0;tick();}
+function stopMouth(){animating=false;cancelAnimationFrame(raf);mouth.style.transform=`scaleY(${OPEN_STEPS[0]})`;}
+function tick(now){
+  raf=requestAnimationFrame(tick);
+  if(!now)return;
+  if(!lastFrame) lastFrame=now;
+  if((now-lastFrame)/1000<FRAME_DT) return;
+  lastFrame=now;
+  const t=(audioCtx&&currentSource)?audioCtx.currentTime-startTime:(performance.now()/1000)-startTime;
+  if(!currentSource&&t>totalDur+.12){stopMouth();return;}
   let open=0.1;
-  if(timings.length){
-    for(let i=0;i<timings.length;i++){
-      if(t >= timings[i].t) open=timings[i].open; else break;
-    }
-  }
-  open = Math.min(1, Math.max(0, open + (Math.random()*0.18 - 0.09))); // jitter
-  mouth.style.transform=`scaleY(${quantize(open)})`;
+  for(const seg of timings){if(t>=seg.t)open=seg.open;else break;}
+  mouth.style.transform=`scaleY(${quant(open+Math.random()*0.18-0.09)})`;
 }
 
-/* Append work tag */
-function showWork(work){
-  if(!work) return;
-  const span = document.createElement('span');
-  span.className='work-tag';
-  span.textContent='— '+work;
-  outputEl.appendChild(span);
+/* ---------- show work tag ---------- */
+function showWork(w){
+  if(!w)return;
+  const span=document.createElement('span');
+  span.className='work-tag';span.textContent='— '+w;
+  output.appendChild(span);
 }
 
-/* Fetch + run */
+/* ---------- main ---------- */
 async function summon(){
-  if(busy) return;
-  busy=true;
-  trigger.classList.add('pressed');
-  stopAudio(); stopMouth();
-  timings=[]; totalTimingDuration=0;
-  typedSpan.textContent='';
-  const workToShow = { value:null };
+  if(busy)return;busy=true;trigger.classList.add('pressed');
+  stopAudio();stopMouth();typed.textContent='';timings=[];totalDur=0;
 
   try{
-    const url = ENDPOINT + '?style=shakespeare'; // add &modern=1 if desired
-    const res = await fetch(url);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    let text = sanitize(data.text);
-    workToShow.value = data.work || null;
-    timings = Array.isArray(data.timings)? data.timings : [];
-    if(timings.length){
-      totalTimingDuration = timings[timings.length-1].t;
-    }
-    typeOut(text, async ()=>{
-      // Start mouth & audio
-      startTime = performance.now()/1000;
+    const res=await fetch(ENDPOINT+'?style=shakespeare&modern=1&accent=scottish');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const work=data.work||null;
+    const text=sanitize(data.text);
+    timings=Array.isArray(data.timings)?data.timings:[];totalDur=timings.length?timings[timings.length-1].t:0;
+
+    typeOut(text,async()=>{
+      startTime=performance.now()/1000;
       if(data.audioBase64){
-        if(!timings.length){ fabricateTimings(text); startTime = performance.now()/1000; }
-        await playAudio(data.audioBase64, () => showWork(workToShow.value));
-      } else {
-        if(!timings.length) { fabricateTimings(text); startTime = performance.now()/1000; startMouth(); }
-        // Stop after fabricated duration then show work
-        setTimeout(()=>{
-          stopMouth();
-          showWork(workToShow.value);
-        }, (totalTimingDuration+0.15)*1000);
+        if(!timings.length){fabricate(text);startTime=performance.now()/1000;}
+        await playAudio(data.audioBase64,()=>showWork(work));
+      }else{
+        if(!timings.length){fabricate(text);startTime=performance.now()/1000;startMouth();}
+        setTimeout(()=>{stopMouth();showWork(work);},(totalDur+.15)*1000);
       }
     });
-  }catch(e){
-    console.error(e);
-    typeOut('A shy packet tripped. Try again.', ()=> showWork(workToShow.value));
-  }finally{
-    setTimeout(()=>trigger.classList.remove('pressed'),140);
-    busy=false;
-  }
+  }catch(e){console.error(e);typeOut('A shy packet tripped. Try again.');}
+  finally{setTimeout(()=>trigger.classList.remove('pressed'),140);busy=false;}
 }
 
-trigger.addEventListener('click', summon);
-document.addEventListener('keydown', e=>{
-  if(e.key===' '||e.key==='Enter'){
-    summon();
-    if(document.activeElement!==trigger) trigger.focus();
-  }
-});
+trigger.addEventListener('click',summon);
+document.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){summon();if(document.activeElement!==trigger)trigger.focus();}});
 </script>
 </body>
 </html>
