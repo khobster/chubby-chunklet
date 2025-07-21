@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@600;700&display=swap" rel="stylesheet">
 <style>
-:root {
+:root{
   --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
   /* figure + mouth placement */
@@ -31,97 +31,148 @@
 }
 
 /* ---------- basic layout ---------- */
-*{box-sizing:border-box}
+*{box-sizing:border-box;}
 html,body{
-  height:100%;margin:0;padding:0;
+  height:100%;
+  margin:0;
+  padding:0;
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-  background:#fff;color:#111;
+  background:#fff;
+  color:#111;
   -webkit-font-smoothing:antialiased;
 }
 body{
-  min-height:100vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-start;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
   padding:28px 18px 32px;
 }
 .wrapper{
-  flex:1;width:100%;max-width:950px;
-  display:flex;flex-direction:column;align-items:center;
+  flex:1;
+  width:100%;
+  max-width:950px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
   gap:38px;
 }
 .header{
-  font-size:clamp(14px,1.9vw,20px);font-weight:600;letter-spacing:.4px;
-  text-align:center;margin:0;
+  font-size:clamp(14px,1.9vw,20px);
+  font-weight:600;
+  letter-spacing:.4px;
+  text-align:center;
+  margin:0;
 }
 .header span{font-weight:700}
 
 /* ---------- figure ---------- */
-.figure-zone{display:flex;flex-direction:column;align-items:center;gap:42px;margin-top:4px}
+.figure-zone{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:42px;
+  margin-top:4px;
+}
 .chunklet-wrap{
   position:relative;
-  width:calc(180px*var(--figure-scale));
-  height:calc(230px*var(--figure-scale));
-  display:flex;align-items:flex-end;justify-content:center;
+  width:calc(180px * var(--figure-scale));
+  height:calc(230px * var(--figure-scale));
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
   pointer-events:none;
 }
 .chunklet-img{
-  width:calc(170px*var(--figure-scale));max-width:100%;
-  user-select:none;-webkit-user-drag:none;
+  width:calc(170px * var(--figure-scale));
+  max-width:100%;
+  user-select:none;
+  -webkit-user-drag:none;
   filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
   image-rendering:-webkit-optimize-contrast;
 }
 /* mouth overlay */
 .mouth-overlay{
   position:absolute;
-  top:var(--mouth-top);left:var(--mouth-left);
-  width:var(--mouth-w);height:var(--mouth-h);
+  top:var(--mouth-top);
+  left:var(--mouth-left);
+  width:var(--mouth-w);
+  height:var(--mouth-h);
   transform:translate(-50%,-50%);
-  display:flex;align-items:center;justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   pointer-events:none;
 }
-.mouth-overlay svg{width:100%;height:100%}
-#mouth{transform-origin:50% 50%;transform:scaleY(var(--mouth-scale-0))}
+.mouth-overlay svg{width:100%;height:100%;}
+#mouth{transform-origin:50% 50%;transform:scaleY(var(--mouth-scale-0));}
 
 /* ---------- button ---------- */
-.trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
+.trigger-button{
+  border:none;
+  background:transparent;
+  padding:0;
+  cursor:pointer;
+  outline:none;
+  -webkit-tap-highlight-color:transparent;
+}
 .trigger-button img{
-  width:118px;height:auto;display:block;
+  width:118px;
+  height:auto;
+  display:block;
   transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
-  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18));
 }
 .trigger-button:active img,
 .trigger-button.pressed img{
   transform:translateY(8px) scale(.985);
-  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
+  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05);
 }
 
 /* ---------- output line ---------- */
 .output{
   font-family:var(--font-mono);
   font-size:clamp(9px,0.8vw,12px);
-  line-height:1.3;letter-spacing:.4px;font-weight:500;
+  line-height:1.3;
+  letter-spacing:.4px;
+  font-weight:500;
   color:var(--terminal-color);
-  max-width:620px;min-height:1.6em;text-align:left;
-  margin:8px auto 0;white-space:pre-wrap;position:relative;
+  max-width:620px;
+  min-height:1.6em;
+  text-align:left;
+  margin:8px auto 0;
+  white-space:pre-wrap;
+  position:relative;
 }
 .cursor{
-  display:inline-block;width:.55ch;height:1em;
-  background:var(--terminal-color);vertical-align:baseline;
-  animation:blink 1s steps(1,end) infinite;transform:translateY(1px)
+  display:inline-block;
+  width:.55ch;
+  height:1em;
+  background:var(--terminal-color);
+  vertical-align:baseline;
+  animation:blink 1s steps(1,end) infinite;
+  transform:translateY(1px);
 }
-@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
-.typing .cursor{animation:none}
-.output .work-tag{opacity:.65;font-style:italic;margin-left:.6em;font-size:.9em}
+@keyframes blink{0%,55%{opacity:1;}56%,100%{opacity:0;}}
+.typing .cursor{animation:none;}
+.output .work-tag{
+  opacity:.65;
+  font-style:italic;
+  margin-left:.6em;
+  font-size:.9em;
+}
 
 /* ---------- small‑screen tweaks ---------- */
 @media(max-height:640px){
-  .figure-zone{gap:30px}
-  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
+  .figure-zone{gap:30px;}
+  .chunklet-wrap{height:calc(200px * var(--figure-scale));}
 }
 @media(max-width:360px){
-  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
-  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
-  .chunklet-img{width:calc(140px*var(--figure-scale))}
-  .trigger-button img{width:96px}
+  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px;}
+  .chunklet-wrap{width:calc(150px * var(--figure-scale));height:calc(200px * var(--figure-scale));}
+  .chunklet-img{width:calc(140px * var(--figure-scale));}
+  .trigger-button img{width:96px;}
 }
 </style>
 </head>
@@ -150,86 +201,96 @@ body{
   </div>
 
 <script>
-/* ========== CONFIG ========== */
-const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
-  || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
-const FPS      = 16;
-const FRAME_DT = 1 / FPS;
-const OPEN_STEPS = ['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
+/* ---------- CONFIG ---------- */
+const ENDPOINT=(document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
+  ||'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+const CHAR_MS=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10)||20;
+const FPS=16, FRAME_DT=1/FPS;
+const OPEN_STEPS=['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
   .map(v=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)));
 
-const trigger = document.getElementById('trigger');
-const typed   = document.getElementById('typed');
-const cursor  = document.getElementById('cursor');
-const mouth   = document.getElementById('mouth');
-const output  = document.getElementById('output');
+const trigger=document.getElementById('trigger');
+const typed=document.getElementById('typed');
+const cursor=document.getElementById('cursor');
+const mouth=document.getElementById('mouth');
+const output=document.getElementById('output');
 
-let busy=false;
-let audioCtx,currentSource,audioEl;
-let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
+let busy=false,audioCtx,currentSource,audioEl,startTime=0,timings=[],
+    raf,lastFrame=0,animating=false,totalDur=0;
 
 /* ---------- helpers ---------- */
 function sanitize(txt){
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
-  if(!/[.?!]$/.test(txt)) txt+='.'; return txt||'A stealthy dust mote drafted a manifesto while you blinked.';
+  if(!/[.?!]$/.test(txt)) txt+='.';
+  return txt||'A stealthy dust mote drafted a manifesto while you blinked.';
 }
 
+/* clear old work‑tag, then type */
 function typeOut(text,done){
-  typed.textContent='';const len=text.length;
+  output.querySelectorAll('.work-tag').forEach(el=>el.remove());   /* ← FIX */
+  typed.textContent='';
+  const len=text.length;
   (function loop(i=0){
     typed.textContent=text.slice(0,i);
-    if(i<len){setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));}
-    else{done&&done();}
+    if(i<len){
+      setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));
+    }else{
+      done&&done();
+    }
   })();
 }
 
-function quant(open){const idx=Math.min(4,Math.max(0,Math.round(open*4)));return OPEN_STEPS[idx];}
+function quant(o){return OPEN_STEPS[Math.min(4,Math.max(0,Math.round(o*4)))]}
 
 function fabricate(text){
-  const dur=Math.min(7,Math.max(2.2,text.length/16));
-  const frames=Math.round(dur*FPS);
-  const step=dur/frames;
-  timings=[];for(let i=0;i<=frames;i++){
+  const d=Math.min(7,Math.max(2.2,text.length/16));
+  const frames=Math.round(d*FPS),step=d/frames;
+  timings=[];
+  for(let i=0;i<=frames;i++){
     const r=Math.random();
-    let o=r<.15?.05:r<.30?.35:r<.60?.7:r<.85?.9:1;
-    timings.push({t:i*step,open:o});
+    timings.push({t:i*step,open:r<.15?.05:r<.30?.35:r<.60?.7:r<.85?.9:1});
   }
-  totalDur=dur;
+  totalDur=d;
 }
 
-/* ---------- audio (iOS‑safe) ---------- */
+/* ---------- audio (iOS friendly) ---------- */
 function ensureCtx(){
   if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended') audioCtx.resume();
 }
 async function playAudio(b64,onEnd){
-  /* try Web‑Audio */
+  /* Web‑Audio try */
   try{
     ensureCtx();
     const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
     const buf=await audioCtx.decodeAudioData(bin.buffer);
-    currentSource=audioCtx.createBufferSource();currentSource.buffer=buf;
+    currentSource=audioCtx.createBufferSource();
+    currentSource.buffer=buf;
     currentSource.playbackRate.value=1.08;
     currentSource.connect(audioCtx.destination);
-    startTime=audioCtx.currentTime;startMouth();
+    startTime=audioCtx.currentTime;
+    startMouth();
     currentSource.start();
     currentSource.onended=()=>{stopMouth();onEnd&&onEnd();};
     return;
-  }catch(e){console.warn('WebAudio failed, fallback',e);}
+  }catch(e){console.warn('WebAudio failed – falling back',e);}
   /* fallback <audio> */
-  if(!audioEl){audioEl=document.createElement('audio');audioEl.hidden=true;document.body.appendChild(audioEl);}
+  if(!audioEl){
+    audioEl=document.createElement('audio');
+    audioEl.hidden=true;
+    document.body.appendChild(audioEl);
+  }
   audioEl.src=b64;
   audioEl.onplay=startMouth;
   audioEl.onended=()=>{stopMouth();onEnd&&onEnd();};
   await audioEl.play().catch(console.error);
 }
 function stopAudio(){
-  if(currentSource){try{currentSource.stop()}catch{} currentSource.disconnect();currentSource=null;}
+  if(currentSource){try{currentSource.stop();}catch{} currentSource.disconnect();currentSource=null;}
   if(audioEl){audioEl.pause();audioEl.currentTime=0;}
 }
 
-/* ---------- mouth anim ---------- */
+/* ---------- mouth animation ---------- */
 function startMouth(){if(animating)return;animating=true;lastFrame=0;tick();}
 function stopMouth(){animating=false;cancelAnimationFrame(raf);mouth.style.transform=`scaleY(${OPEN_STEPS[0]})`;}
 function tick(now){
@@ -239,32 +300,39 @@ function tick(now){
   if((now-lastFrame)/1000<FRAME_DT) return;
   lastFrame=now;
   const t=(audioCtx&&currentSource)?audioCtx.currentTime-startTime:(performance.now()/1000)-startTime;
-  if(!currentSource&&t>totalDur+.12){stopMouth();return;}
+  if(!currentSource&&t>totalDur+0.12){stopMouth();return;}
   let open=0.1;
   for(const seg of timings){if(t>=seg.t)open=seg.open;else break;}
-  mouth.style.transform=`scaleY(${quant(open+Math.random()*0.18-0.09)})`;
+  open+=Math.random()*0.18-0.09;
+  mouth.style.transform=`scaleY(${quant(open)})`;
 }
 
-/* ---------- show work tag ---------- */
-function showWork(w){
-  if(!w)return;
+/* ---------- utility ---------- */
+function showWork(work){
+  if(!work) return;
   const span=document.createElement('span');
-  span.className='work-tag';span.textContent='— '+w;
+  span.className='work-tag';
+  span.textContent='— '+work;
   output.appendChild(span);
 }
 
 /* ---------- main ---------- */
 async function summon(){
-  if(busy)return;busy=true;trigger.classList.add('pressed');
-  stopAudio();stopMouth();typed.textContent='';timings=[];totalDur=0;
+  if(busy) return;
+  busy=true;
+  trigger.classList.add('pressed');
+  stopAudio(); stopMouth();
+  typed.textContent='';
+  timings=[]; totalDur=0;
 
   try{
     const res=await fetch(ENDPOINT+'?style=shakespeare&modern=1&accent=scottish');
-    if(!res.ok)throw new Error('HTTP '+res.status);
+    if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json();
+
     const work=data.work||null;
     const text=sanitize(data.text);
-    timings=Array.isArray(data.timings)?data.timings:[];totalDur=timings.length?timings[timings.length-1].t:0;
+    timings=Array.isArray(data.timings)?data.timings:[]; totalDur=timings.length?timings[timings.length-1].t:0;
 
     typeOut(text,async()=>{
       startTime=performance.now()/1000;
@@ -273,15 +341,25 @@ async function summon(){
         await playAudio(data.audioBase64,()=>showWork(work));
       }else{
         if(!timings.length){fabricate(text);startTime=performance.now()/1000;startMouth();}
-        setTimeout(()=>{stopMouth();showWork(work);},(totalDur+.15)*1000);
+        setTimeout(()=>{stopMouth();showWork(work);},(totalDur+0.15)*1000);
       }
     });
-  }catch(e){console.error(e);typeOut('A shy packet tripped. Try again.');}
-  finally{setTimeout(()=>trigger.classList.remove('pressed'),140);busy=false;}
+  }catch(e){
+    console.error(e);
+    typeOut('A shy packet tripped. Try again.');
+  }finally{
+    setTimeout(()=>trigger.classList.remove('pressed'),140);
+    busy=false;
+  }
 }
 
 trigger.addEventListener('click',summon);
-document.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){summon();if(document.activeElement!==trigger)trigger.focus();}});
+document.addEventListener('keydown',e=>{
+  if(e.key===' '||e.key==='Enter'){
+    summon();
+    if(document.activeElement!==trigger) trigger.focus();
+  }
+});
 </script>
 </body>
 </html>
