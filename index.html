@@ -269,7 +269,7 @@ async function summon(){
   timings=[];totalDur=0;
 
   try{
-    const res=await fetch(`${ENDPOINT}?style=shakespeare&modern=1&accent=scottish`);
+    const res=await fetch(`${ENDPOINT}?style=canon&modern=1&accent=scottish`);
     if(!res.ok)throw new Error('HTTP '+res.status);
     const data=await res.json();
     const work=data.work||null;
