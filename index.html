@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --endpoint:https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
   --figure-scale:1.15;
   --mouth-top:133px;
@@ -27,7 +27,7 @@
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 }
 
-/* ---------- basic layout ---------- */
+/* ---------- layout ---------- */
 *{box-sizing:border-box}
 html,body{
   height:100%;margin:0;padding:0;
@@ -91,7 +91,7 @@ body{
   filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
 }
 
-/* ---------- output line ---------- */
+/* ---------- output ---------- */
 .output{
   font-family:var(--font-mono);
   font-size:clamp(9px,0.8vw,12px);
@@ -109,7 +109,7 @@ body{
 .typing .cursor{animation:none}
 .output .work-tag{opacity:.65;font-style:italic;margin-left:.6em;font-size:.9em}
 
-/* ---------- small‑screen tweaks ---------- */
+/* ---------- small screens ---------- */
 @media(max-height:640px){
   .figure-zone{gap:30px}
   .chunklet-wrap{height:calc(200px*var(--figure-scale))}
@@ -123,6 +123,8 @@ body{
 </style>
 </head>
 <body>
+  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
+
   <div class="wrapper">
     <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
@@ -145,160 +147,239 @@ body{
   </div>
 
 <script>
-/* ========== CONFIG ========== */
+/* ===== CONFIG ===== */
 const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
   || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+const QUERY    = '?style=canon&modern=1&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
 const FPS      = 16;
 const FRAME_DT = 1/FPS;
 const OPEN_STEPS = ['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
   .map(v=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)));
 
-const trigger = document.getElementById('trigger');
-const typed   = document.getElementById('typed');
-const cursor  = document.getElementById('cursor');
-const mouth   = document.getElementById('mouth');
-const output  = document.getElementById('output');
+const trigger  = document.getElementById('trigger');
+const typed    = document.getElementById('typed');
+const cursor   = document.getElementById('cursor');
+const mouth    = document.getElementById('mouth');
+const output   = document.getElementById('output');
+const clickSnd = document.getElementById('clickSnd');
 
-/* click‑sound */
-const clickSound = new Audio('click.mp3');
-clickSound.preload = 'auto';
+const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
+/* state */
 let busy=false;
 let audioCtx,currentSource,audioEl;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 
-/* ---------- helpers ---------- */
-const sanitize=txt=>{
+/* ===== audio unlock for iOS ===== */
+function ensureCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+function unlockAudioOnce(){
+  try{
+    ensureCtx();
+    const buf = audioCtx.createBuffer(1,1,22050);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
+  }catch(_){}
+  document.removeEventListener('touchstart', unlockAudioOnce);
+  document.removeEventListener('click', unlockAudioOnce);
+}
+document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
+document.addEventListener('click', unlockAudioOnce, {once:true});
+
+/* ===== helpers ===== */
+const sanitize = txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
   return /[.?!]$/.test(txt)?txt:txt+'.';
 };
 
-function typeOut(text,done){
+function typeOut(text, done){
   typed.textContent='';
   (function loop(i=0){
-    typed.textContent=text.slice(0,i);
+    typed.textContent = text.slice(0,i);
     if(i<text.length){
-      setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));
-    }else{done&&done();}
+      setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
+    }else{
+      done && done();
+    }
   })();
 }
 
-const quant=o=>OPEN_STEPS[Math.min(4,Math.max(0,Math.round(o*4)))];
+const quant = o => OPEN_STEPS[Math.min(4, Math.max(0, Math.round(o*4)))];
 
-/* fabricate mouth if backend omitted */
 function fabricate(text){
-  const dur=Math.min(7,Math.max(2.2,text.length/16));
-  const frames=Math.round(dur*FPS),step=dur/frames;
-  timings=[];
+  const dur = Math.min(7, Math.max(2.2, text.length/16));
+  const frames = Math.round(dur*FPS), step = dur/frames;
+  timings = [];
   for(let i=0;i<=frames;i++){
     const r=Math.random();
     timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
   }
-  totalDur=dur;
+  totalDur = dur;
 }
 
-/* ---------- audio (iOS‑safe) ---------- */
-function ensureCtx(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}
-async function playAudio(b64,onEnd){
-  try{
-    ensureCtx();
-    const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
-    const buf=await audioCtx.decodeAudioData(bin.buffer);
-    currentSource=audioCtx.createBufferSource();currentSource.buffer=buf;
-    currentSource.playbackRate.value=1.08;
-    currentSource.connect(audioCtx.destination);
-    startTime=audioCtx.currentTime;startMouth();
-    currentSource.start();
-    currentSource.onended=()=>{stopMouth();onEnd&&onEnd();};
-    return;
-  }catch(e){console.warn('WebAudio failed—fallback',e);}
-  if(!audioEl){audioEl=document.createElement('audio');audioEl.hidden=true;document.body.appendChild(audioEl);}
-  audioEl.src=b64;
-  audioEl.onplay=startMouth;
-  audioEl.onended=()=>{stopMouth();onEnd&&onEnd();};
-  await audioEl.play().catch(console.error);
+function startMouth(){
+  if(animating) return;
+  animating = true; lastFrame = 0; tick();
 }
-function stopAudio(){
-  if(currentSource){try{currentSource.stop()}catch{} currentSource.disconnect();currentSource=null;}
-  if(audioEl){audioEl.pause();audioEl.currentTime=0;}
+function stopMouth(){
+  animating = false;
+  cancelAnimationFrame(raf);
+  mouth.style.transform = 'scaleY(' + OPEN_STEPS[0] + ')';
 }
-
-/* ---------- mouth animation ---------- */
-function startMouth(){if(animating)return;animating=true;lastFrame=0;tick();}
-function stopMouth(){animating=false;cancelAnimationFrame(raf);mouth.style.transform=`scaleY(${OPEN_STEPS[0]})`;}
 function tick(now){
-  raf=requestAnimationFrame(tick);
-  if(!now)return;
-  if(!lastFrame)lastFrame=now;
-  if((now-lastFrame)/1000<FRAME_DT)return;
-  lastFrame=now;
-  const t=(audioCtx&&currentSource)?audioCtx.currentTime-startTime:(performance.now()/1000)-startTime;
-  if(!currentSource&&t>totalDur+.12){stopMouth();return;}
-  let open=0.1;
-  for(const seg of timings){if(t>=seg.t)open=seg.open;else break;}
-  mouth.style.transform=`scaleY(${quant(open+Math.random()*0.18-0.09)})`;
+  raf = requestAnimationFrame(tick);
+  if(!now) return;
+  if(!lastFrame) lastFrame = now;
+  if((now-lastFrame)/1000 < FRAME_DT) return;
+  lastFrame = now;
+
+  const t = (audioCtx && currentSource)
+    ? audioCtx.currentTime - startTime
+    : (performance.now()/1000) - startTime;
+
+  if(!currentSource && t > totalDur + 0.12){
+    stopMouth();
+    return;
+  }
+
+  let open = 0.1;
+  for(const seg of timings){ if(t >= seg.t) open = seg.open; else break; }
+  mouth.style.transform = 'scaleY(' + quant(open + Math.random()*0.18 - 0.09) + ')';
 }
 
-/* ---------- work tag ---------- */
-function showWork(w){
-  if(!w)return;
-  const old=output.querySelector('.work-tag');if(old)old.remove();
-  const span=document.createElement('span');
-  span.className='work-tag';span.textContent='— '+w;
+function showWork(work){
+  if(!work) return;
+  const old = output.querySelector('.work-tag');
+  if(old) old.remove();
+  const span = document.createElement('span');
+  span.className = 'work-tag';
+  span.textContent = '— ' + work;
   output.appendChild(span);
 }
 
-/* ---------- main ---------- */
+function fallbackStop(onEnd){
+  setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.2)*1000);
+}
+
+/* ===== audio playback ===== */
+async function playAudio(b64,onEnd){
+  if(isIOS){
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.hidden = true;
+      document.body.appendChild(audioEl);
+    }
+    audioEl.src = b64;
+    audioEl.onplay = startMouth;
+    audioEl.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+    try{
+      await audioEl.play();
+    }catch(e){
+      console.error('audio tag play failed', e);
+      fallbackStop(onEnd);
+    }
+    return;
+  }
+
+  // WebAudio path
+  try{
+    ensureCtx();
+    const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+    const buf = await audioCtx.decodeAudioData(bin.buffer);
+    currentSource = audioCtx.createBufferSource();
+    currentSource.buffer = buf;
+    currentSource.playbackRate.value = 1.08;
+    currentSource.connect(audioCtx.destination);
+    startTime = audioCtx.currentTime;
+    startMouth();
+    currentSource.start();
+    currentSource.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+  }catch(e){
+    console.warn('WebAudio failed, fallback audio tag', e);
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.hidden = true;
+      document.body.appendChild(audioEl);
+    }
+    audioEl.src = b64;
+    audioEl.onplay = startMouth;
+    audioEl.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+    try{
+      await audioEl.play();
+    }catch(err){
+      console.error('fallback audio tag failed', err);
+      fallbackStop(onEnd);
+    }
+  }
+}
+
+function stopAudio(){
+  if(currentSource){
+    try{ currentSource.stop(); }catch(_){}
+    currentSource.disconnect();
+    currentSource = null;
+  }
+  if(audioEl){
+    audioEl.pause();
+    audioEl.currentTime = 0;
+  }
+}
+
+/* ===== main ===== */
 async function summon(){
-  if(busy)return;
+  if(busy) return;
 
-  /* button press effect */
-  clickSound.currentTime=0;clickSound.play().catch(()=>{});
+  // click sound + quick visual press
+  try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
   trigger.classList.add('pressed');
-  setTimeout(()=>trigger.classList.remove('pressed'),160); // instant pop‑up
+  setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
-  busy=true;
-  stopAudio();stopMouth();
+  busy = true;
+  stopAudio(); stopMouth();
 
-  /* clear previous text & attribution immediately */
-  typed.textContent='';
-  const oldTag=output.querySelector('.work-tag');
-  if(oldTag)oldTag.remove();
+  // clear previous text & attribution
+  typed.textContent = '';
+  const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
 
-  timings=[];totalDur=0;
+  timings = []; totalDur = 0;
 
   try{
-    const res=await fetch(`${ENDPOINT}?style=canon&modern=1&accent=scottish`);
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    const work=data.work||null;
-    const text=sanitize(data.text);
-    timings=Array.isArray(data.timings)?data.timings:[];totalDur=timings.length?timings[timings.length-1].t:0;
+    const res = await fetch(ENDPOINT + QUERY);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const work = data.work || null;
+    const text = sanitize(data.text);
 
-    typeOut(text,async()=>{
-      startTime=performance.now()/1000;
+    timings = Array.isArray(data.timings) ? data.timings : [];
+    totalDur = timings.length ? timings[timings.length-1].t : 0;
+
+    typeOut(text, async ()=>{
+      startTime = performance.now()/1000;
       if(data.audioBase64){
-        if(!timings.length){fabricate(text);startTime=performance.now()/1000;}
-        await playAudio(data.audioBase64,()=>showWork(work));
+        if(!timings.length){ fabricate(text); startTime = performance.now()/1000; }
+        await playAudio(data.audioBase64, ()=>showWork(work));
       }else{
-        if(!timings.length){fabricate(text);startTime=performance.now()/1000;startMouth();}
-        setTimeout(()=>{stopMouth();showWork(work);},(totalDur+.15)*1000);
+        if(!timings.length){ fabricate(text); startTime = performance.now()/1000; startMouth(); }
+        setTimeout(()=>{ stopMouth(); showWork(work); }, (totalDur + 0.15)*1000);
       }
     });
+
   }catch(e){
     console.error(e);
     typeOut('A shy packet tripped. Try again.');
   }finally{
-    busy=false;
+    busy = false;
   }
 }
 
-trigger.addEventListener('click',summon);
-document.addEventListener('keydown',e=>{
+trigger.addEventListener('click', summon);
+document.addEventListener('keydown', e=>{
   if(e.key===' '||e.key==='Enter'){
     summon();
-    if(document.activeElement!==trigger)trigger.focus();
+    if(document.activeElement!==trigger) trigger.focus();
   }
 });
 </script>
