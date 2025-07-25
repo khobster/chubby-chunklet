@@ -267,24 +267,24 @@ function fallbackStop(onEnd){
 /* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
   if(isIOS){
-    if(!audioEl){
-      audioEl = document.createElement('audio');
-      audioEl.hidden = true;
-      document.body.appendChild(audioEl);
-    }
-    audioEl.src = b64;
-    audioEl.onplay = startMouth;
-    audioEl.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+    /* ---------- iOS / Safari: use <audio> with Blob to avoid autoplay issues ---------- */
     try{
+      const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+      const blob = new Blob([bin], {type:'audio/mp3'});
+      if(!audioEl){
+        audioEl = document.createElement('audio');
+        audioEl.hidden = true;
+        document.body.appendChild(audioEl);
+      }
+      audioEl.src = URL.createObjectURL(blob);
+      audioEl.onplay = startMouth;
+      audioEl.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
       await audioEl.play();
-    }catch(e){
-      console.error('audio tag play failed', e);
-      fallbackStop(onEnd);
-    }
-    return;
+      return;
+    }catch(e){ console.error('iOS blob‑audio failed', e); fallbackStop(onEnd); return; }
   }
 
-  // WebAudio path
+  /* ---------- Web‑Audio first ---------- */
   try{
     ensureCtx();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -297,8 +297,13 @@ async function playAudio(b64,onEnd){
     startMouth();
     currentSource.start();
     currentSource.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+    return;
   }catch(e){
-    console.warn('WebAudio failed, fallback audio tag', e);
+    console.warn('WebAudio failed, falling back to <audio>', e);
+  }
+
+  /* ---------- Fallback plain <audio> (desktop) ---------- */
+  try{
     if(!audioEl){
       audioEl = document.createElement('audio');
       audioEl.hidden = true;
@@ -307,12 +312,10 @@ async function playAudio(b64,onEnd){
     audioEl.src = b64;
     audioEl.onplay = startMouth;
     audioEl.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
-    try{
-      await audioEl.play();
-    }catch(err){
-      console.error('fallback audio tag failed', err);
-      fallbackStop(onEnd);
-    }
+    await audioEl.play();
+  }catch(err){
+    console.error('Plain <audio> failed', err);
+    fallbackStop(onEnd);
   }
 }
 
@@ -332,7 +335,7 @@ function stopAudio(){
 async function summon(){
   if(busy) return;
 
-  // click sound + quick visual press
+  /* click effect */
   try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
   trigger.classList.add('pressed');
   setTimeout(()=>trigger.classList.remove('pressed'), 160);
@@ -340,11 +343,10 @@ async function summon(){
   busy = true;
   stopAudio(); stopMouth();
 
-  // clear previous text & attribution
+  /* clear previous */
   typed.textContent = '';
   const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
-
-  timings = []; totalDur = 0;
+  timings=[]; totalDur = 0;
 
   try{
     const res = await fetch(ENDPOINT + QUERY);
