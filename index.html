@@ -166,10 +166,11 @@ const clickSnd = document.getElementById('clickSnd');
 
 const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-/* state */
+/* ---------- state ---------- */
 let busy=false;
 let audioCtx,currentSource,audioEl;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
+let tagPlaying=false;   /* <audio> tag is in-flight? */
 
 /* ===== audio unlock for iOS ===== */
 function ensureCtx(){
@@ -240,7 +241,8 @@ function tick(now){
     ? audioCtx.currentTime - startTime
     : (performance.now()/1000) - startTime;
 
-  if(!currentSource && t > totalDur + 0.12){
+  /* stop only when BOTH Web‑Audio source & <audio> tag are idle */
+  if(!currentSource && !tagPlaying && t > totalDur + 0.12){
     stopMouth();
     return;
   }
@@ -267,9 +269,9 @@ function fallbackStop(onEnd){
 /* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
   if(isIOS){
-    /* ---------- iOS / Safari: use <audio> with Blob to avoid autoplay issues ---------- */
+    /* ---------- iOS / Safari: use <audio> with Blob ---------- */
     try{
-      const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+      const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
       const blob = new Blob([bin], {type:'audio/mp3'});
       if(!audioEl){
         audioEl = document.createElement('audio');
@@ -277,14 +279,14 @@ async function playAudio(b64,onEnd){
         document.body.appendChild(audioEl);
       }
       audioEl.src = URL.createObjectURL(blob);
-      audioEl.onplay = startMouth;
-      audioEl.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+      audioEl.onplay  = ()=>{ tagPlaying=true;  startMouth(); };
+      audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
       await audioEl.play();
       return;
     }catch(e){ console.error('iOS blob‑audio failed', e); fallbackStop(onEnd); return; }
   }
 
-  /* ---------- Web‑Audio first ---------- */
+  /* ---------- Web‑Audio ---------- */
   try{
     ensureCtx();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -294,15 +296,16 @@ async function playAudio(b64,onEnd){
     currentSource.playbackRate.value = 1.08;
     currentSource.connect(audioCtx.destination);
     startTime = audioCtx.currentTime;
+    tagPlaying = true;
     startMouth();
     currentSource.start();
-    currentSource.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+    currentSource.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
     return;
   }catch(e){
-    console.warn('WebAudio failed, falling back to <audio>', e);
+    console.warn('WebAudio failed, fallback to <audio>', e);
   }
 
-  /* ---------- Fallback plain <audio> (desktop) ---------- */
+  /* ---------- plain <audio> fallback ---------- */
   try{
     if(!audioEl){
       audioEl = document.createElement('audio');
@@ -310,8 +313,8 @@ async function playAudio(b64,onEnd){
       document.body.appendChild(audioEl);
     }
     audioEl.src = b64;
-    audioEl.onplay = startMouth;
-    audioEl.onended = ()=>{ stopMouth(); onEnd && onEnd(); };
+    audioEl.onplay  = ()=>{ tagPlaying=true;  startMouth(); };
+    audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
@@ -329,13 +332,14 @@ function stopAudio(){
     audioEl.pause();
     audioEl.currentTime = 0;
   }
+  tagPlaying = false;
 }
 
 /* ===== main ===== */
 async function summon(){
   if(busy) return;
 
-  /* click effect */
+  /* click fx */
   try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
   trigger.classList.add('pressed');
   setTimeout(()=>trigger.classList.remove('pressed'), 160);
@@ -344,9 +348,9 @@ async function summon(){
   stopAudio(); stopMouth();
 
   /* clear previous */
-  typed.textContent = '';
+  typed.textContent='';
   const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
-  timings=[]; totalDur = 0;
+  timings=[]; totalDur=0;
 
   try{
     const res = await fetch(ENDPOINT + QUERY);
