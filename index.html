@@ -16,8 +16,7 @@
   --mouth-w:38px;
   --mouth-h:38px;
 
-  /* kept for initial value; live scale is set in JS */
-  --mouth-scale-0:.05;
+  --mouth-scale-0:.05; /* initial; JS drives live scale */
 
   --char-ms:18;
   --terminal-color:#1034a6;
@@ -151,7 +150,9 @@ const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')|
   || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
 const QUERY    = '?style=canon&modern=1&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
-const FPS      = 16;
+
+/* Higher frame cadence for snappy updates */
+const FPS      = 30;
 const FRAME_DT = 1/FPS;
 
 const trigger  = document.getElementById('trigger');
@@ -171,19 +172,22 @@ let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 let tagPlaying=false;
 let currentObjectURL=null;
 
-/* ===== CARTOON FLAPPER SETTINGS ===== */
-const GATE = 0.015;                 // ignore tiny noise
-const ANALYSER_SMOOTH = 0.06;       // snappy envelope response
-const THRESHOLDS = {                // hysteresis thresholds on envelope (0..1)
-  halfOn:  0.06,  halfOff: 0.04,   // enter/leave HALF
-  openOn:  0.17,  openOff: 0.12    // enter/leave OPEN
+/* ===== CARTOON FLAPPER (Extra Rapid) SETTINGS ===== */
+const GATE = 0.012;                 // ignore tiny noise
+const ANALYSER_SMOOTH = 0.02;       // very snappy envelope
+const THRESHOLDS = {                // hysteresis thresholds
+  halfOn:  0.04,  halfOff: 0.03,
+  openOn:  0.12,  openOff: 0.08
 };
-const ATTACK_MS  = 40;              // how fast to reach target scale (open)
-const RELEASE_MS = 60;              // how fast to reach target scale (close)
+/* Set SNAP_STATES = true to hard-snap (no tween) */
+const SNAP_STATES = true;
+const ATTACK_MS  = 12;              // if snapping=false, still very fast
+const RELEASE_MS = 20;
+
 const STATES = {
-  closed: { sx: 1.00, sy: 0.10 },
-  half:   { sx: 1.05, sy: 0.70 },
-  open:   { sx: 1.02, sy: 1.65 }
+  closed: { sx: 1.00, sy: 0.08 },
+  half:   { sx: 1.04, sy: 0.90 },
+  open:   { sx: 1.02, sy: 1.90 }
 };
 
 /* ===== audio unlock for iOS ===== */
@@ -267,9 +271,9 @@ function envelopeLevel(){
     if(v>max) max=v;
   }
   let amp = (max - min) / 255; // approx 0..1
-  amp = amp <= GATE ? 0 : (amp - GATE) / (1 - GATE); // simple gate
-  // minimal smoothing to keep it snappy
-  const A=0.65, R=0.25;
+  amp = amp <= GATE ? 0 : (amp - GATE) / (1 - GATE);
+  // very light smoothing to keep it lively
+  const A=0.80, R=0.20;
   env = (amp>env) ? env+(amp-env)*A : env+(amp-env)*R;
   return Math.max(0, Math.min(1, env));
 }
@@ -293,12 +297,15 @@ function updateState(e){
 
 function lerp(a,b,t){ return a + (b-a)*t; }
 function applyMouthToward(target, dt){
-  // per-frame ease toward target using attack/release timing
-  const up = (target.sy > lastSY) || (target.sx > lastSX);
-  const tau = (up ? ATTACK_MS : RELEASE_MS);
-  const t = Math.max(0.0001, Math.min(1, dt / tau));
-  lastSX = lerp(lastSX, target.sx, t);
-  lastSY = lerp(lastSY, target.sy, t);
+  if (SNAP_STATES){
+    lastSX = target.sx; lastSY = target.sy;
+  }else{
+    const up = (target.sy > lastSY) || (target.sx > lastSX);
+    const tau = (up ? ATTACK_MS : RELEASE_MS);
+    const t = Math.max(0.0001, Math.min(1, dt / tau));
+    lastSX = lerp(lastSX, target.sx, t);
+    lastSY = lerp(lastSY, target.sy, t);
+  }
   mouth.style.transform = `scale(${lastSX.toFixed(3)}, ${lastSY.toFixed(3)})`;
 }
 
@@ -328,8 +335,7 @@ function tick(now){
   if(active){
     const e = envelopeLevel();
     updateState(e);
-    const target = STATES[mouthState] || STATES.closed;
-    applyMouthToward(target, dt);
+    applyMouthToward(STATES[mouthState] || STATES.closed, dt);
     return;
   }
 
