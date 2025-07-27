@@ -16,6 +16,7 @@
   --mouth-w:38px;
   --mouth-h:38px;
 
+  /* legacy steps still defined, but we now drive X/Y continuously */
   --mouth-scale-0:.05;
   --mouth-scale-1:.55;
   --mouth-scale-2:1.05;
@@ -76,7 +77,7 @@ body{
   pointer-events:none;
 }
 .mouth-overlay svg{width:100%;height:100%}
-#mouth{transform-origin:50% 50%;transform:scaleY(var(--mouth-scale-0))}
+#mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
 /* ---------- button ---------- */
 .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
@@ -132,7 +133,10 @@ body{
       <div class="chunklet-wrap">
         <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
         <div class="mouth-overlay">
-          <svg viewBox="0 0 100 100"><ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/></svg>
+          <svg viewBox="0 0 100 100">
+            <!-- Simple oval mouth we scale in X and Y for visemes -->
+            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+          </svg>
         </div>
       </div>
 
@@ -154,8 +158,6 @@ const QUERY    = '?style=canon&modern=1&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
 const FPS      = 16;
 const FRAME_DT = 1/FPS;
-const OPEN_STEPS = ['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
-  .map(v=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)));
 
 const trigger  = document.getElementById('trigger');
 const typed    = document.getElementById('typed');
@@ -169,17 +171,22 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 /* ---------- state ---------- */
 let busy=false;
 let audioCtx,currentSource,audioEl,mediaSource;
-let analyser,timeData,zeroGain;
+let analyser,timeData,freqData,zeroGain;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 let tagPlaying=false;
 let currentObjectURL=null;
-let level=0;
 
-/* Tune mouth liveliness */
-const GATE = 0.02;       // ignore micro-noise
-const EXPAND = 0.6;      // dynamic range expansion (lower -> more lively)
-const EXAGGERATE = 1.6;  // multiply openness before quantizing
-const OFFSET = 0.04;     // add a touch of baseline openness
+/* ===== viseme tuning knobs =====
+   You can tweak these if you want it bouncier / rounder / thinner */
+const GATE        = 0.02;   // ignore micro-noise in amp envelope
+const EXPAND      = 0.60;   // dynamic-range expansion for openness
+const EXAGGERATE  = 1.50;   // multiply openness (vertical)
+const OFFSET      = 0.05;   // baseline openness
+
+const ROUND_BIAS  = 0.40;   // pull “round” more when centroid is low
+const SPREAD_BIAS = 0.35;   // pull “spread” more when centroid is high
+const FRICATIVE_THIN = 0.35;// thinness when high-band fricatives detected
+const SMOOTH_XY   = 0.25;   // smoothing factor for x/y motion (0..1)
 
 /* ===== audio unlock for iOS ===== */
 function ensureCtx(){
@@ -217,28 +224,15 @@ function typeOut(text, done){
   })();
 }
 
-const quant = o => OPEN_STEPS[Math.min(4, Math.max(0, Math.round(o*4)))];
-
-/* fabricate mouth if backend omitted */
-function fabricate(text){
-  const dur = Math.min(7, Math.max(2.2, text.length/16));
-  const frames = Math.round(dur*FPS), step = dur/frames;
-  timings = [];
-  for(let i=0;i<=frames;i++){
-    const r=Math.random();
-    timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
-  }
-  totalDur = dur;
-}
-
 /* ===== analyser setup ===== */
 function ensureAnalyser(){
   ensureCtx();
   if(!analyser){
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512;                 // more responsive
-    analyser.smoothingTimeConstant = 0.2;   // less smear -> more movement
+    analyser.fftSize = 1024;                 // finer spectrum for centroid
+    analyser.smoothingTimeConstant = 0.18;   // responsive but not jittery
     timeData = new Uint8Array(analyser.fftSize);
+    freqData = new Float32Array(analyser.frequencyBinCount);
   }
   if(!zeroGain){
     zeroGain = audioCtx.createGain();
@@ -268,20 +262,11 @@ function attachAnalyserToMediaElement(){
   }
 }
 
-/* ===== mouth animation ===== */
-function startMouth(){
-  if(animating) return;
-  animating = true; lastFrame = 0; level = 0; tick();
-}
-function stopMouth(){
-  animating = false;
-  cancelAnimationFrame(raf);
-  mouth.style.transform = 'scaleY(' + OPEN_STEPS[0] + ')';
-}
+/* ===== envelope + spectrum features ===== */
+let openEnv = 0;   // smoothed openness
+let lastSX = 1, lastSY = 0.1; // smoothed scale
 
-/* Peak-to-peak + expansion -> 0..1 */
-function computeLevelFromAnalyser(){
-  if(!analyser || !timeData) return 0;
+function envelopeLevel(){
   analyser.getByteTimeDomainData(timeData);
   let min=255, max=0;
   for(let i=0;i<timeData.length;i++){
@@ -289,61 +274,123 @@ function computeLevelFromAnalyser(){
     if(v<min) min=v;
     if(v>max) max=v;
   }
-  let amp = (max - min) / 255;         // 0..~1
-  // smooth a bit (faster attack, slower release)
-  const ATTACK=0.5, RELEASE=0.2;
-  level = (amp>level) ? level+(amp-level)*ATTACK : level+(amp-level)*RELEASE;
+  let amp = (max - min) / 255; // 0..1 approx
+  // gate + expansion
+  if(amp <= GATE) amp = 0;
+  else amp = Math.pow((amp - GATE) / (1 - GATE), EXPAND);
+  // smooth
+  const ATTACK=0.45, RELEASE=0.20;
+  openEnv = (amp>openEnv) ? openEnv+(amp-openEnv)*ATTACK : openEnv+(amp-openEnv)*RELEASE;
+  return Math.max(0, Math.min(1, openEnv));
+}
 
-  if(level <= GATE) return 0;
-  let open = (level - GATE) / (1 - GATE);
-  open = Math.pow(open, EXPAND);       // expand low dynamics
-  return Math.max(0, Math.min(1, open));
+function spectralFeatures(){
+  analyser.getFloatFrequencyData(freqData);
+  // convert dB to linear
+  let sum=0, weighted=0;
+  const sr = audioCtx.sampleRate || 44100;
+  const nyq = sr/2;
+  const n = freqData.length;
+
+  // band sums for fricatives (approx 4–8 kHz) and lows (0.2–1 kHz)
+  let hi=0, lo=0, all=0;
+  for(let i=0;i<n;i++){
+    const db = freqData[i];
+    const mag = db<=-140 ? 0 : Math.pow(10, db/20);
+    const f = i/n * nyq;
+
+    sum += mag;
+    weighted += mag * f;
+    all += mag;
+    if(f>=4000 && f<=8000) hi += mag;
+    if(f>=200 && f<=1000)  lo += mag;
+  }
+  const centroid = sum>0 ? (weighted / sum) : 0;
+  const centroidNorm = Math.max(0, Math.min(1, (centroid - 500) / (4000 - 500))); // 0 low=round .. 1 high=spread
+  const hiRatio = all>0 ? hi/all : 0;
+
+  return { centroidNorm, hiRatio };
+}
+
+/* ===== mouth animation ===== */
+function startMouth(){
+  if(animating) return;
+  animating = true; lastFrame = 0; requestAnimationFrame(tick);
+}
+function stopMouth(){
+  animating = false;
+  cancelAnimationFrame(raf);
+  mouth.style.transform = 'scale(1, var(--mouth-scale-0))';
+}
+
+function applyMouth(sx, sy){
+  // inertia smoothing so it looks organic
+  const a = SMOOTH_XY;
+  lastSX = lastSX + (sx - lastSX) * a;
+  lastSY = lastSY + (sy - lastSY) * a;
+  mouth.style.transform = `scale(${lastSX.toFixed(3)}, ${lastSY.toFixed(3)})`;
 }
 
 function tick(now){
   raf = requestAnimationFrame(tick);
-  if(!now) return;
+  if(!now || !analyser) return;
+
   if(!lastFrame) lastFrame = now;
   if((now-lastFrame)/1000 < FRAME_DT) return;
   lastFrame = now;
 
   const playbackActive = !!currentSource || tagPlaying;
+  if(playbackActive){
+    const open = Math.max(0, Math.min(1, envelopeLevel()*EXAGGERATE + OFFSET));
+    const { centroidNorm, hiRatio } = spectralFeatures();
 
-  if(playbackActive && analyser){
-    const live = computeLevelFromAnalyser();
-    const open = Math.max(0, Math.min(1, live * EXAGGERATE + OFFSET));
-    mouth.style.transform = 'scaleY(' + quant(open) + ')';
+    // map features to viseme-like scales
+    // rounded "oo" when centroid low -> narrower & taller
+    // spread "ee" when centroid high -> wider & a bit shorter
+    const roundPull  = (1 - centroidNorm) * ROUND_BIAS;
+    const spreadPull = (centroidNorm) * SPREAD_BIAS;
+
+    // Base scales from openness
+    let sy = 0.15 + open * 1.7;               // vertical = openness
+    let sx = 1.0 + spreadPull*0.8 - roundPull*0.6; // horizontal = spread vs round
+
+    // fricatives (s/sh/f) → thin vertical slit, slightly spread
+    if(hiRatio > 0.18){
+      sx += 0.25;
+      sy = Math.max(0.10, sy * FRICATIVE_THIN);
+    }
+
+    // clamp & apply
+    sx = Math.max(0.65, Math.min(2.1, sx));
+    sy = Math.max(0.08, Math.min(1.95, sy));
+    applyMouth(sx, sy);
     return;
   }
 
-  // Fallback to fabricated timings if no audio
-  const t = (audioCtx && currentSource)
-    ? audioCtx.currentTime - startTime
-    : (performance.now()/1000) - startTime;
-
+  // no audio: fall back to fabricated timings (typing-only mode)
+  const t = (performance.now()/1000) - startTime;
   if(!currentSource && !tagPlaying && t > totalDur + 0.12){
     stopMouth();
     return;
   }
-
   let open = 0.1;
   for(const seg of timings){ if(t >= seg.t) open = seg.open; else break; }
-  mouth.style.transform = 'scaleY(' + quant(open + Math.random()*0.18 - 0.09) + ')';
+  const sy = 0.15 + open * 1.4;
+  const sx = 1.0 + (Math.random()*0.2 - 0.1); // tiny jitter so it isn’t static
+  applyMouth(sx, sy);
 }
 
 /* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
   // Try WebAudio decode first
   try{
-    ensureCtx();
+    ensureCtx(); ensureAnalyser();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const buf = await audioCtx.decodeAudioData(bin.buffer);
     currentSource = audioCtx.createBufferSource();
     currentSource.buffer = buf;
     currentSource.playbackRate.value = 1.08;
-
     attachAnalyserToBufferSource(currentSource);
-
     startTime = audioCtx.currentTime;
     tagPlaying = true;
     startMouth();
@@ -361,6 +408,7 @@ async function playAudio(b64,onEnd){
 
   // Fallback: <audio> element (iOS-friendly)
   try{
+    ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
     const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const blob = new Blob([bin], {type:'audio/mp3'});
     if(!audioEl){
@@ -371,8 +419,6 @@ async function playAudio(b64,onEnd){
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
     currentObjectURL = URL.createObjectURL(blob);
     audioEl.src = currentObjectURL;
-
-    attachAnalyserToMediaElement();
 
     audioEl.onplay  = ()=>{ tagPlaying=true;  startMouth(); };
     audioEl.onended = ()=>{
@@ -400,13 +446,25 @@ function stopAudio(){
   tagPlaying = false;
 }
 
+/* ===== fabricated typing timings ===== */
+function fabricate(text){
+  const dur = Math.min(7, Math.max(2.2, text.length/16));
+  const frames = Math.round(dur*FPS), step = dur/frames;
+  timings = [];
+  for(let i=0;i<=frames;i++){
+    const r=Math.random();
+    timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
+  }
+  totalDur = dur;
+}
+
 /* ===== main ===== */
 const FETCH_URL = ENDPOINT + QUERY;
 
 async function summon(){
   if(busy) return;
 
-  /* click fx */
+  /* click fx + quick pop */
   try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
   trigger.classList.add('pressed');
   setTimeout(()=>trigger.classList.remove('pressed'), 160);
