@@ -168,9 +168,12 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
 /* ---------- state ---------- */
 let busy=false;
-let audioCtx,currentSource,audioEl;
+let audioCtx,currentSource,audioEl,mediaSource;
+let analyser,timeData,zeroGain;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
-let tagPlaying=false;   /* <audio> tag is in-flight? */
+let tagPlaying=false;      // <audio> playing?
+let currentObjectURL=null; // for iOS blob URLs
+let level=0;               // smoothed level for mouth
 
 /* ===== audio unlock for iOS ===== */
 function ensureCtx(){
@@ -210,6 +213,7 @@ function typeOut(text, done){
 
 const quant = o => OPEN_STEPS[Math.min(4, Math.max(0, Math.round(o*4)))];
 
+/* fabricate mouth if backend omitted */
 function fabricate(text){
   const dur = Math.min(7, Math.max(2.2, text.length/16));
   const frames = Math.round(dur*FPS), step = dur/frames;
@@ -221,15 +225,82 @@ function fabricate(text){
   totalDur = dur;
 }
 
+/* ===== analyser setup ===== */
+function ensureAnalyser(){
+  ensureCtx();
+  if(!analyser){
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.5;
+    timeData = new Uint8Array(analyser.fftSize);
+  }
+  if(!zeroGain){
+    zeroGain = audioCtx.createGain();
+    zeroGain.gain.value = 0.0; // silent sink to keep graph pulling when needed
+    zeroGain.connect(audioCtx.destination);
+  }
+}
+
+function attachAnalyserToBufferSource(srcNode){
+  ensureAnalyser();
+  try{
+    srcNode.disconnect();
+  }catch(_){}
+  srcNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+
+function attachAnalyserToMediaElement(){
+  ensureAnalyser();
+  if(!audioEl){
+    audioEl = document.createElement('audio');
+    audioEl.hidden = true;
+    document.body.appendChild(audioEl);
+  }
+  if(!mediaSource){
+    try{
+      mediaSource = audioCtx.createMediaElementSource(audioEl);
+      // Tap into analyser -> zeroGain (avoid double-audio)
+      mediaSource.connect(analyser);
+      analyser.connect(zeroGain);
+    }catch(e){
+      console.warn('createMediaElementSource failed', e);
+    }
+  }
+}
+
+/* ===== mouth animation ===== */
 function startMouth(){
   if(animating) return;
-  animating = true; lastFrame = 0; tick();
+  animating = true; lastFrame = 0; level = 0; tick();
 }
 function stopMouth(){
   animating = false;
   cancelAnimationFrame(raf);
   mouth.style.transform = 'scaleY(' + OPEN_STEPS[0] + ')';
 }
+
+function computeLevelFromAnalyser(){
+  if(!analyser || !timeData) return 0;
+  analyser.getByteTimeDomainData(timeData);
+  // Convert to RMS in [-1,1]
+  let sum = 0;
+  for(let i=0;i<timeData.length;i++){
+    const v = (timeData[i]-128)/128; // -1..1
+    sum += v*v;
+  }
+  const rms = Math.sqrt(sum / timeData.length); // ~0.0..~0.5 for speech peaks
+  // Smooth with attack/release
+  const attack = 0.25, release = 0.06;
+  const target = rms;
+  level = (target > level) ? level + (target-level)*attack
+                           : level + (target-level)*release;
+  // Map to 0..1 mouth openness (tweak thresholds as needed)
+  const low = 0.025, high = 0.22;
+  const norm = Math.max(0, Math.min(1, (level - low) / (high - low)));
+  return norm;
+}
+
 function tick(now){
   raf = requestAnimationFrame(tick);
   if(!now) return;
@@ -237,11 +308,20 @@ function tick(now){
   if((now-lastFrame)/1000 < FRAME_DT) return;
   lastFrame = now;
 
+  const playbackActive = !!currentSource || tagPlaying;
+
+  // Prefer analyser when audio is actually playing
+  if(playbackActive && analyser){
+    const open = computeLevelFromAnalyser();
+    mouth.style.transform = 'scaleY(' + quant(open) + ')';
+    return;
+  }
+
+  // Fallback to fabricated timings if no audio
   const t = (audioCtx && currentSource)
     ? audioCtx.currentTime - startTime
     : (performance.now()/1000) - startTime;
 
-  /* stop only when BOTH Web‑Audio source & <audio> tag are idle */
   if(!currentSource && !tagPlaying && t > totalDur + 0.12){
     stopMouth();
     return;
@@ -252,41 +332,9 @@ function tick(now){
   mouth.style.transform = 'scaleY(' + quant(open + Math.random()*0.18 - 0.09) + ')';
 }
 
-function showWork(work){
-  if(!work) return;
-  const old = output.querySelector('.work-tag');
-  if(old) old.remove();
-  const span = document.createElement('span');
-  span.className = 'work-tag';
-  span.textContent = '— ' + work;
-  output.appendChild(span);
-}
-
-function fallbackStop(onEnd){
-  setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.2)*1000);
-}
-
 /* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
-  if(isIOS){
-    /* ---------- iOS / Safari: use <audio> with Blob ---------- */
-    try{
-      const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-      const blob = new Blob([bin], {type:'audio/mp3'});
-      if(!audioEl){
-        audioEl = document.createElement('audio');
-        audioEl.hidden = true;
-        document.body.appendChild(audioEl);
-      }
-      audioEl.src = URL.createObjectURL(blob);
-      audioEl.onplay  = ()=>{ tagPlaying=true;  startMouth(); };
-      audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
-      await audioEl.play();
-      return;
-    }catch(e){ console.error('iOS blob‑audio failed', e); fallbackStop(onEnd); return; }
-  }
-
-  /* ---------- Web‑Audio ---------- */
+  // Try WebAudio decode for everyone first (works on iOS after unlock)
   try{
     ensureCtx();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -294,48 +342,74 @@ async function playAudio(b64,onEnd){
     currentSource = audioCtx.createBufferSource();
     currentSource.buffer = buf;
     currentSource.playbackRate.value = 1.08;
-    currentSource.connect(audioCtx.destination);
+
+    attachAnalyserToBufferSource(currentSource);
+
     startTime = audioCtx.currentTime;
     tagPlaying = true;
     startMouth();
     currentSource.start();
-    currentSource.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
+    currentSource.onended = ()=>{
+      tagPlaying=false;
+      currentSource=null;
+      stopMouth();
+      onEnd && onEnd();
+    };
     return;
   }catch(e){
-    console.warn('WebAudio failed, fallback to <audio>', e);
+    console.warn('WebAudio decode failed, falling back to <audio>', e);
   }
 
-  /* ---------- plain <audio> fallback ---------- */
+  // Fallback: <audio> element (iOS-friendly)
   try{
+    const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+    const blob = new Blob([bin], {type:'audio/mp3'});
     if(!audioEl){
       audioEl = document.createElement('audio');
       audioEl.hidden = true;
       document.body.appendChild(audioEl);
     }
-    audioEl.src = b64;
+    // If we created a prior blob URL, revoke it
+    if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+
+    currentObjectURL = URL.createObjectURL(blob);
+    audioEl.src = currentObjectURL;
+
+    attachAnalyserToMediaElement();
+
     audioEl.onplay  = ()=>{ tagPlaying=true;  startMouth(); };
-    audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
+    audioEl.onended = ()=>{
+      tagPlaying=false;
+      stopMouth();
+      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+      onEnd && onEnd();
+    };
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
-    fallbackStop(onEnd);
+    // As a last resort: time out mouth roughly to fabricated duration
+    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.2)*1000);
   }
 }
 
 function stopAudio(){
   if(currentSource){
     try{ currentSource.stop(); }catch(_){}
-    currentSource.disconnect();
+    try{ currentSource.disconnect(); }catch(_){}
     currentSource = null;
   }
   if(audioEl){
-    audioEl.pause();
-    audioEl.currentTime = 0;
+    try{
+      audioEl.pause();
+      audioEl.currentTime = 0;
+    }catch(_){}
   }
   tagPlaying = false;
 }
 
 /* ===== main ===== */
+const FETCH_URL = ENDPOINT + QUERY;
+
 async function summon(){
   if(busy) return;
 
@@ -353,7 +427,7 @@ async function summon(){
   timings=[]; totalDur=0;
 
   try{
-    const res = await fetch(ENDPOINT + QUERY);
+    const res = await fetch(FETCH_URL, { cache:'no-store' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     const work = data.work || null;
@@ -379,6 +453,15 @@ async function summon(){
   }finally{
     busy = false;
   }
+}
+
+function showWork(work){
+  if(!work) return;
+  const old = output.querySelector('.work-tag'); if(old) old.remove();
+  const span = document.createElement('span');
+  span.className = 'work-tag';
+  span.textContent = '— ' + work;
+  output.appendChild(span);
 }
 
 trigger.addEventListener('click', summon);
