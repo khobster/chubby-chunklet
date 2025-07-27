@@ -16,9 +16,7 @@
   --mouth-w:38px;
   --mouth-h:38px;
 
-  /* JS fully drives mouth scale now; this is just initial */
-  --mouth-scale-0:.05;
-
+  --mouth-scale-0:.05; /* initial; JS now drives actual levels */
   --char-ms:18;
   --terminal-color:#1034a6;
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
@@ -152,7 +150,6 @@ const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')|
 const QUERY    = '?style=canon&modern=1&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
 
-/* Animation cadence – use rAF every frame (no frame skip) for max snap */
 const trigger  = document.getElementById('trigger');
 const typed    = document.getElementById('typed');
 const cursor   = document.getElementById('cursor');
@@ -165,25 +162,23 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 /* ---------- state ---------- */
 let busy=false;
 let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-let startTime=0,timings=[],raf,animating=false,totalDur=0;
+let startTime=0,raf,animating=false,totalDur=0;
 let tagPlaying=false;
 let currentObjectURL=null;
 
-/* ===== super‑snappy binary flap settings ===== */
-const OPEN_SY = 2.20;        // how wide “open” is
-const CLOSED_SY = 0.07;      // how thin “closed” is
-const OPEN_SX = 1.02;        // slight horizontal squish on open
-const CLOSED_SX = 1.00;
+/* ===== multi-level fast flap (discrete bands with hysteresis) ===== */
+/* Levels: 0..4  -> closed, small, medium, big, huge */
+const SY = [0.07, 0.55, 1.10, 1.70, 2.30];   // vertical scales per level
+const SX = [1.00, 1.01, 1.02, 1.02, 1.03];   // slight horizontal squish
+const THRESH_UP   = [0.030, 0.060, 0.100, 0.160]; // climb thresholds to reach 1..4
+const HYST_DELTA  = 0.018;                         // how much lower to drop a band
+const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
+const GATE_FLOOR  = 0.010;                         // ignore micro-noise
+const CLOSE_GRACE_MS = 20;                         // micro flicker guard
 
-const AMP_OPEN  = 0.060;     // open when RMS >= this
-const AMP_CLOSE = 0.035;     // close when RMS <= this (hysteresis)
-const GATE_FLOOR = 0.010;    // ignore micro-noise entirely
-const CLOSE_GRACE_MS = 24;   // tiny grace to avoid micro-chatter
+let level = 0;
+let lastChange = 0;
 
-let mouthOpen = false;
-let lastStateChange = 0;
-
-/* ===== audio unlock for iOS ===== */
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -201,30 +196,12 @@ function unlockAudioOnce(){
 document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
 document.addEventListener('click', unlockAudioOnce, {once:true});
 
-/* ===== helpers ===== */
-const sanitize = txt=>{
-  txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
-  return /[.?!]$/.test(txt)?txt:txt+'.';
-};
-function typeOut(text, done){
-  typed.textContent='';
-  (function loop(i=0){
-    typed.textContent = text.slice(0,i);
-    if(i<text.length){
-      setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
-    }else{
-      done && done();
-    }
-  })();
-}
-
-/* ===== analyser setup (zero smoothing, RMS) ===== */
 function ensureAnalyser(){
   ensureCtx();
   if(!analyser){
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256; // small window -> fast response
-    analyser.smoothingTimeConstant = 0.0;
+    analyser.fftSize = 256;                 // fast response
+    analyser.smoothingTimeConstant = 0.0;   // no smoothing
     timeData = new Float32Array(analyser.fftSize);
   }
 }
@@ -256,21 +233,20 @@ function rmsLevel(){
     const v = timeData[i];
     sum += v*v;
   }
-  let rms = Math.sqrt(sum / timeData.length); // ~0..1 (typ ~0.02..0.2 speech)
-  // quick noise gate
+  let rms = Math.sqrt(sum / timeData.length);
   if (rms < GATE_FLOOR) rms = 0;
   return rms;
 }
 
-/* ===== mouth animation ===== */
-function setMouth(open){
-  mouthOpen = open;
-  if(open){
-    mouth.style.transform = `scale(${OPEN_SX}, ${OPEN_SY})`;
-  }else{
-    mouth.style.transform = `scale(${CLOSED_SX}, ${CLOSED_SY})`;
-  }
+/* set visual level immediately (no tween) */
+function setLevel(n){
+  n = Math.max(0, Math.min(4, n|0));
+  if (n === level) return;
+  level = n;
+  mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
+  lastChange = performance.now();
 }
+function setClosed(){ setLevel(0); }
 
 function startMouth(){
   if(animating) return;
@@ -280,49 +256,66 @@ function startMouth(){
 function stopMouth(){
   animating = false;
   cancelAnimationFrame(raf);
-  setMouth(false);
+  setClosed();
 }
 
-function tick(now){
+function tick(){
   raf = requestAnimationFrame(tick);
   if(!analyser) return;
 
   const active = !!currentSource || tagPlaying;
+  const now = performance.now();
+
   if(active){
     const e = rmsLevel();
-    const tNow = performance.now();
 
-    if(!mouthOpen){
-      // open immediately on strong enough energy
-      if(e >= AMP_OPEN){
-        setMouth(true);
-        lastStateChange = tNow;
-      }
-    }else{
-      // close quickly when energy drops below close threshold,
-      // but allow a tiny grace to avoid single-frame flicker
-      if(e <= AMP_CLOSE && (tNow - lastStateChange) >= CLOSE_GRACE_MS){
-        setMouth(false);
-        lastStateChange = tNow;
-      }
+    // Decide target band
+    let target = level;
+    // climb
+    while (target < 4 && e >= THRESH_UP[target]) target++;
+    // drop
+    while (target > 0 && e < THRESH_DOWN[target-1]) target--;
+
+    // very small grace to prevent single-frame chatter on drops
+    if (target < level && (now - lastChange) < CLOSE_GRACE_MS) {
+      target = level;
     }
+
+    setLevel(target);
     return;
   }
 
-  // typing-only fallback: rapid binary flap (~12–14 Hz)
-  const t = (performance.now()/1000) - startTime;
-  if(t > totalDur + 0.12){
-    stopMouth();
-    return;
-  }
-  const hz = 13.0;
-  const open = ((t*hz)|0) % 2 === 1;
-  setMouth(open);
+  // No active audio: fallback rapid chatter with varied levels (~13 Hz)
+  const t = (now/1000);
+  const phase = ((t*13)|0) % 4; // 0..3 tick
+  const rand = Math.random();
+  const target = phase === 0 ? 0
+                : phase === 1 ? (rand < .7 ? 1 : 2)
+                : phase === 2 ? (rand < .6 ? 2 : 3)
+                :               (rand < .5 ? 3 : 4);
+  setLevel(target);
 }
 
-/* ===== audio playback ===== */
+/* helpers */
+const sanitize = txt=>{
+  txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
+  return /[.?!]$/.test(txt)?txt:txt+'.';
+};
+function typeOut(text, done){
+  typed.textContent='';
+  (function loop(i=0){
+    typed.textContent = text.slice(0,i);
+    if(i<text.length){
+      setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
+    }else{
+      done && done();
+    }
+  })();
+}
+
+/* playback */
 async function playAudio(b64,onEnd){
-  // WebAudio decode first
+  // Try WebAudio first
   try{
     ensureCtx(); ensureAnalyser();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -331,9 +324,7 @@ async function playAudio(b64,onEnd){
     currentSource.buffer = buf;
     currentSource.playbackRate.value = 1.08;
     attachAnalyserToBufferSource(currentSource);
-    startTime = audioCtx.currentTime;
-    setMouth(false);
-    startMouth();
+    setClosed(); startMouth();
     currentSource.start();
     currentSource.onended = ()=>{
       currentSource=null;
@@ -342,7 +333,7 @@ async function playAudio(b64,onEnd){
     };
     return;
   }catch(e){
-    console.warn('WebAudio decode failed, falling back to <audio>', e);
+    console.warn('WebAudio decode failed, fallback to <audio>', e);
   }
 
   // Fallback: <audio> element (iOS-friendly)
@@ -359,8 +350,9 @@ async function playAudio(b64,onEnd){
     currentObjectURL = URL.createObjectURL(blob);
     audioEl.src = currentObjectURL;
 
-    audioEl.onplay  = ()=>{ setMouth(false); startMouth(); };
+    audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
     audioEl.onended = ()=>{
+      tagPlaying=false;
       stopMouth();
       if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
       onEnd && onEnd();
@@ -368,14 +360,12 @@ async function playAudio(b64,onEnd){
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
-    // fallback fabricated chatter
-    startTime = performance.now()/1000;
-    totalDur = Math.max(2.5, typed.textContent.length/16);
+    // fabricate varied chatter for safety
     startMouth();
-    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur+0.2)*1000);
+    const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
+    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
   }
 }
-
 function stopAudio(){
   if(currentSource){
     try{ currentSource.stop(); }catch(_){}
@@ -386,16 +376,20 @@ function stopAudio(){
     try{ audioEl.pause(); audioEl.currentTime = 0; }catch(_){}
   }
   if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+  tagPlaying = false;
 }
 
-/* ===== fabricate timings (only used for typing-only path) ===== */
-function fabricate(text){
-  // not used for binary flap (we drive directly by time),
-  // but keep totalDur for fallback stop
-  totalDur = Math.min(7, Math.max(2.2, text.length/16));
+/* UI bits */
+function showWork(work){
+  if(!work) return;
+  const old = output.querySelector('.work-tag'); if(old) old.remove();
+  const span = document.createElement('span');
+  span.className = 'work-tag';
+  span.textContent = '— ' + work;
+  output.appendChild(span);
 }
 
-/* ===== main ===== */
+/* main */
 const FETCH_URL = ENDPOINT + QUERY;
 
 async function summon(){
@@ -412,7 +406,6 @@ async function summon(){
   /* clear previous */
   typed.textContent='';
   const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
-  timings=[]; totalDur=0;
 
   try{
     const res = await fetch(FETCH_URL, { cache:'no-store' });
@@ -421,17 +414,15 @@ async function summon(){
     const work = data.work || null;
     const text = sanitize(data.text);
 
-    // not using server timings for binary flap; keep totalDur as a safety
-    fabricate(text);
-
     typeOut(text, async ()=>{
       const onEnd = ()=>showWork(work);
       if(data.audioBase64){
         await playAudio(data.audioBase64, onEnd);
       }else{
-        // fabricated rapid flap fallback
+        // fabricated multi-level chatter
         startMouth();
-        setTimeout(()=>{ stopMouth(); onEnd(); }, (totalDur + 0.2)*1000);
+        const approx = Math.min(7, Math.max(2.2, text.length/16));
+        setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
       }
     });
 
@@ -441,15 +432,6 @@ async function summon(){
   }finally{
     busy = false;
   }
-}
-
-function showWork(work){
-  if(!work) return;
-  const old = output.querySelector('.work-tag'); if(old) old.remove();
-  const span = document.createElement('span');
-  span.className = 'work-tag';
-  span.textContent = '— ' + work;
-  output.appendChild(span);
 }
 
 trigger.addEventListener('click', summon);
