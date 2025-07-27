@@ -171,9 +171,15 @@ let busy=false;
 let audioCtx,currentSource,audioEl,mediaSource;
 let analyser,timeData,zeroGain;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
-let tagPlaying=false;      // <audio> playing?
-let currentObjectURL=null; // for iOS blob URLs
-let level=0;               // smoothed level for mouth
+let tagPlaying=false;
+let currentObjectURL=null;
+let level=0;
+
+/* Tune mouth liveliness */
+const GATE = 0.02;       // ignore micro-noise
+const EXPAND = 0.6;      // dynamic range expansion (lower -> more lively)
+const EXAGGERATE = 1.6;  // multiply openness before quantizing
+const OFFSET = 0.04;     // add a touch of baseline openness
 
 /* ===== audio unlock for iOS ===== */
 function ensureCtx(){
@@ -230,26 +236,22 @@ function ensureAnalyser(){
   ensureCtx();
   if(!analyser){
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-    analyser.smoothingTimeConstant = 0.5;
+    analyser.fftSize = 512;                 // more responsive
+    analyser.smoothingTimeConstant = 0.2;   // less smear -> more movement
     timeData = new Uint8Array(analyser.fftSize);
   }
   if(!zeroGain){
     zeroGain = audioCtx.createGain();
-    zeroGain.gain.value = 0.0; // silent sink to keep graph pulling when needed
+    zeroGain.gain.value = 0.0;
     zeroGain.connect(audioCtx.destination);
   }
 }
-
 function attachAnalyserToBufferSource(srcNode){
   ensureAnalyser();
-  try{
-    srcNode.disconnect();
-  }catch(_){}
+  try{ srcNode.disconnect(); }catch(_){}
   srcNode.connect(analyser);
   analyser.connect(audioCtx.destination);
 }
-
 function attachAnalyserToMediaElement(){
   ensureAnalyser();
   if(!audioEl){
@@ -260,12 +262,9 @@ function attachAnalyserToMediaElement(){
   if(!mediaSource){
     try{
       mediaSource = audioCtx.createMediaElementSource(audioEl);
-      // Tap into analyser -> zeroGain (avoid double-audio)
       mediaSource.connect(analyser);
       analyser.connect(zeroGain);
-    }catch(e){
-      console.warn('createMediaElementSource failed', e);
-    }
+    }catch(e){ console.warn('createMediaElementSource failed', e); }
   }
 }
 
@@ -280,25 +279,25 @@ function stopMouth(){
   mouth.style.transform = 'scaleY(' + OPEN_STEPS[0] + ')';
 }
 
+/* Peak-to-peak + expansion -> 0..1 */
 function computeLevelFromAnalyser(){
   if(!analyser || !timeData) return 0;
   analyser.getByteTimeDomainData(timeData);
-  // Convert to RMS in [-1,1]
-  let sum = 0;
+  let min=255, max=0;
   for(let i=0;i<timeData.length;i++){
-    const v = (timeData[i]-128)/128; // -1..1
-    sum += v*v;
+    const v = timeData[i];
+    if(v<min) min=v;
+    if(v>max) max=v;
   }
-  const rms = Math.sqrt(sum / timeData.length); // ~0.0..~0.5 for speech peaks
-  // Smooth with attack/release
-  const attack = 0.25, release = 0.06;
-  const target = rms;
-  level = (target > level) ? level + (target-level)*attack
-                           : level + (target-level)*release;
-  // Map to 0..1 mouth openness (tweak thresholds as needed)
-  const low = 0.025, high = 0.22;
-  const norm = Math.max(0, Math.min(1, (level - low) / (high - low)));
-  return norm;
+  let amp = (max - min) / 255;         // 0..~1
+  // smooth a bit (faster attack, slower release)
+  const ATTACK=0.5, RELEASE=0.2;
+  level = (amp>level) ? level+(amp-level)*ATTACK : level+(amp-level)*RELEASE;
+
+  if(level <= GATE) return 0;
+  let open = (level - GATE) / (1 - GATE);
+  open = Math.pow(open, EXPAND);       // expand low dynamics
+  return Math.max(0, Math.min(1, open));
 }
 
 function tick(now){
@@ -310,9 +309,9 @@ function tick(now){
 
   const playbackActive = !!currentSource || tagPlaying;
 
-  // Prefer analyser when audio is actually playing
   if(playbackActive && analyser){
-    const open = computeLevelFromAnalyser();
+    const live = computeLevelFromAnalyser();
+    const open = Math.max(0, Math.min(1, live * EXAGGERATE + OFFSET));
     mouth.style.transform = 'scaleY(' + quant(open) + ')';
     return;
   }
@@ -334,7 +333,7 @@ function tick(now){
 
 /* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
-  // Try WebAudio decode for everyone first (works on iOS after unlock)
+  // Try WebAudio decode first
   try{
     ensureCtx();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -369,9 +368,7 @@ async function playAudio(b64,onEnd){
       audioEl.hidden = true;
       document.body.appendChild(audioEl);
     }
-    // If we created a prior blob URL, revoke it
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-
     currentObjectURL = URL.createObjectURL(blob);
     audioEl.src = currentObjectURL;
 
@@ -387,7 +384,6 @@ async function playAudio(b64,onEnd){
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
-    // As a last resort: time out mouth roughly to fabricated duration
     setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.2)*1000);
   }
 }
@@ -399,10 +395,7 @@ function stopAudio(){
     currentSource = null;
   }
   if(audioEl){
-    try{
-      audioEl.pause();
-      audioEl.currentTime = 0;
-    }catch(_){}
+    try{ audioEl.pause(); audioEl.currentTime = 0; }catch(_){}
   }
   tagPlaying = false;
 }
