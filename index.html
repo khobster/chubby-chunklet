@@ -16,12 +16,8 @@
   --mouth-w:38px;
   --mouth-h:38px;
 
-  /* legacy steps still defined, but we now drive X/Y continuously */
+  /* kept for initial value; live scale is set in JS */
   --mouth-scale-0:.05;
-  --mouth-scale-1:.55;
-  --mouth-scale-2:1.05;
-  --mouth-scale-3:1.40;
-  --mouth-scale-4:1.75;
 
   --char-ms:18;
   --terminal-color:#1034a6;
@@ -134,7 +130,6 @@ body{
         <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
         <div class="mouth-overlay">
           <svg viewBox="0 0 100 100">
-            <!-- Simple oval mouth we scale in X and Y for visemes -->
             <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
           </svg>
         </div>
@@ -171,22 +166,25 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 /* ---------- state ---------- */
 let busy=false;
 let audioCtx,currentSource,audioEl,mediaSource;
-let analyser,timeData,freqData,zeroGain;
+let analyser,timeData;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 let tagPlaying=false;
 let currentObjectURL=null;
 
-/* ===== viseme tuning knobs =====
-   You can tweak these if you want it bouncier / rounder / thinner */
-const GATE        = 0.02;   // ignore micro-noise in amp envelope
-const EXPAND      = 0.60;   // dynamic-range expansion for openness
-const EXAGGERATE  = 1.50;   // multiply openness (vertical)
-const OFFSET      = 0.05;   // baseline openness
-
-const ROUND_BIAS  = 0.40;   // pull “round” more when centroid is low
-const SPREAD_BIAS = 0.35;   // pull “spread” more when centroid is high
-const FRICATIVE_THIN = 0.35;// thinness when high-band fricatives detected
-const SMOOTH_XY   = 0.25;   // smoothing factor for x/y motion (0..1)
+/* ===== CARTOON FLAPPER SETTINGS ===== */
+const GATE = 0.015;                 // ignore tiny noise
+const ANALYSER_SMOOTH = 0.06;       // snappy envelope response
+const THRESHOLDS = {                // hysteresis thresholds on envelope (0..1)
+  halfOn:  0.06,  halfOff: 0.04,   // enter/leave HALF
+  openOn:  0.17,  openOff: 0.12    // enter/leave OPEN
+};
+const ATTACK_MS  = 40;              // how fast to reach target scale (open)
+const RELEASE_MS = 60;              // how fast to reach target scale (close)
+const STATES = {
+  closed: { sx: 1.00, sy: 0.10 },
+  half:   { sx: 1.05, sy: 0.70 },
+  open:   { sx: 1.02, sy: 1.65 }
+};
 
 /* ===== audio unlock for iOS ===== */
 function ensureCtx(){
@@ -211,7 +209,6 @@ const sanitize = txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
   return /[.?!]$/.test(txt)?txt:txt+'.';
 };
-
 function typeOut(text, done){
   typed.textContent='';
   (function loop(i=0){
@@ -229,15 +226,9 @@ function ensureAnalyser(){
   ensureCtx();
   if(!analyser){
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;                 // finer spectrum for centroid
-    analyser.smoothingTimeConstant = 0.18;   // responsive but not jittery
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = ANALYSER_SMOOTH;
     timeData = new Uint8Array(analyser.fftSize);
-    freqData = new Float32Array(analyser.frequencyBinCount);
-  }
-  if(!zeroGain){
-    zeroGain = audioCtx.createGain();
-    zeroGain.gain.value = 0.0;
-    zeroGain.connect(audioCtx.destination);
   }
 }
 function attachAnalyserToBufferSource(srcNode){
@@ -257,14 +248,15 @@ function attachAnalyserToMediaElement(){
     try{
       mediaSource = audioCtx.createMediaElementSource(audioEl);
       mediaSource.connect(analyser);
-      analyser.connect(zeroGain);
+      analyser.connect(audioCtx.destination);
     }catch(e){ console.warn('createMediaElementSource failed', e); }
   }
 }
 
-/* ===== envelope + spectrum features ===== */
-let openEnv = 0;   // smoothed openness
-let lastSX = 1, lastSY = 0.1; // smoothed scale
+/* ===== envelope / 3-state quantizer ===== */
+let env = 0;
+let lastSX = STATES.closed.sx, lastSY = STATES.closed.sy;
+let mouthState = 'closed'; // 'closed' | 'half' | 'open'
 
 function envelopeLevel(){
   analyser.getByteTimeDomainData(timeData);
@@ -274,42 +266,40 @@ function envelopeLevel(){
     if(v<min) min=v;
     if(v>max) max=v;
   }
-  let amp = (max - min) / 255; // 0..1 approx
-  // gate + expansion
-  if(amp <= GATE) amp = 0;
-  else amp = Math.pow((amp - GATE) / (1 - GATE), EXPAND);
-  // smooth
-  const ATTACK=0.45, RELEASE=0.20;
-  openEnv = (amp>openEnv) ? openEnv+(amp-openEnv)*ATTACK : openEnv+(amp-openEnv)*RELEASE;
-  return Math.max(0, Math.min(1, openEnv));
+  let amp = (max - min) / 255; // approx 0..1
+  amp = amp <= GATE ? 0 : (amp - GATE) / (1 - GATE); // simple gate
+  // minimal smoothing to keep it snappy
+  const A=0.65, R=0.25;
+  env = (amp>env) ? env+(amp-env)*A : env+(amp-env)*R;
+  return Math.max(0, Math.min(1, env));
 }
 
-function spectralFeatures(){
-  analyser.getFloatFrequencyData(freqData);
-  // convert dB to linear
-  let sum=0, weighted=0;
-  const sr = audioCtx.sampleRate || 44100;
-  const nyq = sr/2;
-  const n = freqData.length;
-
-  // band sums for fricatives (approx 4–8 kHz) and lows (0.2–1 kHz)
-  let hi=0, lo=0, all=0;
-  for(let i=0;i<n;i++){
-    const db = freqData[i];
-    const mag = db<=-140 ? 0 : Math.pow(10, db/20);
-    const f = i/n * nyq;
-
-    sum += mag;
-    weighted += mag * f;
-    all += mag;
-    if(f>=4000 && f<=8000) hi += mag;
-    if(f>=200 && f<=1000)  lo += mag;
+function updateState(e){
+  switch(mouthState){
+    case 'open':
+      if(e < THRESHOLDS.openOff) mouthState = 'half';
+      break;
+    case 'half':
+      if(e >= THRESHOLDS.openOn) mouthState = 'open';
+      else if(e < THRESHOLDS.halfOff) mouthState = 'closed';
+      break;
+    case 'closed':
+    default:
+      if(e >= THRESHOLDS.openOn) mouthState = 'open';
+      else if(e >= THRESHOLDS.halfOn) mouthState = 'half';
+      break;
   }
-  const centroid = sum>0 ? (weighted / sum) : 0;
-  const centroidNorm = Math.max(0, Math.min(1, (centroid - 500) / (4000 - 500))); // 0 low=round .. 1 high=spread
-  const hiRatio = all>0 ? hi/all : 0;
+}
 
-  return { centroidNorm, hiRatio };
+function lerp(a,b,t){ return a + (b-a)*t; }
+function applyMouthToward(target, dt){
+  // per-frame ease toward target using attack/release timing
+  const up = (target.sy > lastSY) || (target.sx > lastSX);
+  const tau = (up ? ATTACK_MS : RELEASE_MS);
+  const t = Math.max(0.0001, Math.min(1, dt / tau));
+  lastSX = lerp(lastSX, target.sx, t);
+  lastSY = lerp(lastSY, target.sy, t);
+  mouth.style.transform = `scale(${lastSX.toFixed(3)}, ${lastSY.toFixed(3)})`;
 }
 
 /* ===== mouth animation ===== */
@@ -320,15 +310,9 @@ function startMouth(){
 function stopMouth(){
   animating = false;
   cancelAnimationFrame(raf);
-  mouth.style.transform = 'scale(1, var(--mouth-scale-0))';
-}
-
-function applyMouth(sx, sy){
-  // inertia smoothing so it looks organic
-  const a = SMOOTH_XY;
-  lastSX = lastSX + (sx - lastSX) * a;
-  lastSY = lastSY + (sy - lastSY) * a;
-  mouth.style.transform = `scale(${lastSX.toFixed(3)}, ${lastSY.toFixed(3)})`;
+  mouthState = 'closed';
+  lastSX = STATES.closed.sx; lastSY = STATES.closed.sy;
+  mouth.style.transform = `scale(${lastSX}, ${lastSY})`;
 }
 
 function tick(now){
@@ -336,53 +320,35 @@ function tick(now){
   if(!now || !analyser) return;
 
   if(!lastFrame) lastFrame = now;
-  if((now-lastFrame)/1000 < FRAME_DT) return;
+  const dt = now - lastFrame; // ms
+  if(dt < (FRAME_DT*1000)) return;
   lastFrame = now;
 
-  const playbackActive = !!currentSource || tagPlaying;
-  if(playbackActive){
-    const open = Math.max(0, Math.min(1, envelopeLevel()*EXAGGERATE + OFFSET));
-    const { centroidNorm, hiRatio } = spectralFeatures();
-
-    // map features to viseme-like scales
-    // rounded "oo" when centroid low -> narrower & taller
-    // spread "ee" when centroid high -> wider & a bit shorter
-    const roundPull  = (1 - centroidNorm) * ROUND_BIAS;
-    const spreadPull = (centroidNorm) * SPREAD_BIAS;
-
-    // Base scales from openness
-    let sy = 0.15 + open * 1.7;               // vertical = openness
-    let sx = 1.0 + spreadPull*0.8 - roundPull*0.6; // horizontal = spread vs round
-
-    // fricatives (s/sh/f) → thin vertical slit, slightly spread
-    if(hiRatio > 0.18){
-      sx += 0.25;
-      sy = Math.max(0.10, sy * FRICATIVE_THIN);
-    }
-
-    // clamp & apply
-    sx = Math.max(0.65, Math.min(2.1, sx));
-    sy = Math.max(0.08, Math.min(1.95, sy));
-    applyMouth(sx, sy);
+  const active = !!currentSource || tagPlaying;
+  if(active){
+    const e = envelopeLevel();
+    updateState(e);
+    const target = STATES[mouthState] || STATES.closed;
+    applyMouthToward(target, dt);
     return;
   }
 
-  // no audio: fall back to fabricated timings (typing-only mode)
+  // typing-only fallback (no audio)
   const t = (performance.now()/1000) - startTime;
   if(!currentSource && !tagPlaying && t > totalDur + 0.12){
     stopMouth();
     return;
   }
-  let open = 0.1;
+  // simple flap on fabricated timings
+  let open=0.1;
   for(const seg of timings){ if(t >= seg.t) open = seg.open; else break; }
-  const sy = 0.15 + open * 1.4;
-  const sx = 1.0 + (Math.random()*0.2 - 0.1); // tiny jitter so it isn’t static
-  applyMouth(sx, sy);
+  mouthState = open > 0.5 ? 'open' : (open > 0.2 ? 'half' : 'closed');
+  applyMouthToward(STATES[mouthState], dt);
 }
 
 /* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
-  // Try WebAudio decode first
+  // WebAudio decode first
   try{
     ensureCtx(); ensureAnalyser();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -446,7 +412,7 @@ function stopAudio(){
   tagPlaying = false;
 }
 
-/* ===== fabricated typing timings ===== */
+/* ===== fabricated timings for typing-only ===== */
 function fabricate(text){
   const dur = Math.min(7, Math.max(2.2, text.length/16));
   const frames = Math.round(dur*FPS), step = dur/frames;
