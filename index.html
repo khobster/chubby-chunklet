@@ -16,8 +16,11 @@
   --mouth-w:38px;
   --mouth-h:38px;
 
-  /* JS now drives discrete levels; this is just initial */
   --mouth-scale-0:.05;
+  --mouth-scale-1:.55;
+  --mouth-scale-2:1.05;
+  --mouth-scale-3:1.40;
+  --mouth-scale-4:1.75;
 
   --char-ms:18;
   --terminal-color:#1034a6;
@@ -73,7 +76,7 @@ body{
   pointer-events:none;
 }
 .mouth-overlay svg{width:100%;height:100%}
-#mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
+#mouth{transform-origin:50% 50%;transform:scaleY(var(--mouth-scale-0))}
 
 /* ---------- button ---------- */
 .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
@@ -120,7 +123,7 @@ body{
 </style>
 </head>
 <body>
-  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
+  <audio id="clickSnd" src="click.mp3" preload="auto" playsinline></audio>
 
   <div class="wrapper">
     <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
@@ -129,9 +132,7 @@ body{
       <div class="chunklet-wrap">
         <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
         <div class="mouth-overlay">
-          <svg viewBox="0 0 100 100">
-            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
-          </svg>
+          <svg viewBox="0 0 100 100"><ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/></svg>
         </div>
       </div>
 
@@ -151,9 +152,14 @@ const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')|
   || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
 const QUERY    = '?style=canon&modern=1&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
+const FPS      = 16;
+const FRAME_DT = 1/FPS;
+const OPEN_STEPS = ['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
+  .map(v=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)));
 
 const trigger  = document.getElementById('trigger');
 const typed    = document.getElementById('typed');
+const cursor   = document.getElementById('cursor');
 const mouth    = document.getElementById('mouth');
 const output   = document.getElementById('output');
 const clickSnd = document.getElementById('clickSnd');
@@ -162,134 +168,42 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
 /* ---------- state ---------- */
 let busy=false;
-let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-let raf,animating=false,tagPlaying=false,currentObjectURL=null;
+let audioCtx,currentSource,audioEl;
+let startTimeWA=0,startTimePerf=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
+let tagPlaying=false;
 
-/* ===== multi-level fast flap (discrete bands with hysteresis) ===== */
-const SY = [0.07, 0.55, 1.10, 1.70, 2.30];   // vertical scales per level
-const SX = [1.00, 1.01, 1.02, 1.02, 1.03];   // slight horizontal squish
-const THRESH_UP   = [0.030, 0.060, 0.100, 0.160];
-const HYST_DELTA  = 0.018;
-const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
-const GATE_FLOOR  = 0.010;
-const CLOSE_GRACE_MS = 20;
-
-let level = 0, lastChange = 0;
-
-function setLevel(n){
-  n = Math.max(0, Math.min(4, n|0));
-  if (n === level) return;
-  level = n;
-  mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
-  lastChange = performance.now();
-}
-function setClosed(){ setLevel(0); }
-
+/* ===== audio unlock & prime (iOS) ===== */
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state === 'suspended') audioCtx.resume();
 }
-function unlockAudioOnce(){
+function primeAudioChannel(){
   try{
     ensureCtx();
-    const buf = audioCtx.createBuffer(1,1,22050);
-    const src = audioCtx.createBufferSource();
-    src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
+    // 50ms zero-volume tone to keep context "activated"
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    g.gain.value = 0.0;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(audioCtx.currentTime);
+    o.stop(audioCtx.currentTime + 0.05);
+    setTimeout(()=>{ try{o.disconnect();g.disconnect();}catch(_){} }, 80);
   }catch(_){}
-  document.removeEventListener('touchstart', unlockAudioOnce);
-  document.removeEventListener('click', unlockAudioOnce);
 }
-document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
-document.addEventListener('click', unlockAudioOnce, {once:true});
-
-function ensureAnalyser(){
-  ensureCtx();
-  if(!analyser){
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.0;
-    timeData = new Float32Array(analyser.fftSize);
-  }
+function unlockOnFirstGesture(){
+  primeAudioChannel();
+  document.removeEventListener('touchstart', unlockOnFirstGesture);
+  document.removeEventListener('click', unlockOnFirstGesture);
 }
-function attachAnalyserToBufferSource(srcNode){
-  ensureAnalyser();
-  try{ srcNode.disconnect(); }catch(_){}
-  srcNode.connect(analyser);
-  analyser.connect(audioCtx.destination);
-}
-function attachAnalyserToMediaElement(){
-  ensureAnalyser();
-  if(!audioEl){
-    audioEl = document.createElement('audio');
-    audioEl.hidden = true;
-    audioEl.playsInline = true;
-    audioEl.preload = 'auto';
-    document.body.appendChild(audioEl);
-  }
-  if(!mediaSource){
-    try{
-      mediaSource = audioCtx.createMediaElementSource(audioEl);
-      mediaSource.connect(analyser);
-      analyser.connect(audioCtx.destination);
-    }catch(e){ console.warn('createMediaElementSource failed', e); }
-  }
-}
-function rmsLevel(){
-  analyser.getFloatTimeDomainData(timeData);
-  let sum = 0;
-  for(let i=0;i<timeData.length;i++){ const v=timeData[i]; sum += v*v; }
-  let rms = Math.sqrt(sum / timeData.length);
-  if (rms < GATE_FLOOR) rms = 0;
-  return rms;
-}
+document.addEventListener('touchstart', unlockOnFirstGesture, {once:true, passive:true});
+document.addEventListener('click', unlockOnFirstGesture, {once:true});
 
-function startMouth(){
-  if(animating) return;
-  animating = true;
-  requestAnimationFrame(tick);
-}
-function stopMouth(){
-  animating = false;
-  cancelAnimationFrame(raf);
-  setClosed();
-}
-function tick(){
-  raf = requestAnimationFrame(tick);
-  if(!analyser) return;
-
-  const active = !!currentSource || tagPlaying;
-  const now = performance.now();
-
-  if(active){
-    const e = rmsLevel();
-
-    let target = level;
-    while (target < 4 && e >= THRESH_UP[target]) target++;
-    while (target > 0 && e < THRESH_DOWN[target-1]) target--;
-
-    if (target < level && (now - lastChange) < CLOSE_GRACE_MS) {
-      target = level;
-    }
-    setLevel(target);
-    return;
-  }
-
-  // no audio: lively fallback chatter (~13 Hz)
-  const t = (now/1000);
-  const phase = ((t*13)|0) % 4;
-  const rand = Math.random();
-  const target = phase === 0 ? 0
-                : phase === 1 ? (rand < .7 ? 1 : 2)
-                : phase === 2 ? (rand < .6 ? 2 : 3)
-                :               (rand < .5 ? 3 : 4);
-  setLevel(target);
-}
-
-/* helpers */
+/* ===== helpers ===== */
 const sanitize = txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
   return /[.?!]$/.test(txt)?txt:txt+'.';
 };
+
 function typeOut(text, done){
   typed.textContent='';
   (function loop(i=0){
@@ -302,100 +216,109 @@ function typeOut(text, done){
   })();
 }
 
-/* ===== audio playback ===== */
-async function playAudio(b64,onEnd){
-  /* --- FORCE <audio> path on iOS for reliability --- */
-  if(isIOS){
-    try{
-      ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
+const quant = o => OPEN_STEPS[Math.min(4, Math.max(0, Math.round(o*4)))];
 
-      const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-      const blob = new Blob([bin], {type:'audio/mp3'});
-      if(!audioEl){
-        audioEl = document.createElement('audio');
-        audioEl.hidden = true;
-        audioEl.playsInline = true;
-        audioEl.preload = 'auto';
-        document.body.appendChild(audioEl);
-      }
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      currentObjectURL = URL.createObjectURL(blob);
-      audioEl.src = currentObjectURL;
+function fabricate(text){
+  const dur = Math.min(7, Math.max(2.2, text.length/16));
+  const frames = Math.round(dur*FPS), step = dur/frames;
+  timings = [];
+  for(let i=0;i<=frames;i++){
+    const r=Math.random();
+    timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
+  }
+  totalDur = dur;
+}
 
-      let started=false;
-      const watchdog = setTimeout(()=>{
-        if(!started){
-          console.warn('iOS: play() watchdog fired; fabricating stop');
-          tagPlaying=false; stopMouth(); onEnd && onEnd();
-        }
-      }, 1200);
+function startMouth(){
+  if(animating) return;
+  animating = true; lastFrame = 0; tick();
+}
+function stopMouth(){
+  animating = false;
+  cancelAnimationFrame(raf);
+  mouth.style.transform = 'scaleY(' + OPEN_STEPS[0] + ')';
+}
+function tick(now){
+  raf = requestAnimationFrame(tick);
+  if(!now) return;
+  if(!lastFrame) lastFrame = now;
+  if((now-lastFrame)/1000 < FRAME_DT) return;
+  lastFrame = now;
 
-      audioEl.onplaying = ()=>{ started=true; clearTimeout(watchdog); tagPlaying=true; setClosed(); startMouth(); };
-      audioEl.onended   = ()=>{
-        tagPlaying=false;
-        clearTimeout(watchdog);
-        stopMouth();
-        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-        onEnd && onEnd();
-      };
-      await audioEl.play();
-      return;
-    }catch(e){
-      console.error('iOS <audio> path failed', e);
-      // last-resort fallback animation
-      startMouth();
-      setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, 2500);
-      return;
-    }
+  // choose the best clock
+  let t;
+  if(currentSource && audioCtx){
+    t = audioCtx.currentTime - startTimeWA;
+  }else if(tagPlaying && audioEl){
+    t = audioEl.currentTime; // precise for <audio>
+  }else{
+    t = (performance.now()/1000) - startTimePerf;
   }
 
-  // Desktop / non‑iOS: try WebAudio first
+  // stop only when nothing is playing AND we've passed scripted timing
+  if(!currentSource && !tagPlaying && t > totalDur + 0.12){
+    stopMouth(); return;
+  }
+
+  let open = 0.1;
+  for(const seg of timings){ if(t >= seg.t) open = seg.open; else break; }
+  mouth.style.transform = 'scaleY(' + quant(open + Math.random()*0.18 - 0.09) + ')';
+}
+
+function showWork(work){
+  if(!work) return;
+  const old = output.querySelector('.work-tag');
+  if(old) old.remove();
+  const span = document.createElement('span');
+  span.className = 'work-tag';
+  span.textContent = '— ' + work;
+  output.appendChild(span);
+}
+
+function fallbackStop(onEnd){
+  setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.2)*1000);
+}
+
+/* ===== audio playback ===== */
+async function playAudio(b64,onEnd){
+  // Try WebAudio everywhere (including iOS) now that we prime the context.
   try{
-    ensureCtx(); ensureAnalyser();
+    ensureCtx();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const buf = await audioCtx.decodeAudioData(bin.buffer);
     currentSource = audioCtx.createBufferSource();
     currentSource.buffer = buf;
     currentSource.playbackRate.value = 1.08;
-    attachAnalyserToBufferSource(currentSource);
-    setClosed(); startMouth();
+    currentSource.connect(audioCtx.destination);
+    startTimeWA = audioCtx.currentTime;
+    startTimePerf = performance.now()/1000;
+    tagPlaying = false;
+    startMouth();
     currentSource.start();
-    currentSource.onended = ()=>{
-      currentSource=null; stopMouth(); onEnd && onEnd();
-    };
+    currentSource.onended = ()=>{ currentSource=null; stopMouth(); onEnd && onEnd(); };
     return;
   }catch(e){
-    console.warn('WebAudio decode failed, fallback to <audio>', e);
+    console.warn('WebAudio decode failed; using <audio> blob', e);
   }
 
-  // Fallback plain <audio> on desktop
+  // Fallback: <audio> with Blob URL (helps older iOS)
   try{
-    ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
-    const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+    const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const blob = new Blob([bin], {type:'audio/mp3'});
     if(!audioEl){
       audioEl = document.createElement('audio');
       audioEl.hidden = true;
-      audioEl.playsInline = true;
-      audioEl.preload = 'auto';
+      audioEl.setAttribute('playsinline','');
       document.body.appendChild(audioEl);
     }
-    if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-    currentObjectURL = URL.createObjectURL(blob);
-    audioEl.src = currentObjectURL;
-
-    audioEl.onplay  = ()=>{ tagPlaying=true; setClosed(); startMouth(); };
-    audioEl.onended = ()=>{
-      tagPlaying=false; stopMouth();
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      onEnd && onEnd();
-    };
-    await audioEl.play();
+    audioEl.src = URL.createObjectURL(blob);
+    audioEl.onplay  = ()=>{ tagPlaying=true; startTimePerf = performance.now()/1000; startMouth(); };
+    audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
+    // tiny delay helps some iOS builds swap blob URL
+    setTimeout(()=>audioEl.play().catch(err=>{console.error('audio play failed',err); fallbackStop(onEnd);}), 0);
   }catch(err){
     console.error('Plain <audio> failed', err);
-    // fabricate
-    startMouth();
-    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, 2500);
+    fallbackStop(onEnd);
   }
 }
 
@@ -406,54 +329,50 @@ function stopAudio(){
     currentSource = null;
   }
   if(audioEl){
-    try{ audioEl.pause(); audioEl.currentTime = 0; }catch(_){}
+    audioEl.pause();
+    audioEl.currentTime = 0;
   }
-  if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
   tagPlaying = false;
 }
 
-/* UI helpers */
-function showWork(work){
-  if(!work) return;
-  const old = output.querySelector('.work-tag'); if(old) old.remove();
-  const span = document.createElement('span');
-  span.className = 'work-tag';
-  span.textContent = '— ' + work;
-  output.appendChild(span);
-}
-
-/* main */
-const FETCH_URL = ENDPOINT + QUERY;
-
+/* ===== main ===== */
 async function summon(){
   if(busy) return;
 
-  // click + quick pop
+  // prime audio channel on every tap to keep iOS “active”
+  primeAudioChannel();
+
+  /* click fx */
   try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
   trigger.classList.add('pressed');
   setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
   busy = true;
   stopAudio(); stopMouth();
+
+  /* clear previous */
   typed.textContent='';
   const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
+  timings=[]; totalDur=0;
 
   try{
-    const res = await fetch(FETCH_URL, { cache:'no-store' });
+    const res = await fetch(ENDPOINT + QUERY, {cache:'no-store'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     const work = data.work || null;
     const text = sanitize(data.text);
 
+    timings = Array.isArray(data.timings) ? data.timings : [];
+    totalDur = timings.length ? timings[timings.length-1].t : 0;
+
     typeOut(text, async ()=>{
-      const onEnd = ()=>showWork(work);
+      startTimePerf = performance.now()/1000;
       if(data.audioBase64){
-        await playAudio(data.audioBase64, onEnd);
+        if(!timings.length){ fabricate(text); startTimePerf = performance.now()/1000; }
+        await playAudio(data.audioBase64, ()=>showWork(work));
       }else{
-        // fabricated chatter if no audio provided
-        startMouth();
-        const approx = Math.min(7, Math.max(2.2, text.length/16));
-        setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
+        if(!timings.length){ fabricate(text); startTimePerf = performance.now()/1000; startMouth(); }
+        setTimeout(()=>{ stopMouth(); showWork(work); }, (totalDur + 0.15)*1000);
       }
     });
 
