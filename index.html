@@ -245,23 +245,24 @@ function tick(now){
   if((now-lastFrame)/1000 < FRAME_DT) return;
   lastFrame = now;
 
-  // choose the best clock
+  // Use the right clock: WebAudio on desktop, <audio> on iOS
   let t;
-  if(currentSource && audioCtx){
-    t = audioCtx.currentTime - startTimeWA;
-  }else if(tagPlaying && audioEl){
-    t = audioEl.currentTime; // precise for <audio>
-  }else{
-    t = (performance.now()/1000) - startTimePerf;
+  if (audioCtx && currentSource) {
+    t = audioCtx.currentTime - startTime;        // WebAudio
+  } else if (audioEl && tagPlaying) {
+    t = audioEl.currentTime || 0;                // <audio> element (iOS)
+  } else {
+    t = (performance.now()/1000) - startTime;    // fallback / fabricated
   }
 
-  // stop only when nothing is playing AND we've passed scripted timing
-  if(!currentSource && !tagPlaying && t > totalDur + 0.12){
-    stopMouth(); return;
+  // Only stop when BOTH paths are idle
+  if (!currentSource && !tagPlaying && t > totalDur + 0.15) {
+    stopMouth();
+    return;
   }
 
   let open = 0.1;
-  for(const seg of timings){ if(t >= seg.t) open = seg.open; else break; }
+  for (const seg of timings) { if (t >= seg.t) open = seg.open; else break; }
   mouth.style.transform = 'scaleY(' + quant(open + Math.random()*0.18 - 0.09) + ')';
 }
 
