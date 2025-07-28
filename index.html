@@ -151,7 +151,7 @@ body{
 const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
   || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
 const QUERY    = '?style=canon&modern=1&accent=scottish';
-const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
+const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 18;
 const FPS      = 16;
 const FRAME_DT = 1/FPS;
 const OPEN_STEPS = ['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
@@ -169,8 +169,9 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 /* ---------- state ---------- */
 let busy=false;
 let audioCtx,currentSource,audioEl;
-let startTimeWA=0,startTimePerf=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
-let tagPlaying=false;
+let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
+let tagPlaying=false;          // <audio> in-flight?
+let clickBuf=null;             // decoded WebAudio buffer for click
 
 /* ===== audio unlock & prime (iOS) ===== */
 function ensureCtx(){
@@ -186,11 +187,20 @@ function primeAudioChannel(){
     o.connect(g); g.connect(audioCtx.destination);
     o.start(audioCtx.currentTime);
     o.stop(audioCtx.currentTime + 0.05);
-    setTimeout(()=>{ try{o.disconnect();g.disconnect();}catch(_){} }, 80);
+    setTimeout(()=>{ try{o.disconnect();g.disconnect();}catch(_){ } }, 80);
   }catch(_){}
+}
+async function preloadClick(){
+  try{
+    ensureCtx();
+    const res = await fetch('click.mp3', {cache:'force-cache'});
+    const buf = await res.arrayBuffer();
+    clickBuf  = await audioCtx.decodeAudioData(buf);
+  }catch(e){ console.warn('click preload failed', e); }
 }
 function unlockOnFirstGesture(){
   primeAudioChannel();
+  preloadClick();
   document.removeEventListener('touchstart', unlockOnFirstGesture);
   document.removeEventListener('click', unlockOnFirstGesture);
 }
@@ -244,20 +254,15 @@ function tick(now){
   if((now-lastFrame)/1000 < FRAME_DT) return;
   lastFrame = now;
 
-  // Choose the correct clock
+  // Which clock to use
   let t;
-  if (audioCtx && currentSource) {
-    t = (audioCtx.currentTime - startTimeWA) || 0;    // WebAudio clock
-  } else if (audioEl && tagPlaying) {
-    t = audioEl.currentTime || 0;                     // <audio> tag clock (iOS)
-  } else {
-    t = (performance.now()/1000) - startTimePerf;     // fabricated/fallback
-  }
+  if (audioCtx && currentSource) t = audioCtx.currentTime - startTime;      // WebAudio
+  else if (audioEl && tagPlaying) t = audioEl.currentTime || 0;             // <audio>
+  else t = (performance.now()/1000) - startTime;                            // fabricated
 
-  // Stop only when BOTH sources are idle
+  // Only stop when BOTH paths idle
   if (!currentSource && !tagPlaying && t > totalDur + 0.15) {
-    stopMouth();
-    return;
+    stopMouth(); return;
   }
 
   let open = 0.1;
@@ -265,23 +270,9 @@ function tick(now){
   mouth.style.transform = 'scaleY(' + quant(open + Math.random()*0.18 - 0.09) + ')';
 }
 
-function showWork(work){
-  if(!work) return;
-  const old = output.querySelector('.work-tag');
-  if(old) old.remove();
-  const span = document.createElement('span');
-  span.className = 'work-tag';
-  span.textContent = '— ' + work;
-  output.appendChild(span);
-}
-
-function fallbackStop(onEnd){
-  setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.2)*1000);
-}
-
 /* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
-  // WebAudio preferred (desktop & iOS after priming)
+  // Try WebAudio first
   try{
     ensureCtx();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -290,8 +281,7 @@ async function playAudio(b64,onEnd){
     currentSource.buffer = buf;
     currentSource.playbackRate.value = 1.08;
     currentSource.connect(audioCtx.destination);
-    startTimeWA = audioCtx.currentTime;
-    startTimePerf = performance.now()/1000;
+    startTime = audioCtx.currentTime;
     tagPlaying = false;
     startMouth();
     currentSource.start();
@@ -301,7 +291,7 @@ async function playAudio(b64,onEnd){
     console.warn('WebAudio decode failed; using <audio> blob', e);
   }
 
-  // Fallback: <audio> with Blob URL (helps older iOS)
+  // Fallback: <audio> (helps older iOS)
   try{
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const blob = new Blob([bin], {type:'audio/mp3'});
@@ -312,13 +302,12 @@ async function playAudio(b64,onEnd){
       document.body.appendChild(audioEl);
     }
     audioEl.src = URL.createObjectURL(blob);
-    audioEl.onplay  = ()=>{ tagPlaying=true; startTimePerf = performance.now()/1000; startMouth(); };
-    audioEl.onpause = ()=>{ tagPlaying=false; };                    /* keep state accurate */
+    audioEl.onplay  = ()=>{ tagPlaying=true;  startTime = 0; startMouth(); };
     audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
-    setTimeout(()=>audioEl.play().catch(err=>{console.error('audio play failed',err); fallbackStop(onEnd);}), 0);
+    setTimeout(()=>audioEl.play().catch(err=>{console.error('audio play failed',err); setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur+0.2)*1000);}), 0);
   }catch(err){
     console.error('Plain <audio> failed', err);
-    fallbackStop(onEnd);
+    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.2)*1000);
   }
 }
 
@@ -339,18 +328,27 @@ function stopAudio(){
 async function summon(){
   if(busy) return;
 
-  // prime audio channel on every tap to keep iOS “active”
+  // keep iOS “active” + reliable click
   primeAudioChannel();
+  try{
+    if (clickBuf && audioCtx) {
+      const s = audioCtx.createBufferSource();
+      s.buffer = clickBuf;
+      s.connect(audioCtx.destination);
+      s.start(0);
+    } else {
+      clickSnd.currentTime = 0;
+      await clickSnd.play();
+    }
+  }catch(_){}
 
-  /* click fx */
-  try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
   trigger.classList.add('pressed');
   setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
   busy = true;
   stopAudio(); stopMouth();
 
-  /* clear previous */
+  // clear previous
   typed.textContent='';
   const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
   timings=[]; totalDur=0;
@@ -365,20 +363,68 @@ async function summon(){
     timings = Array.isArray(data.timings) ? data.timings : [];
     totalDur = timings.length ? timings[timings.length-1].t : 0;
 
-    typeOut(text, async ()=>{
-      startTimePerf = performance.now()/1000;
+    // type it out first, then play audio + animate
+    (function typeOut(text, done){
+      typed.textContent='';
+      (function loop(i=0){
+        typed.textContent = text.slice(0,i);
+        if(i<text.length){
+          setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
+        }else{ done && done(); }
+      })();
+    })(text, async ()=>{
+      startTime = performance.now()/1000;
       if(data.audioBase64){
-        if(!timings.length){ fabricate(text); startTimePerf = performance.now()/1000; }
-        await playAudio(data.audioBase64, ()=>showWork(work));
+        if(!timings.length){            // fabricate if backend didn't send timings
+          const dur = Math.min(7, Math.max(2.2, text.length/16));
+          const frames = Math.round(dur*FPS), step = dur/frames;
+          timings = [];
+          for(let i=0;i<=frames;i++){
+            const r=Math.random();
+            timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
+          }
+          totalDur = dur;
+          startTime = performance.now()/1000;
+        }
+        await playAudio(data.audioBase64, ()=>{
+          // add attribution when done
+          const span = document.createElement('span');
+          span.className = 'work-tag';
+          span.textContent = work ? ('— ' + work) : '';
+          output.appendChild(span);
+        });
       }else{
-        if(!timings.length){ fabricate(text); startTimePerf = performance.now()/1000; startMouth(); }
-        setTimeout(()=>{ stopMouth(); showWork(work); }, (totalDur + 0.15)*1000);
+        // no audio, just animate fabricated mouth briefly
+        if(!timings.length){
+          const dur = Math.min(7, Math.max(2.2, text.length/16));
+          const frames = Math.round(dur*FPS), step = dur/frames;
+          timings = [];
+          for(let i=0;i<=frames;i++){
+            const r=Math.random();
+            timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
+          }
+          totalDur = dur; startTime = performance.now()/1000; startMouth();
+        }
+        setTimeout(()=>{
+          stopMouth();
+          const span = document.createElement('span');
+          span.className = 'work-tag';
+          span.textContent = work ? ('— ' + work) : '';
+          output.appendChild(span);
+        }, (totalDur + 0.15)*1000);
       }
     });
 
   }catch(e){
     console.error(e);
-    typeOut('A shy packet tripped. Try again.');
+    // error message
+    (function typeOut(text){
+      typed.textContent='';
+      (function loop(i=0){
+        typed.textContent = text.slice(0,i);
+        if(i<text.length) setTimeout(()=>loop(i+1), CHAR_MS);
+      })();
+    })('A shy packet tripped. Try again.');
   }finally{
     busy = false;
   }
