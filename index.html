@@ -123,7 +123,7 @@ body{
 </style>
 </head>
 <body>
-  <!-- Base click sample; we'll clone it per tap for reliability -->
+  <!-- Base click; we clone it per tap so it never gets “stuck” -->
   <audio id="clickSnd" src="click.mp3" preload="auto" playsinline></audio>
 
   <div class="wrapper">
@@ -173,7 +173,7 @@ let audioCtx,currentSource,audioEl,speechURL=null;
 let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
 let tagPlaying=false;
 
-/* ===== AudioContext unlock every tap (works with Silent mode) ===== */
+/* ===== AudioContext unlock (kept for desktop/WebAudio) ===== */
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 }
@@ -230,7 +230,6 @@ function startMouth(){ if(animating) return; animating=true; lastFrame=0; tick()
 function stopMouth(){ animating=false; cancelAnimationFrame(raf); mouth.style.transform='scaleY('+OPEN_STEPS[0]+')'; }
 
 function nowSec(){
-  // Prefer the “real” playing clock
   if (audioCtx && currentSource) return audioCtx.currentTime - startTime;
   if (audioEl && tagPlaying)     return audioEl.currentTime || 0;
   return (performance.now()/1000) - startTime;
@@ -245,9 +244,10 @@ function tick(now){
 
   const t = nowSec();
 
-  // Only stop when **both** engines idle
-  if(!currentSource && !tagPlaying && t > totalDur + 0.18){
-    stopMouth(); return;
+  /* NEW: stop immediately when neither engine is playing */
+  if (!currentSource && !tagPlaying) {
+    stopMouth();
+    return;
   }
 
   let open=0.1;
@@ -281,12 +281,10 @@ function playClick(){
 
 /* ===== audio playback ===== */
 function decodeAudioDataSafariSafe(ctx, arrayBuffer){
-  // Some Safari builds need callback form to be reliable
   return new Promise((resolve,reject)=>{
     try{
       ctx.decodeAudioData(arrayBuffer.slice(0), resolve, reject);
     }catch(e){
-      // Fallback to promise form
       ctx.decodeAudioData(arrayBuffer).then(resolve).catch(reject);
     }
   });
@@ -299,7 +297,7 @@ async function playViaWebAudio(b64,onEnd){
   const buf = await decodeAudioDataSafariSafe(audioCtx, bin);
   currentSource = audioCtx.createBufferSource();
   currentSource.buffer = buf;
-  currentSource.playbackRate.value = 1.08;   // keep the peppy toy vibe
+  currentSource.playbackRate.value = 1.08;
   currentSource.connect(audioCtx.destination);
   startTime = audioCtx.currentTime;
   startMouth();
@@ -315,11 +313,20 @@ async function playViaTag(b64,onEnd){
     audioEl.hidden = true;
     audioEl.setAttribute('playsinline','');
     audioEl.preload = 'auto';
+    audioEl.volume = 1.0;
     document.body.appendChild(audioEl);
   }
   if(speechURL){ URL.revokeObjectURL(speechURL); speechURL=null; }
   speechURL = URL.createObjectURL(blob);
   audioEl.src = speechURL;
+
+  // Align mouth length to real audio once known
+  audioEl.onloadedmetadata = ()=>{
+    if (audioEl.duration && isFinite(audioEl.duration)) {
+      totalDur = Math.max(totalDur, audioEl.duration);
+    }
+  };
+
   tagPlaying = true;
   audioEl.onplay  = startMouth;
   audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
@@ -328,16 +335,17 @@ async function playViaTag(b64,onEnd){
 
 async function playAudio(b64,onEnd){
   try{
-    // Always try WebAudio first (works in Silent mode; allowed after our prime)
-    await playViaWebAudio(b64,onEnd);
-  }catch(e){
-    console.warn('WebAudio failed; falling back to <audio>', e);
-    try{
+    if (isIOS) {
+      // iOS: go straight to <audio> for reliability
       await playViaTag(b64,onEnd);
-    }catch(err){
-      console.error('Tag playback failed', err);
-      fallbackStop(onEnd);
+    } else {
+      // Desktop: WebAudio first (better sync, ignores mute switch), then fallback
+      try { await playViaWebAudio(b64,onEnd); }
+      catch { await playViaTag(b64,onEnd); }
     }
+  }catch(err){
+    console.error('Playback failed', err);
+    fallbackStop(onEnd);
   }
 }
 
@@ -351,10 +359,10 @@ function stopAudio(){
 async function summon(){
   if(busy) return;
 
-  // keep context “hot” on each tap
+  // keep context “hot” on each tap (safe no-op on iOS when using <audio>)
   primeAudio();
 
-  // click FX (independent node so it doesn’t block speech)
+  // click FX
   playClick();
 
   trigger.classList.add('pressed');
@@ -365,7 +373,7 @@ async function summon(){
 
   // clear previous
   typed.textContent='';
-  const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
+  const oldTag = output.querySelector('.work-tag'); if(oldTag) old.remove();
   timings=[]; totalDur=0;
 
   try{
