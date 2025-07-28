@@ -8,67 +8,67 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-  --figure-scale:1.15;
-  --mouth-top:133px;
-  --mouth-left:50%;
-  --mouth-w:38px;
-  --mouth-h:38px;
+  --figure-scale:1.15;
+  --mouth-top:133px;
+  --mouth-left:50%;
+  --mouth-w:38px;
+  --mouth-h:38px;
 
-  --mouth-scale-0:.05; /* initial; JS now drives actual levels */
-  --char-ms:18;
-  --terminal-color:#1034a6;
-  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --mouth-scale-0:.05; /* initial; JS now drives actual levels */
+  --char-ms:18;
+  --terminal-color:#1034a6;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 }
 
 /* ---------- layout ---------- */
 *{box-sizing:border-box}
 html,body{
-  height:100%;margin:0;padding:0;
-  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-  background:#fff;color:#111;
-  -webkit-font-smoothing:antialiased;
+  height:100%;margin:0;padding:0;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+  background:#fff;color:#111;
+  -webkit-font-smoothing:antialiased;
 }
 body{
-  min-height:100vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-start;
-  padding:28px 18px 32px;
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:28px 18px 32px;
 }
 .wrapper{
-  flex:1;width:100%;max-width:950px;
-  display:flex;flex-direction:column;align-items:center;
-  gap:38px;
+  flex:1;width:100%;max-width:950px;
+  display:flex;flex-direction:column;align-items:center;
+  gap:38px;
 }
 .header{
-  font-size:clamp(14px,1.9vw,20px);font-weight:600;letter-spacing:.4px;
-  text-align:center;margin:0;
+  font-size:clamp(14px,1.9vw,20px);font-weight:600;letter-spacing:.4px;
+  text-align:center;margin:0;
 }
 .header span{font-weight:700}
 
 /* ---------- figure ---------- */
 .figure-zone{display:flex;flex-direction:column;align-items:center;gap:42px;margin-top:4px}
 .chunklet-wrap{
-  position:relative;
-  width:calc(180px*var(--figure-scale));
-  height:calc(230px*var(--figure-scale));
-  display:flex;align-items:flex-end;justify-content:center;
-  pointer-events:none;
+  position:relative;
+  width:calc(180px*var(--figure-scale));
+  height:calc(230px*var(--figure-scale));
+  display:flex;align-items:flex-end;justify-content:center;
+  pointer-events:none;
 }
 .chunklet-img{
-  width:calc(170px*var(--figure-scale));max-width:100%;
-  user-select:none;-webkit-user-drag:none;
-  filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
-  image-rendering:-webkit-optimize-contrast;
+  width:calc(170px*var(--figure-scale));max-width:100%;
+  user-select:none;-webkit-user-drag:none;
+  filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
+  image-rendering:-webkit-optimize-contrast;
 }
 /* mouth overlay */
 .mouth-overlay{
-  position:absolute;
-  top:var(--mouth-top);left:var(--mouth-left);
-  width:var(--mouth-w);height:var(--mouth-h);
-  transform:translate(-50%,-50%);
-  display:flex;align-items:center;justify-content:center;
-  pointer-events:none;
+  position:absolute;
+  top:var(--mouth-top);left:var(--mouth-left);
+  width:var(--mouth-w);height:var(--mouth-h);
+  transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
 }
 .mouth-overlay svg{width:100%;height:100%}
 #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
@@ -76,29 +76,29 @@ body{
 /* ---------- button ---------- */
 .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
 .trigger-button img{
-  width:118px;height:auto;display:block;
-  transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
-  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
+  width:118px;height:auto;display:block;
+  transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
 }
 .trigger-button:active img,
 .trigger-button.pressed img{
-  transform:translateY(8px) scale(.985);
-  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
+  transform:translateY(8px) scale(.985);
+  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
 }
 
 /* ---------- output ---------- */
 .output{
-  font-family:var(--font-mono);
-  font-size:clamp(9px,0.8vw,12px);
-  line-height:1.3;letter-spacing:.4px;font-weight:500;
-  color:var(--terminal-color);
-  max-width:620px;min-height:1.6em;text-align:left;
-  margin:8px auto 0;white-space:pre-wrap;position:relative;
+  font-family:var(--font-mono);
+  font-size:clamp(9px,0.8vw,12px);
+  line-height:1.3;letter-spacing:.4px;font-weight:500;
+  color:var(--terminal-color);
+  max-width:620px;min-height:1.6em;text-align:left;
+  margin:8px auto 0;white-space:pre-wrap;position:relative;
 }
 .cursor{
-  display:inline-block;width:.55ch;height:1em;
-  background:var(--terminal-color);vertical-align:baseline;
-  animation:blink 1s steps(1,end) infinite;transform:translateY(1px)
+  display:inline-block;width:.55ch;height:1em;
+  background:var(--terminal-color);vertical-align:baseline;
+  animation:blink 1s steps(1,end) infinite;transform:translateY(1px)
 }
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
@@ -106,42 +106,42 @@ body{
 
 /* ---------- small screens ---------- */
 @media(max-height:640px){
-  .figure-zone{gap:30px}
-  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
+  .figure-zone{gap:30px}
+  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
 }
 @media(max-width:360px){
-  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
-  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
-  .chunklet-img{width:calc(140px*var(--figure-scale))}
-  .trigger-button img{width:96px}
+  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
+  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
+  .chunklet-img{width:calc(140px*var(--figure-scale))}
+  .trigger-button img{width:96px}
 }
 </style>
 </head>
 <body>
-  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
+  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-  <div class="wrapper">
-    <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
+  <div class="wrapper">
+    <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
-    <div class="figure-zone">
-      <div class="chunklet-wrap">
-        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
-        <div class="mouth-overlay">
-          <svg viewBox="0 0 100 100">
-            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
-          </svg>
-        </div>
-      </div>
+    <div class="figure-zone">
+      <div class="chunklet-wrap">
+        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
+        <div class="mouth-overlay">
+          <svg viewBox="0 0 100 100">
+            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+          </svg>
+        </div>
+      </div>
 
-      <button id="trigger" class="trigger-button" aria-label="Speak">
-        <img id="keyImage" src="button.png" alt="Speak button">
-      </button>
-    </div>
+      <button id="trigger" class="trigger-button" aria-label="Speak">
+        <img id="keyImage" src="button.png" alt="Speak button">
+      </button>
+    </div>
 
-    <div class="output" id="output">
-      <span id="typed"></span><span id="cursor" class="cursor"></span>
-    </div>
-  </div>
+    <div class="output" id="output">
+      <span id="typed"></span><span id="cursor" class="cursor"></span>
+    </div>
+  </div>
 
 <script>
 /* ===== CONFIG ===== */
