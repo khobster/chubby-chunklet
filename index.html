@@ -16,7 +16,9 @@
   --mouth-w:38px;
   --mouth-h:38px;
 
-  --mouth-scale-0:.05; /* initial; JS now drives actual levels */
+  /* JS now drives discrete levels; this is just initial */
+  --mouth-scale-0:.05;
+
   --char-ms:18;
   --terminal-color:#1034a6;
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
@@ -152,7 +154,6 @@ const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getProperty
 
 const trigger  = document.getElementById('trigger');
 const typed    = document.getElementById('typed');
-const cursor   = document.getElementById('cursor');
 const mouth    = document.getElementById('mouth');
 const output   = document.getElementById('output');
 const clickSnd = document.getElementById('clickSnd');
@@ -162,22 +163,27 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 /* ---------- state ---------- */
 let busy=false;
 let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-let startTime=0,raf,animating=false,totalDur=0;
-let tagPlaying=false;
-let currentObjectURL=null;
+let raf,animating=false,tagPlaying=false,currentObjectURL=null;
 
 /* ===== multi-level fast flap (discrete bands with hysteresis) ===== */
-/* Levels: 0..4  -> closed, small, medium, big, huge */
 const SY = [0.07, 0.55, 1.10, 1.70, 2.30];   // vertical scales per level
 const SX = [1.00, 1.01, 1.02, 1.02, 1.03];   // slight horizontal squish
-const THRESH_UP   = [0.030, 0.060, 0.100, 0.160]; // climb thresholds to reach 1..4
-const HYST_DELTA  = 0.018;                         // how much lower to drop a band
+const THRESH_UP   = [0.030, 0.060, 0.100, 0.160];
+const HYST_DELTA  = 0.018;
 const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
-const GATE_FLOOR  = 0.010;                         // ignore micro-noise
-const CLOSE_GRACE_MS = 20;                         // micro flicker guard
+const GATE_FLOOR  = 0.010;
+const CLOSE_GRACE_MS = 20;
 
-let level = 0;
-let lastChange = 0;
+let level = 0, lastChange = 0;
+
+function setLevel(n){
+  n = Math.max(0, Math.min(4, n|0));
+  if (n === level) return;
+  level = n;
+  mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
+  lastChange = performance.now();
+}
+function setClosed(){ setLevel(0); }
 
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
@@ -200,8 +206,8 @@ function ensureAnalyser(){
   ensureCtx();
   if(!analyser){
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;                 // fast response
-    analyser.smoothingTimeConstant = 0.0;   // no smoothing
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.0;
     timeData = new Float32Array(analyser.fftSize);
   }
 }
@@ -216,6 +222,8 @@ function attachAnalyserToMediaElement(){
   if(!audioEl){
     audioEl = document.createElement('audio');
     audioEl.hidden = true;
+    audioEl.playsInline = true;
+    audioEl.preload = 'auto';
     document.body.appendChild(audioEl);
   }
   if(!mediaSource){
@@ -229,24 +237,11 @@ function attachAnalyserToMediaElement(){
 function rmsLevel(){
   analyser.getFloatTimeDomainData(timeData);
   let sum = 0;
-  for(let i=0;i<timeData.length;i++){
-    const v = timeData[i];
-    sum += v*v;
-  }
+  for(let i=0;i<timeData.length;i++){ const v=timeData[i]; sum += v*v; }
   let rms = Math.sqrt(sum / timeData.length);
   if (rms < GATE_FLOOR) rms = 0;
   return rms;
 }
-
-/* set visual level immediately (no tween) */
-function setLevel(n){
-  n = Math.max(0, Math.min(4, n|0));
-  if (n === level) return;
-  level = n;
-  mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
-  lastChange = performance.now();
-}
-function setClosed(){ setLevel(0); }
 
 function startMouth(){
   if(animating) return;
@@ -258,7 +253,6 @@ function stopMouth(){
   cancelAnimationFrame(raf);
   setClosed();
 }
-
 function tick(){
   raf = requestAnimationFrame(tick);
   if(!analyser) return;
@@ -269,25 +263,20 @@ function tick(){
   if(active){
     const e = rmsLevel();
 
-    // Decide target band
     let target = level;
-    // climb
     while (target < 4 && e >= THRESH_UP[target]) target++;
-    // drop
     while (target > 0 && e < THRESH_DOWN[target-1]) target--;
 
-    // very small grace to prevent single-frame chatter on drops
     if (target < level && (now - lastChange) < CLOSE_GRACE_MS) {
       target = level;
     }
-
     setLevel(target);
     return;
   }
 
-  // No active audio: fallback rapid chatter with varied levels (~13 Hz)
+  // no audio: lively fallback chatter (~13 Hz)
   const t = (now/1000);
-  const phase = ((t*13)|0) % 4; // 0..3 tick
+  const phase = ((t*13)|0) % 4;
   const rand = Math.random();
   const target = phase === 0 ? 0
                 : phase === 1 ? (rand < .7 ? 1 : 2)
@@ -313,9 +302,54 @@ function typeOut(text, done){
   })();
 }
 
-/* playback */
+/* ===== audio playback ===== */
 async function playAudio(b64,onEnd){
-  // Try WebAudio first
+  /* --- FORCE <audio> path on iOS for reliability --- */
+  if(isIOS){
+    try{
+      ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
+
+      const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+      const blob = new Blob([bin], {type:'audio/mp3'});
+      if(!audioEl){
+        audioEl = document.createElement('audio');
+        audioEl.hidden = true;
+        audioEl.playsInline = true;
+        audioEl.preload = 'auto';
+        document.body.appendChild(audioEl);
+      }
+      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+      currentObjectURL = URL.createObjectURL(blob);
+      audioEl.src = currentObjectURL;
+
+      let started=false;
+      const watchdog = setTimeout(()=>{
+        if(!started){
+          console.warn('iOS: play() watchdog fired; fabricating stop');
+          tagPlaying=false; stopMouth(); onEnd && onEnd();
+        }
+      }, 1200);
+
+      audioEl.onplaying = ()=>{ started=true; clearTimeout(watchdog); tagPlaying=true; setClosed(); startMouth(); };
+      audioEl.onended   = ()=>{
+        tagPlaying=false;
+        clearTimeout(watchdog);
+        stopMouth();
+        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+        onEnd && onEnd();
+      };
+      await audioEl.play();
+      return;
+    }catch(e){
+      console.error('iOS <audio> path failed', e);
+      // last-resort fallback animation
+      startMouth();
+      setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, 2500);
+      return;
+    }
+  }
+
+  // Desktop / non‑iOS: try WebAudio first
   try{
     ensureCtx(); ensureAnalyser();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -327,16 +361,14 @@ async function playAudio(b64,onEnd){
     setClosed(); startMouth();
     currentSource.start();
     currentSource.onended = ()=>{
-      currentSource=null;
-      stopMouth();
-      onEnd && onEnd();
+      currentSource=null; stopMouth(); onEnd && onEnd();
     };
     return;
   }catch(e){
     console.warn('WebAudio decode failed, fallback to <audio>', e);
   }
 
-  // Fallback: <audio> element (iOS-friendly)
+  // Fallback plain <audio> on desktop
   try{
     ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
     const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
@@ -344,28 +376,29 @@ async function playAudio(b64,onEnd){
     if(!audioEl){
       audioEl = document.createElement('audio');
       audioEl.hidden = true;
+      audioEl.playsInline = true;
+      audioEl.preload = 'auto';
       document.body.appendChild(audioEl);
     }
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
     currentObjectURL = URL.createObjectURL(blob);
     audioEl.src = currentObjectURL;
 
-    audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
+    audioEl.onplay  = ()=>{ tagPlaying=true; setClosed(); startMouth(); };
     audioEl.onended = ()=>{
-      tagPlaying=false;
-      stopMouth();
+      tagPlaying=false; stopMouth();
       if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
       onEnd && onEnd();
     };
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
-    // fabricate varied chatter for safety
+    // fabricate
     startMouth();
-    const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
-    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
+    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, 2500);
   }
 }
+
 function stopAudio(){
   if(currentSource){
     try{ currentSource.stop(); }catch(_){}
@@ -379,7 +412,7 @@ function stopAudio(){
   tagPlaying = false;
 }
 
-/* UI bits */
+/* UI helpers */
 function showWork(work){
   if(!work) return;
   const old = output.querySelector('.work-tag'); if(old) old.remove();
@@ -395,15 +428,13 @@ const FETCH_URL = ENDPOINT + QUERY;
 async function summon(){
   if(busy) return;
 
-  /* click fx + quick pop */
+  // click + quick pop
   try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
   trigger.classList.add('pressed');
   setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
   busy = true;
-  stopAudio(); // also closes mouth
-
-  /* clear previous */
+  stopAudio(); stopMouth();
   typed.textContent='';
   const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
 
@@ -419,7 +450,7 @@ async function summon(){
       if(data.audioBase64){
         await playAudio(data.audioBase64, onEnd);
       }else{
-        // fabricated multi-level chatter
+        // fabricated chatter if no audio provided
         startMouth();
         const approx = Math.min(7, Math.max(2.2, text.length/16));
         setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
