@@ -8,102 +8,97 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-  --figure-scale:1.15;
-  --mouth-top:133px;
-  --mouth-left:50%;
-  --mouth-w:38px;
-  --mouth-h:38px;
+  --figure-scale:1.15;
+  --mouth-top:133px;
+  --mouth-left:50%;
+  --mouth-w:38px;
+  --mouth-h:38px;
 
-  --mouth-scale-0:.05;
-  --mouth-scale-1:.55;
-  --mouth-scale-2:1.05;
-  --mouth-scale-3:1.40;
-  --mouth-scale-4:1.75;
-
-  --char-ms:18;
-  --terminal-color:#1034a6;
-  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --mouth-scale-0:.05; /* initial; JS now drives actual levels */
+  --char-ms:18;
+  --terminal-color:#1034a6;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 }
 
 /* ---------- layout ---------- */
 *{box-sizing:border-box}
 html,body{
-  height:100%;margin:0;padding:0;
-  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-  background:#fff;color:#111;
-  -webkit-font-smoothing:antialiased;
+  height:100%;margin:0;padding:0;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+  background:#fff;color:#111;
+  -webkit-font-smoothing:antialiased;
 }
 body{
-  min-height:100vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-start;
-  padding:28px 18px 32px;
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:28px 18px 32px;
 }
 .wrapper{
-  flex:1;width:100%;max-width:950px;
-  display:flex;flex-direction:column;align-items:center;
-  gap:38px;
+  flex:1;width:100%;max-width:950px;
+  display:flex;flex-direction:column;align-items:center;
+  gap:38px;
 }
 .header{
-  font-size:clamp(14px,1.9vw,20px);font-weight:600;letter-spacing:.4px;
-  text-align:center;margin:0;
+  font-size:clamp(14px,1.9vw,20px);font-weight:600;letter-spacing:.4px;
+  text-align:center;margin:0;
 }
 .header span{font-weight:700}
 
 /* ---------- figure ---------- */
 .figure-zone{display:flex;flex-direction:column;align-items:center;gap:42px;margin-top:4px}
 .chunklet-wrap{
-  position:relative;
-  width:calc(180px*var(--figure-scale));
-  height:calc(230px*var(--figure-scale));
-  display:flex;align-items:flex-end;justify-content:center;
-  pointer-events:none;
+  position:relative;
+  width:calc(180px*var(--figure-scale));
+  height:calc(230px*var(--figure-scale));
+  display:flex;align-items:flex-end;justify-content:center;
+  pointer-events:none;
 }
 .chunklet-img{
-  width:calc(170px*var(--figure-scale));max-width:100%;
-  user-select:none;-webkit-user-drag:none;
-  filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
-  image-rendering:-webkit-optimize-contrast;
+  width:calc(170px*var(--figure-scale));max-width:100%;
+  user-select:none;-webkit-user-drag:none;
+  filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
+  image-rendering:-webkit-optimize-contrast;
 }
 /* mouth overlay */
 .mouth-overlay{
-  position:absolute;
-  top:var(--mouth-top);left:var(--mouth-left);
-  width:var(--mouth-w);height:var(--mouth-h);
-  transform:translate(-50%,-50%);
-  display:flex;align-items:center;justify-content:center;
-  pointer-events:none;
+  position:absolute;
+  top:var(--mouth-top);left:var(--mouth-left);
+  width:var(--mouth-w);height:var(--mouth-h);
+  transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
 }
 .mouth-overlay svg{width:100%;height:100%}
-#mouth{transform-origin:50% 50%;transform:scaleY(var(--mouth-scale-0))}
+#mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
 /* ---------- button ---------- */
 .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
 .trigger-button img{
-  width:118px;height:auto;display:block;
-  transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
-  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
+  width:118px;height:auto;display:block;
+  transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
 }
 .trigger-button:active img,
 .trigger-button.pressed img{
-  transform:translateY(8px) scale(.985);
-  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
+  transform:translateY(8px) scale(.985);
+  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
 }
 
 /* ---------- output ---------- */
 .output{
-  font-family:var(--font-mono);
-  font-size:clamp(9px,0.8vw,12px);
-  line-height:1.3;letter-spacing:.4px;font-weight:500;
-  color:var(--terminal-color);
-  max-width:620px;min-height:1.6em;text-align:left;
-  margin:8px auto 0;white-space:pre-wrap;position:relative;
+  font-family:var(--font-mono);
+  font-size:clamp(9px,0.8vw,12px);
+  line-height:1.3;letter-spacing:.4px;font-weight:500;
+  color:var(--terminal-color);
+  max-width:620px;min-height:1.6em;text-align:left;
+  margin:8px auto 0;white-space:pre-wrap;position:relative;
 }
 .cursor{
-  display:inline-block;width:.55ch;height:1em;
-  background:var(--terminal-color);vertical-align:baseline;
-  animation:blink 1s steps(1,end) infinite;transform:translateY(1px)
+  display:inline-block;width:.55ch;height:1em;
+  background:var(--terminal-color);vertical-align:baseline;
+  animation:blink 1s steps(1,end) infinite;transform:translateY(1px)
 }
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
@@ -111,41 +106,42 @@ body{
 
 /* ---------- small screens ---------- */
 @media(max-height:640px){
-  .figure-zone{gap:30px}
-  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
+  .figure-zone{gap:30px}
+  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
 }
 @media(max-width:360px){
-  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
-  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
-  .chunklet-img{width:calc(140px*var(--figure-scale))}
-  .trigger-button img{width:96px}
+  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
+  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
+  .chunklet-img{width:calc(140px*var(--figure-scale))}
+  .trigger-button img{width:96px}
 }
 </style>
 </head>
 <body>
-  <!-- Base click; we clone it per tap so it never gets “stuck” -->
-  <audio id="clickSnd" src="click.mp3" preload="auto" playsinline></audio>
+  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-  <div class="wrapper">
-    <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
+  <div class="wrapper">
+    <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
-    <div class="figure-zone">
-      <div class="chunklet-wrap">
-        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
-        <div class="mouth-overlay">
-          <svg viewBox="0 0 100 100"><ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/></svg>
-        </div>
-      </div>
+    <div class="figure-zone">
+      <div class="chunklet-wrap">
+        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
+        <div class="mouth-overlay">
+          <svg viewBox="0 0 100 100">
+            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+          </svg>
+        </div>
+      </div>
 
-      <button id="trigger" class="trigger-button" aria-label="Speak">
-        <img id="keyImage" src="button.png" alt="Speak button">
-      </button>
-    </div>
+      <button id="trigger" class="trigger-button" aria-label="Speak">
+        <img id="keyImage" src="button.png" alt="Speak button">
+      </button>
+    </div>
 
-    <div class="output" id="output">
-      <span id="typed"></span><span id="cursor" class="cursor"></span>
-    </div>
-  </div>
+    <div class="output" id="output">
+      <span id="typed"></span><span id="cursor" class="cursor"></span>
+    </div>
+  </div>
 
 <script>
 /* ===== CONFIG ===== */
@@ -153,10 +149,6 @@ const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')|
   || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
 const QUERY    = '?style=canon&modern=1&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
-const FPS      = 16;
-const FRAME_DT = 1/FPS;
-const OPEN_STEPS = ['--mouth-scale-0','--mouth-scale-1','--mouth-scale-2','--mouth-scale-3','--mouth-scale-4']
-  .map(v=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)));
 
 const trigger  = document.getElementById('trigger');
 const typed    = document.getElementById('typed');
@@ -169,33 +161,237 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
 /* ---------- state ---------- */
 let busy=false;
-let audioCtx,currentSource,audioEl,speechURL=null;
-let startTime=0,timings=[],raf,lastFrame=0,animating=false,totalDur=0;
+let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
+let startTime=0,raf,animating=false,totalDur=0;
 let tagPlaying=false;
+let currentObjectURL=null;
+let iosAudioInitialized = false;
 
-/* ===== AudioContext unlock (kept for desktop/WebAudio) ===== */
+/* ===== multi-level fast flap (discrete bands with hysteresis) ===== */
+const SY = [0.07, 0.55, 1.10, 1.70, 2.30];
+const SX = [1.00, 1.01, 1.02, 1.02, 1.03];
+const THRESH_UP   = [0.030, 0.060, 0.100, 0.160];
+const HYST_DELTA  = 0.018;
+const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
+const GATE_FLOOR  = 0.010;
+const CLOSE_GRACE_MS = 20;
+
+let level = 0;
+let lastChange = 0;
+
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
 }
-function primeAudio(){
+
+// Enhanced iOS audio initialization
+function initializeIOSAudio(){
+  if(iosAudioInitialized) return;
+  
   try{
     ensureCtx();
-    if(audioCtx.state === 'suspended') audioCtx.resume();
-    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    g.gain.value=0; o.connect(g); g.connect(audioCtx.destination);
-    o.start(); o.stop(audioCtx.currentTime + 0.03);
-    setTimeout(()=>{try{o.disconnect();g.disconnect();}catch(_){ }},60);
-  }catch(_){}
+    
+    // Create a persistent audio element for iOS
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.style.position = 'absolute';
+      audioEl.style.left = '-9999px';
+      audioEl.setAttribute('playsinline', '');
+      audioEl.setAttribute('webkit-playsinline', '');
+      document.body.appendChild(audioEl);
+    }
+    
+    // Play silent audio to initialize
+    const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    
+    audioEl.src = silentMP3;
+    audioEl.load();
+    const playPromise = audioEl.play();
+    
+    if(playPromise !== undefined){
+      playPromise.then(() => {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        
+        // Now create the media source connection
+        if(!mediaSource && audioCtx){
+          try{
+            mediaSource = audioCtx.createMediaElementSource(audioEl);
+            ensureAnalyser();
+            mediaSource.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            iosAudioInitialized = true;
+          }catch(e){
+            console.warn('iOS audio init partial success, no analyser:', e);
+          }
+        }
+      }).catch(e => {
+        console.warn('iOS audio init failed:', e);
+      });
+    }
+  }catch(e){
+    console.warn('iOS audio initialization error:', e);
+  }
 }
-function unlockOnce(){
-  primeAudio();
-  document.removeEventListener('touchstart', unlockOnce);
-  document.removeEventListener('click', unlockOnce);
-}
-document.addEventListener('touchstart', unlockOnce, {once:true, passive:true});
-document.addEventListener('click', unlockOnce, {once:true});
 
-/* ===== helpers ===== */
+function unlockAudioOnce(){
+  try{
+    ensureCtx();
+    
+    if(isIOS){
+      initializeIOSAudio();
+    } else {
+      // Original unlock code for non-iOS
+      const buf = audioCtx.createBuffer(1,1,22050);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; 
+      src.connect(audioCtx.destination); 
+      src.start(0);
+    }
+  }catch(_){}
+  
+  document.removeEventListener('touchstart', unlockAudioOnce);
+  document.removeEventListener('click', unlockAudioOnce);
+}
+
+document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
+document.addEventListener('click', unlockAudioOnce, {once:true});
+
+function ensureAnalyser(){
+  ensureCtx();
+  if(!analyser){
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.0;
+    timeData = new Float32Array(analyser.fftSize);
+  }
+}
+
+function attachAnalyserToBufferSource(srcNode){
+  ensureAnalyser();
+  try{ srcNode.disconnect(); }catch(_){}
+  srcNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+
+function attachAnalyserToMediaElement(){
+  ensureAnalyser();
+  
+  if(isIOS && !iosAudioInitialized){
+    initializeIOSAudio();
+    return;
+  }
+  
+  if(!audioEl){
+    audioEl = document.createElement('audio');
+    audioEl.style.position = 'absolute';
+    audioEl.style.left = '-9999px';
+    audioEl.setAttribute('playsinline', '');
+    audioEl.setAttribute('webkit-playsinline', '');
+    document.body.appendChild(audioEl);
+  }
+  
+  if(!mediaSource && audioCtx && audioEl){
+    try{
+      mediaSource = audioCtx.createMediaElementSource(audioEl);
+      mediaSource.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }catch(e){ 
+      console.warn('createMediaElementSource failed', e); 
+    }
+  }
+}
+
+function rmsLevel(){
+  if(!analyser || !timeData) return 0;
+  
+  analyser.getFloatTimeDomainData(timeData);
+  let sum = 0;
+  for(let i=0;i<timeData.length;i++){
+    const v = timeData[i];
+    sum += v*v;
+  }
+  let rms = Math.sqrt(sum / timeData.length);
+  if (rms < GATE_FLOOR) rms = 0;
+  return rms;
+}
+
+/* set visual level immediately (no tween) */
+function setLevel(n){
+  n = Math.max(0, Math.min(4, n|0));
+  if (n === level) return;
+  level = n;
+  mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
+  lastChange = performance.now();
+}
+
+function setClosed(){ setLevel(0); }
+
+function startMouth(){
+  if(animating) return;
+  animating = true;
+  requestAnimationFrame(tick);
+}
+
+function stopMouth(){
+  animating = false;
+  cancelAnimationFrame(raf);
+  setClosed();
+}
+
+function tick(){
+  raf = requestAnimationFrame(tick);
+  
+  const active = !!currentSource || tagPlaying;
+  const now = performance.now();
+
+  if(active){
+    // Only use analyser if it's properly connected
+    if(analyser && (currentSource || (tagPlaying && mediaSource))){
+      const e = rmsLevel();
+      
+      // If we're getting no data on iOS, use time-based animation
+      if(isIOS && e === 0 && tagPlaying){
+        // Fallback animation for iOS when analyser fails
+        const t = (now/1000);
+        const phase = ((t*15)|0) % 5;
+        const levels = [1, 2, 3, 2, 1];
+        setLevel(levels[phase]);
+        return;
+      }
+
+      // Normal analyser-based animation
+      let target = level;
+      while (target < 4 && e >= THRESH_UP[target]) target++;
+      while (target > 0 && e < THRESH_DOWN[target-1]) target--;
+
+      if (target < level && (now - lastChange) < CLOSE_GRACE_MS) {
+        target = level;
+      }
+
+      setLevel(target);
+    } else {
+      // Fallback when no analyser
+      const t = (now/1000);
+      const phase = ((t*15)|0) % 5;
+      const levels = [1, 2, 3, 2, 1];
+      setLevel(levels[phase]);
+    }
+    return;
+  }
+
+  // No active audio: idle animation
+  const t = (now/1000);
+  const phase = ((t*13)|0) % 4;
+  const rand = Math.random();
+  const target = phase === 0 ? 0
+                : phase === 1 ? (rand < .7 ? 1 : 2)
+                : phase === 2 ? (rand < .6 ? 2 : 3)
+                :               (rand < .5 ? 3 : 4);
+  setLevel(target);
+}
+
+/* helpers */
 const sanitize = txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
   return /[.?!]$/.test(txt)?txt:txt+'.';
@@ -213,187 +409,215 @@ function typeOut(text, done){
   })();
 }
 
-const quant = o => OPEN_STEPS[Math.min(4, Math.max(0, Math.round(o*4)))];
+/* playback */
+async function playAudio(b64,onEnd){
+  // Always use audio element on iOS
+  if(isIOS){
+    try{
+      ensureCtx(); 
+      
+      // Initialize iOS audio if needed
+      if(!iosAudioInitialized){
+        await initializeIOSAudio();
+        // Small delay to ensure initialization
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      attachAnalyserToMediaElement();
+      
+      const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+      const blob = new Blob([bin], {type:'audio/mp3'});
+      
+      if(currentObjectURL){ 
+        URL.revokeObjectURL(currentObjectURL); 
+        currentObjectURL=null; 
+      }
+      
+      currentObjectURL = URL.createObjectURL(blob);
+      
+      if(!audioEl){
+        audioEl = document.createElement('audio');
+        audioEl.style.position = 'absolute';
+        audioEl.style.left = '-9999px';
+        audioEl.setAttribute('playsinline', '');
+        audioEl.setAttribute('webkit-playsinline', '');
+        document.body.appendChild(audioEl);
+      }
+      
+      audioEl.src = currentObjectURL;
+      audioEl.load();
 
-function fabricate(text){
-  const dur = Math.min(7, Math.max(2.2, text.length/16));
-  const frames = Math.round(dur*FPS), step = dur/frames;
-  timings = [];
-  for(let i=0;i<=frames;i++){
-    const r=Math.random();
-    timings.push({t:i*step,open:r<.15?.05:r<.3?.35:r<.6?.7:r<.85?.9:1});
+      audioEl.onplay  = ()=>{ 
+        setClosed(); 
+        startMouth(); 
+        tagPlaying=true; 
+      };
+      
+      audioEl.onended = ()=>{
+        tagPlaying=false;
+        stopMouth();
+        if(currentObjectURL){ 
+          URL.revokeObjectURL(currentObjectURL); 
+          currentObjectURL=null; 
+        }
+        onEnd && onEnd();
+      };
+      
+      // iOS needs explicit play() call
+      const playPromise = audioEl.play();
+      if(playPromise !== undefined){
+        await playPromise;
+      }
+      
+      return;
+    }catch(err){
+      console.error('iOS audio playback failed', err);
+      // Fallback animation
+      startMouth();
+      const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
+      setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
+      return;
+    }
   }
-  totalDur = dur;
-}
-
-function startMouth(){ if(animating) return; animating=true; lastFrame=0; tick(); }
-function stopMouth(){ animating=false; cancelAnimationFrame(raf); mouth.style.transform='scaleY('+OPEN_STEPS[0]+')'; }
-
-function nowSec(){
-  if (audioCtx && currentSource) return audioCtx.currentTime - startTime;
-  if (audioEl && tagPlaying)     return audioEl.currentTime || 0;
-  return (performance.now()/1000) - startTime;
-}
-
-function tick(now){
-  raf = requestAnimationFrame(tick);
-  if(!now) return;
-  if(!lastFrame) lastFrame = now;
-  if((now-lastFrame)/1000 < FRAME_DT) return;
-  lastFrame = now;
-
-  const t = nowSec();
-
-  /* NEW: stop immediately when neither engine is playing */
-  if (!currentSource && !tagPlaying) {
-    stopMouth();
+  
+  // Desktop: Try WebAudio first
+  try{
+    ensureCtx(); 
+    ensureAnalyser();
+    const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+    const buf = await audioCtx.decodeAudioData(bin.buffer);
+    currentSource = audioCtx.createBufferSource();
+    currentSource.buffer = buf;
+    currentSource.playbackRate.value = 1.08;
+    attachAnalyserToBufferSource(currentSource);
+    setClosed(); 
+    startMouth();
+    currentSource.start();
+    currentSource.onended = ()=>{
+      currentSource=null;
+      stopMouth();
+      onEnd && onEnd();
+    };
     return;
+  }catch(e){
+    console.warn('WebAudio decode failed, fallback to <audio>', e);
   }
 
-  let open=0.1;
-  for(const seg of timings){ if(t>=seg.t) open=seg.open; else break; }
-  mouth.style.transform = 'scaleY(' + quant(open + Math.random()*0.18 - 0.09) + ')';
+  // Desktop fallback: <audio> element
+  try{
+    ensureCtx(); 
+    ensureAnalyser(); 
+    attachAnalyserToMediaElement();
+    
+    const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+    const blob = new Blob([bin], {type:'audio/mp3'});
+    
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.hidden = true;
+      document.body.appendChild(audioEl);
+    }
+    
+    if(currentObjectURL){ 
+      URL.revokeObjectURL(currentObjectURL); 
+      currentObjectURL=null; 
+    }
+    
+    currentObjectURL = URL.createObjectURL(blob);
+    audioEl.src = currentObjectURL;
+
+    audioEl.onplay  = ()=>{ 
+      setClosed(); 
+      startMouth(); 
+      tagPlaying=true; 
+    };
+    
+    audioEl.onended = ()=>{
+      tagPlaying=false;
+      stopMouth();
+      if(currentObjectURL){ 
+        URL.revokeObjectURL(currentObjectURL); 
+        currentObjectURL=null; 
+      }
+      onEnd && onEnd();
+    };
+    
+    await audioEl.play();
+  }catch(err){
+    console.error('Plain <audio> failed', err);
+    // Fallback animation
+    startMouth();
+    const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
+    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
+  }
 }
 
+function stopAudio(){
+  if(currentSource){
+    try{ currentSource.stop(); }catch(_){}
+    try{ currentSource.disconnect(); }catch(_){}
+    currentSource = null;
+  }
+  if(audioEl){
+    try{ audioEl.pause(); audioEl.currentTime = 0; }catch(_){}
+  }
+  if(currentObjectURL){ 
+    URL.revokeObjectURL(currentObjectURL); 
+    currentObjectURL=null; 
+  }
+  tagPlaying = false;
+}
+
+/* UI bits */
 function showWork(work){
   if(!work) return;
-  const old = output.querySelector('.work-tag'); if(old) old.remove();
+  const old = output.querySelector('.work-tag'); 
+  if(old) old.remove();
   const span = document.createElement('span');
   span.className = 'work-tag';
   span.textContent = '— ' + work;
   output.appendChild(span);
 }
 
-function fallbackStop(onEnd){
-  setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (totalDur + 0.25)*1000);
-}
+/* main */
+const FETCH_URL = ENDPOINT + QUERY;
 
-/* ===== click sound (clone for reliability) ===== */
-function playClick(){
-  try{
-    const clone = clickSnd.cloneNode(true);
-    clone.volume = 1.0;
-    clone.setAttribute('playsinline','');
-    clone.play().catch(()=>{});
-    setTimeout(()=>clone.remove(), 1500);
-  }catch(_){}
-}
-
-/* ===== audio playback ===== */
-function decodeAudioDataSafariSafe(ctx, arrayBuffer){
-  return new Promise((resolve,reject)=>{
-    try{
-      ctx.decodeAudioData(arrayBuffer.slice(0), resolve, reject);
-    }catch(e){
-      ctx.decodeAudioData(arrayBuffer).then(resolve).catch(reject);
-    }
-  });
-}
-
-async function playViaWebAudio(b64,onEnd){
-  ensureCtx();
-  await audioCtx.resume();
-  const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0)).buffer;
-  const buf = await decodeAudioDataSafariSafe(audioCtx, bin);
-  currentSource = audioCtx.createBufferSource();
-  currentSource.buffer = buf;
-  currentSource.playbackRate.value = 1.08;
-  currentSource.connect(audioCtx.destination);
-  startTime = audioCtx.currentTime;
-  startMouth();
-  currentSource.start();
-  currentSource.onended = ()=>{ currentSource=null; stopMouth(); onEnd && onEnd(); };
-}
-
-async function playViaTag(b64,onEnd){
-  const u8 = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-  const blob = new Blob([u8], {type:'audio/mpeg'});
-  if(!audioEl){
-    audioEl = document.createElement('audio');
-    audioEl.hidden = true;
-    audioEl.setAttribute('playsinline','');
-    audioEl.preload = 'auto';
-    audioEl.volume = 1.0;
-    document.body.appendChild(audioEl);
-  }
-  if(speechURL){ URL.revokeObjectURL(speechURL); speechURL=null; }
-  speechURL = URL.createObjectURL(blob);
-  audioEl.src = speechURL;
-
-  // Align mouth length to real audio once known
-  audioEl.onloadedmetadata = ()=>{
-    if (audioEl.duration && isFinite(audioEl.duration)) {
-      totalDur = Math.max(totalDur, audioEl.duration);
-    }
-  };
-
-  tagPlaying = true;
-  audioEl.onplay  = startMouth;
-  audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); onEnd && onEnd(); };
-  await audioEl.play();
-}
-
-async function playAudio(b64,onEnd){
-  try{
-    if (isIOS) {
-      // iOS: go straight to <audio> for reliability
-      await playViaTag(b64,onEnd);
-    } else {
-      // Desktop: WebAudio first (better sync, ignores mute switch), then fallback
-      try { await playViaWebAudio(b64,onEnd); }
-      catch { await playViaTag(b64,onEnd); }
-    }
-  }catch(err){
-    console.error('Playback failed', err);
-    fallbackStop(onEnd);
-  }
-}
-
-function stopAudio(){
-  if(currentSource){ try{ currentSource.stop(); }catch(_){ } try{ currentSource.disconnect(); }catch(_){ } currentSource=null; }
-  if(audioEl){ audioEl.pause(); audioEl.currentTime = 0; }
-  tagPlaying=false;
-}
-
-/* ===== main ===== */
 async function summon(){
   if(busy) return;
 
-  // keep context “hot” on each tap (safe no-op on iOS when using <audio>)
-  primeAudio();
-
-  // click FX
-  playClick();
-
+  /* click fx + quick pop */
+  try{ 
+    clickSnd.currentTime = 0; 
+    clickSnd.play(); 
+  }catch(_){}
+  
   trigger.classList.add('pressed');
   setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
   busy = true;
-  stopAudio(); stopMouth();
+  stopAudio();
 
-  // clear previous
+  /* clear previous */
   typed.textContent='';
-  const oldTag = output.querySelector('.work-tag'); if(oldTag) old.remove();
-  timings=[]; totalDur=0;
+  const oldTag = output.querySelector('.work-tag'); 
+  if(oldTag) oldTag.remove();
 
   try{
-    const res = await fetch(ENDPOINT + QUERY, {cache:'no-store'});
+    const res = await fetch(FETCH_URL, { cache:'no-store' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     const work = data.work || null;
     const text = sanitize(data.text);
 
-    timings = Array.isArray(data.timings) ? data.timings : [];
-    totalDur = timings.length ? timings[timings.length-1].t : 0;
-
     typeOut(text, async ()=>{
-      startTime = (audioCtx && audioCtx.currentTime) || performance.now()/1000;
+      const onEnd = ()=>showWork(work);
       if(data.audioBase64){
-        if(!timings.length){ fabricate(text); startTime = performance.now()/1000; }
-        await playAudio(data.audioBase64, ()=>showWork(work));
+        await playAudio(data.audioBase64, onEnd);
       }else{
-        if(!timings.length){ fabricate(text); startTime = performance.now()/1000; startMouth(); }
-        setTimeout(()=>{ stopMouth(); showWork(work); }, (totalDur + 0.2)*1000);
+        // Fallback animation
+        startMouth();
+        const approx = Math.min(7, Math.max(2.2, text.length/16));
+        setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
       }
     });
 
