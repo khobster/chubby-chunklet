@@ -199,7 +199,8 @@ body{
 /* ===== CONFIG ===== */
 const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
   || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-const QUERY    = '?style=canon&modern=1&accent=scottish';
+/* modernization OFF */
+const QUERY    = '?style=canon&modern=0&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
 
 const trigger  = document.getElementById('trigger');
@@ -594,13 +595,13 @@ function stopAudio(){
 }
 
 /* UI bits */
-function showWork(work){
-  if(!work) return;
+function showWork(work, author){
   const old = output.querySelector('.work-tag'); 
   if(old) old.remove();
+  if(!work && !author) return;
   const span = document.createElement('span');
   span.className = 'work-tag';
-  span.textContent = '— ' + work;
+  span.textContent = '— ' + [work, author].filter(Boolean).join(' · ');
   output.appendChild(span);
 }
 
@@ -632,10 +633,11 @@ async function summon(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     const work = data.work || null;
+    const author = data.author || null;
     const text = sanitize(data.text);
 
     typeOut(text, async ()=>{
-      const onEnd = ()=>showWork(work);
+      const onEnd = ()=>showWork(work, author);
       if(data.audioBase64){
         await playAudio(data.audioBase64, onEnd);
       }else{
