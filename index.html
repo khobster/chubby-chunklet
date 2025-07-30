@@ -26,14 +26,14 @@
   --font-phrase:'Share Tech Mono','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 
   /* Layout guardrails */
-  --bottom-clearance: 120px; /* desired minimum pixels from phrase baseline to viewport bottom */
-  --raise: 0px;              /* JS sets this dynamically */
+  --bottom-clearance: 120px; /* px from phrase baseline to viewport bottom */
+  --raise: 0px;              /* JS sets this once per phrase */
 }
 
 /* ---------- layout ---------- */
 *{box-sizing:border-box}
 html,body{
-  height:auto;margin:0;padding:0;
+  margin:0;padding:0;
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
   background:#fff;color:#111;
   -webkit-font-smoothing:antialiased;
@@ -45,12 +45,13 @@ body{
   overflow-x:hidden;
 }
 .wrapper{
-  /* IMPORTANT: do not fill the remaining viewport height */
+  /* do NOT fill available height; prevents bottom push */
   flex:0 0 auto;
   width:100%;max-width:950px;
   display:flex;flex-direction:column;align-items:center;
   gap:22px;
   transform: translateY(calc(-1 * var(--raise)));
+  transition: transform 180ms ease-out;
   will-change: transform;
 }
 .header{
@@ -107,7 +108,7 @@ body{
 .output{
   font-family:var(--font-phrase);
   text-transform:uppercase;                 /* ALL CAPS */
-  font-size:clamp(16px, 1.6vw, 24px);       /* larger, DOS-like */
+  font-size:clamp(16px, 1.6vw, 24px);       /* DOS-like */
   line-height:1.28;
   letter-spacing:.08em;                     /* terminal-ish tracking */
   font-weight:400;                          /* Share Tech Mono weight */
@@ -140,6 +141,13 @@ body{
   font-size:.85em;
   letter-spacing:.02em;
   font-weight:500;
+}
+
+/* Hidden measurement clone (same styles as .output) */
+.output-measure{
+  position:absolute; left:-9999px; top:0;
+  visibility:hidden; height:auto; overflow:visible;
+  white-space:pre-wrap;
 }
 
 /* ---------- small screens ---------- */
@@ -183,6 +191,9 @@ body{
     <div class="output" id="output">
       <span id="typed"></span><span id="cursor" class="cursor"></span>
     </div>
+
+    <!-- hidden sizing clone -->
+    <div id="outMeasure" class="output output-measure" aria-hidden="true"></div>
   </div>
 
 <script>
@@ -197,6 +208,7 @@ const typed    = document.getElementById('typed');
 const cursor   = document.getElementById('cursor');
 const mouth    = document.getElementById('mouth');
 const output   = document.getElementById('output');
+const outMeasure = document.getElementById('outMeasure');
 const clickSnd = document.getElementById('clickSnd');
 
 const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
@@ -207,6 +219,7 @@ let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
 let raf,animating=false,tagPlaying=false;
 let currentObjectURL=null;
 let iosAudioInitialized = false;
+let lastFullText='', pendingWork='';
 
 /* ===== multi-level fast flap (discrete bands with hysteresis) ===== */
 const SY = [0.07, 0.55, 1.10, 1.70, 2.30];
@@ -218,18 +231,30 @@ const GATE_FLOOR  = 0.010;
 const CLOSE_GRACE_MS = 20;
 let level = 0, lastChange = 0;
 
-/* ---------- layout auto-raise (keeps phrase off the bottom) ---------- */
-function adjustLayout(){
+/* ---------- layout: compute raise ONCE per phrase (no per-char jitter) ---------- */
+function planRaiseForText(fullText, includeTag){
   try{
-    const outRect = output.getBoundingClientRect();
-    const clearance = window.innerHeight - outRect.bottom;
-    const need = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-clearance')) || 120;
-    const raise = Math.max(0, need - clearance);
+    if(!fullText) fullText = typed.textContent || '';
+    // ensure the measurement clone uses the same width as the visible output
+    outMeasure.style.width = output.clientWidth + 'px';
+    outMeasure.textContent = fullText;
+    if(includeTag && pendingWork){
+      const span = document.createElement('span');
+      span.className = 'work-tag';
+      span.textContent = '— ' + pendingWork;
+      outMeasure.appendChild(span);
+    }
+    // compute needed raise based on final height
+    const top = output.getBoundingClientRect().top;
+    const height = outMeasure.scrollHeight;
+    const clearanceNow = window.innerHeight - (top + height);
+    const need = parseFloat(getComputedStyle(document.documentElement)
+                  .getPropertyValue('--bottom-clearance')) || 120;
+    const raise = Math.max(0, need - clearanceNow);
     document.documentElement.style.setProperty('--raise', raise + 'px');
   }catch(_){}
 }
-window.addEventListener('load', adjustLayout);
-window.addEventListener('resize', adjustLayout);
+window.addEventListener('resize', ()=> planRaiseForText(lastFullText, !!document.querySelector('.work-tag')));
 
 /* ---------- audio/analyser helpers ---------- */
 function ensureCtx(){
@@ -371,10 +396,8 @@ function typeOut(text, done){
   (function loop(i=0){
     typed.textContent = text.slice(0,i);
     if(i<text.length){
-      if((i & 3) === 0) adjustLayout();    // keep lifting as the line grows
       setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
     }else{
-      adjustLayout();                       // final snap-to-clearance
       done && done();
     }
   })();
@@ -474,7 +497,8 @@ function showWork(work){
   span.className = 'work-tag';
   span.textContent = '— ' + work;
   output.appendChild(span);
-  adjustLayout(); // ensure tag didn't push us down
+  // single settle after tag appears
+  setTimeout(()=> planRaiseForText(lastFullText, true), 0);
 }
 
 /* main */
@@ -491,7 +515,6 @@ async function summon(){
 
   typed.textContent='';
   const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
-  adjustLayout();
 
   try{
     const res = await fetch(FETCH_URL, { cache:'no-store' });
@@ -499,11 +522,17 @@ async function summon(){
     const data = await res.json();
     const work = data.work || null;
     const text = sanitize(data.text);
+    pendingWork = work || '';
+    lastFullText = text;
+
+    // compute raise ONCE using the full phrase before typing
+    planRaiseForText(text, false);
 
     typeOut(text, async ()=>{
       const onEnd = ()=>{ showWork(work); };
-      if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
-      else {
+      if(data.audioBase64){
+        await playAudio(data.audioBase64, onEnd);
+      }else{
         startMouth();
         const approx = Math.min(7, Math.max(2.2, text.length/16));
         setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
@@ -512,7 +541,9 @@ async function summon(){
 
   }catch(e){
     console.error(e);
-    typeOut('A shy packet tripped. Try again.', adjustLayout);
+    lastFullText = 'A SHY PACKET TRIPPED. TRY AGAIN.';
+    planRaiseForText(lastFullText, false);
+    typeOut('A shy packet tripped. Try again.');
   }finally{
     busy = false;
   }
@@ -525,9 +556,6 @@ document.addEventListener('keydown', e=>{
     if(document.activeElement!==trigger) trigger.focus();
   }
 });
-
-/* First paint guard */
-adjustLayout();
 </script>
 </body>
 </html>
