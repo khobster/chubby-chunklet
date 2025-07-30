@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
-<!-- DOS / terminal-style mono for the phrase line -->
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<!-- Retro DOS mono for the phrase -->
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 <style>
 :root{
   --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
@@ -23,7 +23,7 @@
   --terminal-color:#1034a6;
 
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
-  --font-phrase:'Share Tech Mono','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --font-phrase:'VT323','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 }
 
 /* ---------- layout ---------- */
@@ -37,7 +37,7 @@ html,body{
 body{
   display:flex;flex-direction:column;
   align-items:center;justify-content:flex-start;
-  padding:16px 18px 12px; /* tighter top, small bottom */
+  padding:12px 16px 6px;  /* tighter so everything sits higher */
   overflow-x:hidden;
 }
 .wrapper{
@@ -45,7 +45,7 @@ body{
   flex:0 0 auto;
   width:100%;max-width:950px;
   display:flex;flex-direction:column;align-items:center;
-  gap:20px; /* tighter to sit higher */
+  gap:14px; /* tighter vertical rhythm */
 }
 .header{
   font-size:clamp(14px,1.8vw,20px);font-weight:600;letter-spacing:.4px;
@@ -56,8 +56,8 @@ body{
 /* ---------- figure ---------- */
 .figure-zone{
   display:flex;flex-direction:column;align-items:center;
-  gap:18px;         /* tighter so phrase starts higher */
-  margin-top:-6px;  /* small nudge upward */
+  gap:12px;          /* tighter */
+  margin-top:-12px;  /* nudge the figure up */
 }
 .chunklet-wrap{
   position:relative;
@@ -87,7 +87,7 @@ body{
 /* ---------- button ---------- */
 .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
 .trigger-button img{
-  width:150px;height:auto;display:block; /* bigger tap target */
+  width:150px;height:auto;display:block; /* nice, big tap target */
   transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
   filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
 }
@@ -101,18 +101,18 @@ body{
 .output{
   font-family:var(--font-phrase);
   text-transform:uppercase;                 /* ALL CAPS */
-  font-size:clamp(16px, 1.6vw, 24px);       /* DOS-like */
-  line-height:1.28;
-  letter-spacing:.08em;                     /* terminal-ish tracking */
+  font-size:clamp(16px, 1.5vw, 24px);       /* DOS-like, not too tall */
+  line-height:1.22;                         /* a bit tighter to save height */
+  letter-spacing:.04em;                     /* VT323 doesn't need much tracking */
   font-weight:400;
   color:var(--terminal-color);
-  max-width:760px;
-  min-height:1.4em;
+  max-width:860px;                          /* wider = fewer line wraps */
+  min-height:1.2em;
   text-align:left;
-  margin:4px auto 0;
+  margin:0 auto 0;
   white-space:pre-wrap;
   position:relative;
-  text-shadow: 0 0 1px rgba(16,52,166,.4);  /* subtle phosphor glow */
+  text-shadow: 0 0 1px rgba(16,52,166,.35);
 }
 .cursor{
   display:inline-block;
@@ -131,24 +131,24 @@ body{
   text-transform:none;
   font-style:italic;
   margin-left:.6em;
-  font-size:.85em;
+  font-size:.9em;
   letter-spacing:.02em;
   font-weight:500;
 }
 
-/* Guaranteed bottom breathing room (no JS) */
+/* Guaranteed bottom breathing room (no JS) — made smaller to sit higher */
 .spacer{
-  height:clamp(120px, 14vh, 220px); /* always leaves clear space below */
+  height:clamp(56px, 6vh, 96px);
 }
 
 /* ---------- small screens ---------- */
 @media (pointer:coarse){
   /* extra safety on phones so browser chrome doesn't overlap */
   body{ padding-bottom: max(56px, calc(8vh + env(safe-area-inset-bottom, 0px))); }
-  .spacer{ height:clamp(96px, 12vh, 160px); }
+  .spacer{ height:clamp(88px, 10vh, 140px); }
 }
 @media(max-height:640px){
-  .figure-zone{gap:14px}
+  .figure-zone{gap:10px}
   .chunklet-wrap{height:calc(200px*var(--figure-scale))}
 }
 @media(max-width:360px){
@@ -156,7 +156,7 @@ body{
   .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
   .chunklet-img{width:calc(140px*var(--figure-scale))}
   .trigger-button img{width:120px}
-  .output{font-size:clamp(13px, 3.2vw, 18px)}
+  .output{font-size:clamp(14px, 3.2vw, 20px)}
 }
 </style>
 </head>
