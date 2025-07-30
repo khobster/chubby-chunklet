@@ -6,6 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
+<!-- Newsroom-style serif for the phrase line -->
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600;6..72,700&display=swap" rel="stylesheet">
 <style>
 :root{
   --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
@@ -20,6 +22,10 @@
   --char-ms:18;
   --terminal-color:#1034a6;
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+
+  /* newsroom phrase face + gentle layout lift */
+  --font-phrase:'Newsreader','Times New Roman',Times,serif;
+  --lift-up:10px;
 }
 
 /* ---------- layout ---------- */
@@ -29,16 +35,23 @@ html,body{
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
   background:#fff;color:#111;
   -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+@supports (height: 100dvh){
+  html,body{ min-height:100dvh; }
 }
 body{
-  min-height:100vh;display:flex;flex-direction:column;
+  /* was: padding:28px 18px 32px; */
+  padding: clamp(20px,3vh,40px) 18px
+           max(96px, calc(7vh + env(safe-area-inset-bottom, 0px)));
+  display:flex;flex-direction:column;
   align-items:center;justify-content:flex-start;
-  padding:28px 18px 32px;
+  transform: translateY(calc(-1 * var(--lift-up)));
 }
 .wrapper{
   flex:1;width:100%;max-width:950px;
   display:flex;flex-direction:column;align-items:center;
-  gap:38px;
+  gap:28px; /* was 38px */
 }
 .header{
   font-size:clamp(14px,1.9vw,20px);font-weight:600;letter-spacing:.4px;
@@ -47,7 +60,7 @@ body{
 .header span{font-weight:700}
 
 /* ---------- figure ---------- */
-.figure-zone{display:flex;flex-direction:column;align-items:center;gap:42px;margin-top:4px}
+.figure-zone{display:flex;flex-direction:column;align-items:center;gap:36px;margin-top:-6px}
 .chunklet-wrap{
   position:relative;
   width:calc(180px*var(--figure-scale));
@@ -76,7 +89,8 @@ body{
 /* ---------- button ---------- */
 .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
 .trigger-button img{
-  width:118px;height:auto;display:block;
+  /* bigger button */
+  width:140px;height:auto;display:block;
   transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
   filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
 }
@@ -86,25 +100,27 @@ body{
   filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
 }
 
-/* ---------- output ---------- */
+/* ---------- output (phrase) ---------- */
 .output{
-  font-family:var(--font-mono);
-  font-size:clamp(11px, 1.1vw, 16px);  /* Increased for bolder DOS look */
-  line-height:1.4;  /* Slightly increased */
-  letter-spacing:.6px;  /* Increased spacing */
-  font-weight:700;  /* Bold for authentic DOS terminal */
+  /* newsroom print vibe */
+  font-family:var(--font-phrase);
+  font-size:clamp(14px,1.8vw,22px);  /* larger phrase */
+  line-height:1.35;
+  letter-spacing:.4px;
+  font-weight:700;
   color:var(--terminal-color);
-  max-width:720px;  /* Slightly wider for larger text */
+  max-width:720px;
   min-height:1.6em;
   text-align:left;
-  margin:8px auto 0;
+  margin:6px auto 0;
   white-space:pre-wrap;
   position:relative;
-  text-shadow: 0 0 1px var(--terminal-color);  /* CRT glow effect */
+  /* dial back the CRT glow to feel like ink */
+  text-shadow:0 .5px 0 rgba(0,0,0,.05);
 }
 .cursor{
   display:inline-block;
-  width:.65ch;  /* Larger cursor */
+  width:.65ch;
   height:1.1em;
   background:var(--terminal-color);
   vertical-align:baseline;
@@ -118,24 +134,25 @@ body{
   font-style:italic;
   margin-left:.6em;
   font-size:.9em;
-  font-weight:500;  /* Slightly less bold */
+  font-weight:600;
+}
+
+/* add some breathing room below phrase on tight screens */
+@supports (padding: max(0px)){
+  .output{ margin-bottom: max(16px, 4vh); }
 }
 
 /* ---------- small screens ---------- */
 @media(max-height:640px){
-  .figure-zone{gap:30px}
+  .figure-zone{gap:28px}
   .chunklet-wrap{height:calc(200px*var(--figure-scale))}
 }
 @media(max-width:360px){
   :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
   .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
   .chunklet-img{width:calc(140px*var(--figure-scale))}
-  .trigger-button img{width:96px}
-  
-  /* Adjusted text scaling for mobile */
-  .output{
-    font-size:clamp(10px, 2.8vw, 14px);
-  }
+  .trigger-button img{width:112px}
+  .output{font-size:clamp(12px,3.2vw,18px)}
 }
 </style>
 </head>
@@ -224,7 +241,7 @@ function initializeIOSAudio(){
     }
     
     // Play silent audio to initialize
-    const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     
     audioEl.src = silentMP3;
     audioEl.load();
