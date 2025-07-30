@@ -21,41 +21,37 @@
   --mouth-scale-0:.05; /* initial; JS now drives actual levels */
   --char-ms:18;
   --terminal-color:#1034a6;
-  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 
-  /* phrase font (DOS retro) */
-  --font-phrase:'Share Tech Mono', 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --font-phrase:'Share Tech Mono','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+
+  /* Layout guardrails */
+  --bottom-clearance: 120px; /* desired minimum pixels from phrase baseline to viewport bottom */
+  --raise: 0px;              /* JS sets this dynamically */
 }
 
-/* ---------- layout (reduce bottom padding on desktop to avoid scroll) ---------- */
+/* ---------- layout ---------- */
 *{box-sizing:border-box}
 html,body{
-  height:100%;margin:0;padding:0;
+  height:auto;margin:0;padding:0;
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
   background:#fff;color:#111;
   -webkit-font-smoothing:antialiased;
-  min-height:100vh;
 }
-@supports (height: 100svh){
-  html,body{ min-height:100svh; }
-}
-
-/* Tight desktop padding; add extra bottom safety only on touch devices */
 body{
   display:flex;flex-direction:column;
   align-items:center;justify-content:flex-start;
-  padding: 20px 18px 16px; /* keep it snug so no scroll on desktop */
+  padding: 20px 18px 16px;
+  overflow-x:hidden;
 }
-@media (pointer:coarse){
-  body{
-    padding-bottom: max(64px, calc(8vh + env(safe-area-inset-bottom, 0px)));
-  }
-}
-
 .wrapper{
-  flex:1;width:100%;max-width:950px;
+  /* IMPORTANT: do not fill the remaining viewport height */
+  flex:0 0 auto;
+  width:100%;max-width:950px;
   display:flex;flex-direction:column;align-items:center;
-  gap:22px; /* tighter vertical rhythm */
+  gap:22px;
+  transform: translateY(calc(-1 * var(--raise)));
+  will-change: transform;
 }
 .header{
   font-size:clamp(14px,1.8vw,20px);font-weight:600;letter-spacing:.4px;
@@ -66,8 +62,8 @@ body{
 /* ---------- figure ---------- */
 .figure-zone{
   display:flex;flex-direction:column;align-items:center;
-  gap:24px;
-  margin-top:-10px; /* nudge up */
+  gap:22px;
+  margin-top:-8px; /* nudge up */
 }
 .chunklet-wrap{
   position:relative;
@@ -94,7 +90,7 @@ body{
 .mouth-overlay svg{width:100%;height:100%}
 #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-/* ---------- bigger button + higher placement ---------- */
+/* ---------- button ---------- */
 .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
 .trigger-button img{
   width:150px;height:auto;display:block; /* bigger tap target */
@@ -114,12 +110,12 @@ body{
   font-size:clamp(16px, 1.6vw, 24px);       /* larger, DOS-like */
   line-height:1.28;
   letter-spacing:.08em;                     /* terminal-ish tracking */
-  font-weight:400;                          /* Share Tech Mono = 400 */
+  font-weight:400;                          /* Share Tech Mono weight */
   color:var(--terminal-color);
   max-width:760px;
   min-height:1.4em;
   text-align:left;
-  margin:2px auto 0;                        /* minimal margin so no scroll */
+  margin:2px auto 0;
   white-space:pre-wrap;
   position:relative;
   text-shadow: 0 0 1px rgba(16,52,166,.4);  /* subtle phosphor glow */
@@ -135,8 +131,6 @@ body{
 }
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
-
-/* keep the work tag readable but not forced to caps */
 .output .work-tag{
   opacity:.7;
   font-family:var(--font-mono);
@@ -149,6 +143,9 @@ body{
 }
 
 /* ---------- small screens ---------- */
+@media (pointer:coarse){
+  body{ padding-bottom: max(64px, calc(8vh + env(safe-area-inset-bottom, 0px))); }
+}
 @media(max-height:640px){
   .figure-zone{gap:18px}
   .chunklet-wrap{height:calc(200px*var(--figure-scale))}
@@ -165,7 +162,7 @@ body{
 <body>
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-  <div class="wrapper">
+  <div class="wrapper" id="wrapper">
     <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
     <div class="figure-zone">
@@ -207,8 +204,7 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 /* ---------- state ---------- */
 let busy=false;
 let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-let startTime=0,raf,animating=false,totalDur=0;
-let tagPlaying=false;
+let raf,animating=false,tagPlaying=false;
 let currentObjectURL=null;
 let iosAudioInitialized = false;
 
@@ -220,88 +216,26 @@ const HYST_DELTA  = 0.018;
 const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
 const GATE_FLOOR  = 0.010;
 const CLOSE_GRACE_MS = 20;
+let level = 0, lastChange = 0;
 
-let level = 0;
-let lastChange = 0;
+/* ---------- layout auto-raise (keeps phrase off the bottom) ---------- */
+function adjustLayout(){
+  try{
+    const outRect = output.getBoundingClientRect();
+    const clearance = window.innerHeight - outRect.bottom;
+    const need = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-clearance')) || 120;
+    const raise = Math.max(0, need - clearance);
+    document.documentElement.style.setProperty('--raise', raise + 'px');
+  }catch(_){}
+}
+window.addEventListener('load', adjustLayout);
+window.addEventListener('resize', adjustLayout);
 
+/* ---------- audio/analyser helpers ---------- */
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state === 'suspended') audioCtx.resume();
 }
-
-// Enhanced iOS audio initialization
-function initializeIOSAudio(){
-  if(iosAudioInitialized) return;
-  
-  try{
-    ensureCtx();
-    
-    // Create a persistent audio element for iOS
-    if(!audioEl){
-      audioEl = document.createElement('audio');
-      audioEl.style.position = 'absolute';
-      audioEl.style.left = '-9999px';
-      audioEl.setAttribute('playsinline', '');
-      audioEl.setAttribute('webkit-playsinline', '');
-      document.body.appendChild(audioEl);
-    }
-    
-    // Play silent audio to initialize
-    const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-    
-    audioEl.src = silentMP3;
-    audioEl.load();
-    const playPromise = audioEl.play();
-    
-    if(playPromise !== undefined){
-      playPromise.then(() => {
-        audioEl.pause();
-        audioEl.currentTime = 0;
-        
-        // Now create the media source connection
-        if(!mediaSource && audioCtx){
-          try{
-            mediaSource = audioCtx.createMediaElementSource(audioEl);
-            ensureAnalyser();
-            mediaSource.connect(analyser);
-            analyser.connect(audioCtx.destination);
-            iosAudioInitialized = true;
-          }catch(e){
-            console.warn('iOS audio init partial success, no analyser:', e);
-          }
-        }
-      }).catch(e => {
-        console.warn('iOS audio init failed:', e);
-      });
-    }
-  }catch(e){
-    console.warn('iOS audio initialization error:', e);
-  }
-}
-
-function unlockAudioOnce(){
-  try{
-    ensureCtx();
-    
-    if(isIOS){
-      initializeIOSAudio();
-    } else {
-      // Original unlock code for non-iOS
-      const buf = audioCtx.createBuffer(1,1,22050);
-      const src = audioCtx.createBufferSource();
-      src.buffer = buf; 
-      src.connect(audioCtx.destination); 
-      src.start(0);
-    }
-  }catch(_){}
-  
-  document.removeEventListener('touchstart', unlockAudioOnce);
-  document.removeEventListener('click', unlockAudioOnce);
-}
-
-document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
-document.addEventListener('click', unlockAudioOnce, {once:true});
-
 function ensureAnalyser(){
   ensureCtx();
   if(!analyser){
@@ -311,57 +245,40 @@ function ensureAnalyser(){
     timeData = new Float32Array(analyser.fftSize);
   }
 }
-
 function attachAnalyserToBufferSource(srcNode){
   ensureAnalyser();
   try{ srcNode.disconnect(); }catch(_){}
   srcNode.connect(analyser);
   analyser.connect(audioCtx.destination);
 }
-
 function attachAnalyserToMediaElement(){
   ensureAnalyser();
-  
-  if(isIOS && !iosAudioInitialized){
-    initializeIOSAudio();
-    return;
-  }
-  
+  if(isIOS && !iosAudioInitialized){ initializeIOSAudio(); return; }
   if(!audioEl){
     audioEl = document.createElement('audio');
     audioEl.style.position = 'absolute';
     audioEl.style.left = '-9999px';
-    audioEl.setAttribute('playsinline', '');
-    audioEl.setAttribute('webkit-playsinline', '');
+    audioEl.setAttribute('playsinline','');
+    audioEl.setAttribute('webkit-playsinline','');
     document.body.appendChild(audioEl);
   }
-  
   if(!mediaSource && audioCtx && audioEl){
     try{
       mediaSource = audioCtx.createMediaElementSource(audioEl);
       mediaSource.connect(analyser);
       analyser.connect(audioCtx.destination);
-    }catch(e){ 
-      console.warn('createMediaElementSource failed', e); 
-    }
+    }catch(e){ console.warn('createMediaElementSource failed', e); }
   }
 }
-
 function rmsLevel(){
   if(!analyser || !timeData) return 0;
-  
   analyser.getFloatTimeDomainData(timeData);
   let sum = 0;
-  for(let i=0;i<timeData.length;i++){
-    const v = timeData[i];
-    sum += v*v;
-  }
+  for(let i=0;i<timeData.length;i++){ const v=timeData[i]; sum += v*v; }
   let rms = Math.sqrt(sum / timeData.length);
   if (rms < GATE_FLOOR) rms = 0;
   return rms;
 }
-
-/* set visual level immediately (no tween) */
 function setLevel(n){
   n = Math.max(0, Math.min(4, n|0));
   if (n === level) return;
@@ -369,74 +286,81 @@ function setLevel(n){
   mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
   lastChange = performance.now();
 }
-
 function setClosed(){ setLevel(0); }
-
-function startMouth(){
-  if(animating) return;
-  animating = true;
-  requestAnimationFrame(tick);
-}
-
-function stopMouth(){
-  animating = false;
-  cancelAnimationFrame(raf);
-  setClosed();
-}
-
+function startMouth(){ if(animating) return; animating = true; requestAnimationFrame(tick); }
+function stopMouth(){ animating = false; cancelAnimationFrame(raf); setClosed(); }
 function tick(){
   raf = requestAnimationFrame(tick);
-  
   const active = !!currentSource || tagPlaying;
   const now = performance.now();
-
   if(active){
-    // Only use analyser if it's properly connected
     if(analyser && (currentSource || (tagPlaying && mediaSource))){
       const e = rmsLevel();
-      
-      // If we're getting no data on iOS, use time-based animation
       if(isIOS && e === 0 && tagPlaying){
-        // Fallback animation for iOS when analyser fails
-        const t = (now/1000);
-        const phase = ((t*15)|0) % 5;
-        const levels = [1, 2, 3, 2, 1];
-        setLevel(levels[phase]);
-        return;
+        const t = (now/1000), phase = ((t*15)|0) % 5, levels=[1,2,3,2,1];
+        setLevel(levels[phase]); return;
       }
-
-      // Normal analyser-based animation
       let target = level;
       while (target < 4 && e >= THRESH_UP[target]) target++;
       while (target > 0 && e < THRESH_DOWN[target-1]) target--;
-
-      if (target < level && (now - lastChange) < CLOSE_GRACE_MS) {
-        target = level;
-      }
-
+      if (target < level && (now - lastChange) < CLOSE_GRACE_MS) target = level;
       setLevel(target);
     } else {
-      // Fallback when no analyser
-      const t = (now/1000);
-      const phase = ((t*15)|0) % 5;
-      const levels = [1, 2, 3, 2, 1];
+      const t = (now/1000), phase=((t*15)|0)%5, levels=[1,2,3,2,1];
       setLevel(levels[phase]);
     }
     return;
   }
-
-  // No active audio: idle animation
-  const t = (now/1000);
-  const phase = ((t*13)|0) % 4;
-  const rand = Math.random();
-  const target = phase === 0 ? 0
-                : phase === 1 ? (rand < .7 ? 1 : 2)
-                : phase === 2 ? (rand < .6 ? 2 : 3)
-                :               (rand < .5 ? 3 : 4);
+  const t = (now/1000), phase=((t*13)|0)%4, rand=Math.random();
+  const target = phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4);
   setLevel(target);
 }
 
-/* helpers */
+/* ---------- iOS unlock ---------- */
+function initializeIOSAudio(){
+  if(iosAudioInitialized) return;
+  try{
+    ensureCtx();
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.style.position='absolute'; audioEl.style.left='-9999px';
+      audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
+      document.body.appendChild(audioEl);
+    }
+    const silentMP3='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    audioEl.src = silentMP3; audioEl.load();
+    const p = audioEl.play();
+    if(p!==undefined){
+      p.then(()=>{
+        audioEl.pause(); audioEl.currentTime=0;
+        if(!mediaSource && audioCtx){
+          try{
+            mediaSource = audioCtx.createMediaElementSource(audioEl);
+            ensureAnalyser(); mediaSource.connect(analyser); analyser.connect(audioCtx.destination);
+            iosAudioInitialized = true;
+          }catch(e){ console.warn('iOS audio init partial', e); }
+        }
+      }).catch(e=>console.warn('iOS audio init failed', e));
+    }
+  }catch(e){ console.warn('iOS audio initialization error:', e); }
+}
+function unlockAudioOnce(){
+  try{
+    ensureCtx();
+    if(isIOS){ initializeIOSAudio(); }
+    else {
+      const buf = audioCtx.createBuffer(1,1,22050);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
+    }
+  }catch(_){}
+  document.removeEventListener('touchstart', unlockAudioOnce);
+  document.removeEventListener('click', unlockAudioOnce);
+}
+document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
+document.addEventListener('click', unlockAudioOnce, {once:true});
+
+/* ---------- helpers ---------- */
 const sanitize = txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
   return /[.?!]$/.test(txt)?txt:txt+'.';
@@ -447,150 +371,81 @@ function typeOut(text, done){
   (function loop(i=0){
     typed.textContent = text.slice(0,i);
     if(i<text.length){
+      if((i & 3) === 0) adjustLayout();    // keep lifting as the line grows
       setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
     }else{
+      adjustLayout();                       // final snap-to-clearance
       done && done();
     }
   })();
 }
 
-/* playback */
+/* ---------- playback ---------- */
 async function playAudio(b64,onEnd){
-  // Always use audio element on iOS
   if(isIOS){
     try{
-      ensureCtx(); 
-      
-      // Initialize iOS audio if needed
+      ensureCtx();
       if(!iosAudioInitialized){
         await initializeIOSAudio();
-        // Small delay to ensure initialization
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(r=>setTimeout(r,100));
       }
-      
       attachAnalyserToMediaElement();
-      
       const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
       const blob = new Blob([bin], {type:'audio/mp3'});
-      
-      if(currentObjectURL){ 
-        URL.revokeObjectURL(currentObjectURL); 
-        currentObjectURL=null; 
-      }
-      
+      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
       currentObjectURL = URL.createObjectURL(blob);
-      
       if(!audioEl){
         audioEl = document.createElement('audio');
-        audioEl.style.position = 'absolute';
-        audioEl.style.left = '-9999px';
-        audioEl.setAttribute('playsinline', '');
-        audioEl.setAttribute('webkit-playsinline', '');
+        audioEl.style.position='absolute'; audioEl.style.left='-9999px';
+        audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
         document.body.appendChild(audioEl);
       }
-      
-      audioEl.src = currentObjectURL;
-      audioEl.load();
-
-      audioEl.onplay  = ()=>{ 
-        setClosed(); 
-        startMouth(); 
-        tagPlaying=true; 
-      };
-      
+      audioEl.src = currentObjectURL; audioEl.load();
+      audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
       audioEl.onended = ()=>{
-        tagPlaying=false;
-        stopMouth();
-        if(currentObjectURL){ 
-          URL.revokeObjectURL(currentObjectURL); 
-          currentObjectURL=null; 
-        }
+        tagPlaying=false; stopMouth();
+        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
         onEnd && onEnd();
       };
-      
-      // iOS needs explicit play() call
-      const playPromise = audioEl.play();
-      if(playPromise !== undefined){
-        await playPromise;
-      }
-      
+      const p = audioEl.play(); if(p!==undefined) await p;
       return;
     }catch(err){
       console.error('iOS audio playback failed', err);
-      // Fallback animation
       startMouth();
       const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
       setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
       return;
     }
   }
-  
-  // Desktop: Try WebAudio first
+
   try{
-    ensureCtx(); 
-    ensureAnalyser();
+    ensureCtx(); ensureAnalyser();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const buf = await audioCtx.decodeAudioData(bin.buffer);
     currentSource = audioCtx.createBufferSource();
     currentSource.buffer = buf;
     currentSource.playbackRate.value = 1.08;
     attachAnalyserToBufferSource(currentSource);
-    setClosed(); 
-    startMouth();
+    setClosed(); startMouth();
     currentSource.start();
-    currentSource.onended = ()=>{
-      currentSource=null;
-      stopMouth();
-      onEnd && onEnd();
-    };
+    currentSource.onended = ()=>{ currentSource=null; stopMouth(); onEnd && onEnd(); };
     return;
   }catch(e){
     console.warn('WebAudio decode failed, fallback to <audio>', e);
   }
 
-  // Desktop fallback: <audio> element
   try{
-    ensureCtx(); 
-    ensureAnalyser(); 
-    attachAnalyserToMediaElement();
-    
+    ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
     const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const blob = new Blob([bin], {type:'audio/mp3'});
-    
-    if(!audioEl){
-      audioEl = document.createElement('audio');
-      audioEl.hidden = true;
-      document.body.appendChild(audioEl);
-    }
-    
-    if(currentObjectURL){ 
-      URL.revokeObjectURL(currentObjectURL); 
-      currentObjectURL=null; 
-    }
-    
-    currentObjectURL = URL.createObjectURL(blob);
-    audioEl.src = currentObjectURL;
-
-    audioEl.onplay  = ()=>{ 
-      setClosed(); 
-      startMouth(); 
-      tagPlaying=true; 
-    };
-    
-    audioEl.onended = ()=>{
-      tagPlaying=false;
-      stopMouth();
-      if(currentObjectURL){ 
-        URL.revokeObjectURL(currentObjectURL); 
-        currentObjectURL=null; 
-      }
-      onEnd && onEnd();
-    };
-    
+    if(!audioEl){ audioEl = document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
+    if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+    currentObjectURL = URL.createObjectURL(blob); audioEl.src = currentObjectURL;
+    audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
+    audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd && onEnd(); };
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
-    // Fallback animation
     startMouth();
     const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
     setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
@@ -606,10 +461,7 @@ function stopAudio(){
   if(audioEl){
     try{ audioEl.pause(); audioEl.currentTime = 0; }catch(_){}
   }
-  if(currentObjectURL){ 
-    URL.revokeObjectURL(currentObjectURL); 
-    currentObjectURL=null; 
-  }
+  if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
   tagPlaying = false;
 }
 
@@ -622,6 +474,7 @@ function showWork(work){
   span.className = 'work-tag';
   span.textContent = '— ' + work;
   output.appendChild(span);
+  adjustLayout(); // ensure tag didn't push us down
 }
 
 /* main */
@@ -630,22 +483,15 @@ const FETCH_URL = ENDPOINT + QUERY;
 async function summon(){
   if(busy) return;
 
-  /* click fx + quick pop */
-  try{ 
-    clickSnd.currentTime = 0; 
-    clickSnd.play(); 
-  }catch(_){}
-  
-  trigger.classList.add('pressed');
-  setTimeout(()=>trigger.classList.remove('pressed'), 160);
+  try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
+  trigger.classList.add('pressed'); setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
   busy = true;
   stopAudio();
 
-  /* clear previous */
   typed.textContent='';
-  const oldTag = output.querySelector('.work-tag'); 
-  if(oldTag) oldTag.remove();
+  const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
+  adjustLayout();
 
   try{
     const res = await fetch(FETCH_URL, { cache:'no-store' });
@@ -655,11 +501,9 @@ async function summon(){
     const text = sanitize(data.text);
 
     typeOut(text, async ()=>{
-      const onEnd = ()=>showWork(work);
-      if(data.audioBase64){
-        await playAudio(data.audioBase64, onEnd);
-      }else{
-        // Fallback animation
+      const onEnd = ()=>{ showWork(work); };
+      if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
+      else {
         startMouth();
         const approx = Math.min(7, Math.max(2.2, text.length/16));
         setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
@@ -668,7 +512,7 @@ async function summon(){
 
   }catch(e){
     console.error(e);
-    typeOut('A shy packet tripped. Try again.');
+    typeOut('A shy packet tripped. Try again.', adjustLayout);
   }finally{
     busy = false;
   }
@@ -681,6 +525,9 @@ document.addEventListener('keydown', e=>{
     if(document.activeElement!==trigger) trigger.focus();
   }
 });
+
+/* First paint guard */
+adjustLayout();
 </script>
 </body>
 </html>
