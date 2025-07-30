@@ -5,7 +5,7 @@
 <title>Chubby Chunklet</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
@@ -89,20 +89,37 @@ body{
 /* ---------- output ---------- */
 .output{
   font-family:var(--font-mono);
-  font-size:clamp(9px,0.8vw,12px);
-  line-height:1.3;letter-spacing:.4px;font-weight:500;
+  font-size:clamp(11px, 1.1vw, 16px);  /* Increased for bolder DOS look */
+  line-height:1.4;  /* Slightly increased */
+  letter-spacing:.6px;  /* Increased spacing */
+  font-weight:700;  /* Bold for authentic DOS terminal */
   color:var(--terminal-color);
-  max-width:620px;min-height:1.6em;text-align:left;
-  margin:8px auto 0;white-space:pre-wrap;position:relative;
+  max-width:720px;  /* Slightly wider for larger text */
+  min-height:1.6em;
+  text-align:left;
+  margin:8px auto 0;
+  white-space:pre-wrap;
+  position:relative;
+  text-shadow: 0 0 1px var(--terminal-color);  /* CRT glow effect */
 }
 .cursor{
-  display:inline-block;width:.55ch;height:1em;
-  background:var(--terminal-color);vertical-align:baseline;
-  animation:blink 1s steps(1,end) infinite;transform:translateY(1px)
+  display:inline-block;
+  width:.65ch;  /* Larger cursor */
+  height:1.1em;
+  background:var(--terminal-color);
+  vertical-align:baseline;
+  animation:blink 1s steps(1,end) infinite;
+  transform:translateY(1px)
 }
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
-.output .work-tag{opacity:.65;font-style:italic;margin-left:.6em;font-size:.9em}
+.output .work-tag{
+  opacity:.65;
+  font-style:italic;
+  margin-left:.6em;
+  font-size:.9em;
+  font-weight:500;  /* Slightly less bold */
+}
 
 /* ---------- small screens ---------- */
 @media(max-height:640px){
@@ -114,6 +131,11 @@ body{
   .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
   .chunklet-img{width:calc(140px*var(--figure-scale))}
   .trigger-button img{width:96px}
+  
+  /* Adjusted text scaling for mobile */
+  .output{
+    font-size:clamp(10px, 2.8vw, 14px);
+  }
 }
 </style>
 </head>
@@ -134,7 +156,7 @@ body{
       </div>
 
       <button id="trigger" class="trigger-button" aria-label="Speak">
-        <img id="keyImage" src="button.png" alt="Speak button">
+        <img id="keyImage" src="keycap.png" alt="Speak button">
       </button>
     </div>
 
