@@ -102,7 +102,7 @@ body{
   font-family:var(--font-phrase);
   text-transform:uppercase;                 /* ALL CAPS */
   font-size:clamp(16px, 1.5vw, 24px);       /* DOS-like, not too tall */
-  line-height:1.22;                         /* a bit tighter to save height */
+  line-height:1.22;                         /* tighter to save height */
   letter-spacing:.04em;                     /* VT323 doesn't need much tracking */
   font-weight:400;
   color:var(--terminal-color);
@@ -125,18 +125,20 @@ body{
 }
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
+
+/* attribution (work source) — VT323 + ALL CAPS */
 .output .work-tag{
-  opacity:.7;
-  font-family:var(--font-mono);
-  text-transform:none;
-  font-style:italic;
+  opacity:.8;
+  font-family: var(--font-phrase); /* VT323 */
+  text-transform: uppercase;
+  font-style: normal;              /* keep pixels crisp */
   margin-left:.6em;
   font-size:.9em;
-  letter-spacing:.02em;
-  font-weight:500;
+  letter-spacing:.06em;
+  font-weight: 400;
 }
 
-/* Guaranteed bottom breathing room (no JS) — made smaller to sit higher */
+/* Guaranteed bottom breathing room (no JS) — kept small to sit higher */
 .spacer{
   height:clamp(56px, 6vh, 96px);
 }
