@@ -24,10 +24,6 @@
 
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
   --font-phrase:'Share Tech Mono','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
-
-  /* Layout guardrails */
-  --bottom-clearance: 120px; /* px from phrase baseline to viewport bottom */
-  --raise: 0px;              /* JS sets this once per phrase */
 }
 
 /* ---------- layout ---------- */
@@ -41,18 +37,15 @@ html,body{
 body{
   display:flex;flex-direction:column;
   align-items:center;justify-content:flex-start;
-  padding: 20px 18px 16px;
+  padding:16px 18px 12px; /* tighter top, small bottom */
   overflow-x:hidden;
 }
 .wrapper{
-  /* do NOT fill available height; prevents bottom push */
+  /* do NOT stretch to viewport height; prevents bottom push */
   flex:0 0 auto;
   width:100%;max-width:950px;
   display:flex;flex-direction:column;align-items:center;
-  gap:22px;
-  transform: translateY(calc(-1 * var(--raise)));
-  transition: transform 180ms ease-out;
-  will-change: transform;
+  gap:20px; /* tighter to sit higher */
 }
 .header{
   font-size:clamp(14px,1.8vw,20px);font-weight:600;letter-spacing:.4px;
@@ -63,8 +56,8 @@ body{
 /* ---------- figure ---------- */
 .figure-zone{
   display:flex;flex-direction:column;align-items:center;
-  gap:22px;
-  margin-top:-8px; /* nudge up */
+  gap:18px;         /* tighter so phrase starts higher */
+  margin-top:-6px;  /* small nudge upward */
 }
 .chunklet-wrap{
   position:relative;
@@ -111,12 +104,12 @@ body{
   font-size:clamp(16px, 1.6vw, 24px);       /* DOS-like */
   line-height:1.28;
   letter-spacing:.08em;                     /* terminal-ish tracking */
-  font-weight:400;                          /* Share Tech Mono weight */
+  font-weight:400;
   color:var(--terminal-color);
   max-width:760px;
   min-height:1.4em;
   text-align:left;
-  margin:2px auto 0;
+  margin:4px auto 0;
   white-space:pre-wrap;
   position:relative;
   text-shadow: 0 0 1px rgba(16,52,166,.4);  /* subtle phosphor glow */
@@ -143,19 +136,19 @@ body{
   font-weight:500;
 }
 
-/* Hidden measurement clone (same styles as .output) */
-.output-measure{
-  position:absolute; left:-9999px; top:0;
-  visibility:hidden; height:auto; overflow:visible;
-  white-space:pre-wrap;
+/* Guaranteed bottom breathing room (no JS) */
+.spacer{
+  height:clamp(120px, 14vh, 220px); /* always leaves clear space below */
 }
 
 /* ---------- small screens ---------- */
 @media (pointer:coarse){
-  body{ padding-bottom: max(64px, calc(8vh + env(safe-area-inset-bottom, 0px))); }
+  /* extra safety on phones so browser chrome doesn't overlap */
+  body{ padding-bottom: max(56px, calc(8vh + env(safe-area-inset-bottom, 0px))); }
+  .spacer{ height:clamp(96px, 12vh, 160px); }
 }
 @media(max-height:640px){
-  .figure-zone{gap:18px}
+  .figure-zone{gap:14px}
   .chunklet-wrap{height:calc(200px*var(--figure-scale))}
 }
 @media(max-width:360px){
@@ -170,7 +163,7 @@ body{
 <body>
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-  <div class="wrapper" id="wrapper">
+  <div class="wrapper">
     <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
     <div class="figure-zone">
@@ -192,8 +185,8 @@ body{
       <span id="typed"></span><span id="cursor" class="cursor"></span>
     </div>
 
-    <!-- hidden sizing clone -->
-    <div id="outMeasure" class="output output-measure" aria-hidden="true"></div>
+    <!-- Simple, reliable bottom buffer -->
+    <div class="spacer" aria-hidden="true"></div>
   </div>
 
 <script>
@@ -208,7 +201,6 @@ const typed    = document.getElementById('typed');
 const cursor   = document.getElementById('cursor');
 const mouth    = document.getElementById('mouth');
 const output   = document.getElementById('output');
-const outMeasure = document.getElementById('outMeasure');
 const clickSnd = document.getElementById('clickSnd');
 
 const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
@@ -219,7 +211,6 @@ let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
 let raf,animating=false,tagPlaying=false;
 let currentObjectURL=null;
 let iosAudioInitialized = false;
-let lastFullText='', pendingWork='';
 
 /* ===== multi-level fast flap (discrete bands with hysteresis) ===== */
 const SY = [0.07, 0.55, 1.10, 1.70, 2.30];
@@ -229,38 +220,15 @@ const HYST_DELTA  = 0.018;
 const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
 const GATE_FLOOR  = 0.010;
 const CLOSE_GRACE_MS = 20;
-let level = 0, lastChange = 0;
 
-/* ---------- layout: compute raise ONCE per phrase (no per-char jitter) ---------- */
-function planRaiseForText(fullText, includeTag){
-  try{
-    if(!fullText) fullText = typed.textContent || '';
-    // ensure the measurement clone uses the same width as the visible output
-    outMeasure.style.width = output.clientWidth + 'px';
-    outMeasure.textContent = fullText;
-    if(includeTag && pendingWork){
-      const span = document.createElement('span');
-      span.className = 'work-tag';
-      span.textContent = '— ' + pendingWork;
-      outMeasure.appendChild(span);
-    }
-    // compute needed raise based on final height
-    const top = output.getBoundingClientRect().top;
-    const height = outMeasure.scrollHeight;
-    const clearanceNow = window.innerHeight - (top + height);
-    const need = parseFloat(getComputedStyle(document.documentElement)
-                  .getPropertyValue('--bottom-clearance')) || 120;
-    const raise = Math.max(0, need - clearanceNow);
-    document.documentElement.style.setProperty('--raise', raise + 'px');
-  }catch(_){}
-}
-window.addEventListener('resize', ()=> planRaiseForText(lastFullText, !!document.querySelector('.work-tag')));
+let level = 0;
+let lastChange = 0;
 
-/* ---------- audio/analyser helpers ---------- */
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state === 'suspended') audioCtx.resume();
 }
+
 function ensureAnalyser(){
   ensureCtx();
   if(!analyser){
@@ -270,21 +238,26 @@ function ensureAnalyser(){
     timeData = new Float32Array(analyser.fftSize);
   }
 }
+
 function attachAnalyserToBufferSource(srcNode){
   ensureAnalyser();
   try{ srcNode.disconnect(); }catch(_){}
   srcNode.connect(analyser);
   analyser.connect(audioCtx.destination);
 }
+
 function attachAnalyserToMediaElement(){
   ensureAnalyser();
-  if(isIOS && !iosAudioInitialized){ initializeIOSAudio(); return; }
+  if(isIOS && !iosAudioInitialized){
+    initializeIOSAudio();
+    return;
+  }
   if(!audioEl){
     audioEl = document.createElement('audio');
     audioEl.style.position = 'absolute';
     audioEl.style.left = '-9999px';
-    audioEl.setAttribute('playsinline','');
-    audioEl.setAttribute('webkit-playsinline','');
+    audioEl.setAttribute('playsinline', '');
+    audioEl.setAttribute('webkit-playsinline', '');
     document.body.appendChild(audioEl);
   }
   if(!mediaSource && audioCtx && audioEl){
@@ -292,18 +265,26 @@ function attachAnalyserToMediaElement(){
       mediaSource = audioCtx.createMediaElementSource(audioEl);
       mediaSource.connect(analyser);
       analyser.connect(audioCtx.destination);
-    }catch(e){ console.warn('createMediaElementSource failed', e); }
+    }catch(e){ 
+      console.warn('createMediaElementSource failed', e); 
+    }
   }
 }
+
 function rmsLevel(){
   if(!analyser || !timeData) return 0;
   analyser.getFloatTimeDomainData(timeData);
   let sum = 0;
-  for(let i=0;i<timeData.length;i++){ const v=timeData[i]; sum += v*v; }
+  for(let i=0;i<timeData.length;i++){
+    const v = timeData[i];
+    sum += v*v;
+  }
   let rms = Math.sqrt(sum / timeData.length);
   if (rms < GATE_FLOOR) rms = 0;
   return rms;
 }
+
+/* set visual level immediately (no tween) */
 function setLevel(n){
   n = Math.max(0, Math.min(4, n|0));
   if (n === level) return;
@@ -311,72 +292,122 @@ function setLevel(n){
   mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
   lastChange = performance.now();
 }
+
 function setClosed(){ setLevel(0); }
-function startMouth(){ if(animating) return; animating = true; requestAnimationFrame(tick); }
-function stopMouth(){ animating = false; cancelAnimationFrame(raf); setClosed(); }
+
+function startMouth(){
+  if(animating) return;
+  animating = true;
+  requestAnimationFrame(tick);
+}
+
+function stopMouth(){
+  animating = false;
+  cancelAnimationFrame(raf);
+  setClosed();
+}
+
 function tick(){
   raf = requestAnimationFrame(tick);
+  
   const active = !!currentSource || tagPlaying;
   const now = performance.now();
+
   if(active){
     if(analyser && (currentSource || (tagPlaying && mediaSource))){
       const e = rmsLevel();
+      
+      // If we're getting no data on iOS, use time-based animation
       if(isIOS && e === 0 && tagPlaying){
-        const t = (now/1000), phase = ((t*15)|0) % 5, levels=[1,2,3,2,1];
-        setLevel(levels[phase]); return;
+        const t = (now/1000);
+        const phase = ((t*15)|0) % 5;
+        const levels = [1, 2, 3, 2, 1];
+        setLevel(levels[phase]);
+        return;
       }
+
+      // Normal analyser-based animation
       let target = level;
       while (target < 4 && e >= THRESH_UP[target]) target++;
       while (target > 0 && e < THRESH_DOWN[target-1]) target--;
-      if (target < level && (now - lastChange) < CLOSE_GRACE_MS) target = level;
+
+      if (target < level && (now - lastChange) < CLOSE_GRACE_MS) {
+        target = level;
+      }
+
       setLevel(target);
     } else {
-      const t = (now/1000), phase=((t*15)|0)%5, levels=[1,2,3,2,1];
+      // Fallback when no analyser
+      const t = (now/1000);
+      const phase = ((t*15)|0) % 5;
+      const levels = [1, 2, 3, 2, 1];
       setLevel(levels[phase]);
     }
     return;
   }
-  const t = (now/1000), phase=((t*13)|0)%4, rand=Math.random();
-  const target = phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4);
+
+  // No active audio: idle animation
+  const t = (now/1000);
+  const phase = ((t*13)|0) % 4;
+  const rand = Math.random();
+  const target = phase === 0 ? 0
+                : phase === 1 ? (rand < .7 ? 1 : 2)
+                : phase === 2 ? (rand < .6 ? 2 : 3)
+                :               (rand < .5 ? 3 : 4);
   setLevel(target);
 }
 
-/* ---------- iOS unlock ---------- */
+/* iOS unlock */
 function initializeIOSAudio(){
   if(iosAudioInitialized) return;
   try{
     ensureCtx();
     if(!audioEl){
       audioEl = document.createElement('audio');
-      audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-      audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
+      audioEl.style.position = 'absolute';
+      audioEl.style.left = '-9999px';
+      audioEl.setAttribute('playsinline', '');
+      audioEl.setAttribute('webkit-playsinline', '');
       document.body.appendChild(audioEl);
     }
-    const silentMP3='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-    audioEl.src = silentMP3; audioEl.load();
-    const p = audioEl.play();
-    if(p!==undefined){
-      p.then(()=>{
-        audioEl.pause(); audioEl.currentTime=0;
+    const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    audioEl.src = silentMP3;
+    audioEl.load();
+    const playPromise = audioEl.play();
+    if(playPromise !== undefined){
+      playPromise.then(() => {
+        audioEl.pause();
+        audioEl.currentTime = 0;
         if(!mediaSource && audioCtx){
           try{
             mediaSource = audioCtx.createMediaElementSource(audioEl);
-            ensureAnalyser(); mediaSource.connect(analyser); analyser.connect(audioCtx.destination);
+            ensureAnalyser();
+            mediaSource.connect(analyser);
+            analyser.connect(audioCtx.destination);
             iosAudioInitialized = true;
-          }catch(e){ console.warn('iOS audio init partial', e); }
+          }catch(e){
+            console.warn('iOS audio init partial success, no analyser:', e);
+          }
         }
-      }).catch(e=>console.warn('iOS audio init failed', e));
+      }).catch(e => {
+        console.warn('iOS audio init failed:', e);
+      });
     }
-  }catch(e){ console.warn('iOS audio initialization error:', e); }
+  }catch(e){
+    console.warn('iOS audio initialization error:', e);
+  }
 }
 function unlockAudioOnce(){
   try{
     ensureCtx();
-    if(isIOS){ initializeIOSAudio(); }
-    else {
+    if(isIOS){
+      initializeIOSAudio();
+    } else {
       const buf = audioCtx.createBuffer(1,1,22050);
       const src = audioCtx.createBufferSource();
-      src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
+      src.buffer = buf; 
+      src.connect(audioCtx.destination); 
+      src.start(0);
     }
   }catch(_){}
   document.removeEventListener('touchstart', unlockAudioOnce);
@@ -385,7 +416,7 @@ function unlockAudioOnce(){
 document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
 document.addEventListener('click', unlockAudioOnce, {once:true});
 
-/* ---------- helpers ---------- */
+/* helpers */
 const sanitize = txt=>{
   txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
   return /[.?!]$/.test(txt)?txt:txt+'.';
@@ -403,72 +434,137 @@ function typeOut(text, done){
   })();
 }
 
-/* ---------- playback ---------- */
+/* playback */
 async function playAudio(b64,onEnd){
+  // Always use audio element on iOS
   if(isIOS){
     try{
-      ensureCtx();
+      ensureCtx(); 
       if(!iosAudioInitialized){
         await initializeIOSAudio();
-        await new Promise(r=>setTimeout(r,100));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       attachAnalyserToMediaElement();
+      
       const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
       const blob = new Blob([bin], {type:'audio/mp3'});
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+      
+      if(currentObjectURL){ 
+        URL.revokeObjectURL(currentObjectURL); 
+        currentObjectURL=null; 
+      }
+      
       currentObjectURL = URL.createObjectURL(blob);
+      
       if(!audioEl){
         audioEl = document.createElement('audio');
-        audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-        audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
+        audioEl.style.position = 'absolute';
+        audioEl.style.left = '-9999px';
+        audioEl.setAttribute('playsinline', '');
+        audioEl.setAttribute('webkit-playsinline', '');
         document.body.appendChild(audioEl);
       }
-      audioEl.src = currentObjectURL; audioEl.load();
-      audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
+      
+      audioEl.src = currentObjectURL;
+      audioEl.load();
+
+      audioEl.onplay  = ()=>{ 
+        setClosed(); 
+        startMouth(); 
+        tagPlaying=true; 
+      };
+      
       audioEl.onended = ()=>{
-        tagPlaying=false; stopMouth();
-        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+        tagPlaying=false;
+        stopMouth();
+        if(currentObjectURL){ 
+          URL.revokeObjectURL(currentObjectURL); 
+          currentObjectURL=null; 
+        }
         onEnd && onEnd();
       };
-      const p = audioEl.play(); if(p!==undefined) await p;
+      
+      const playPromise = audioEl.play();
+      if(playPromise !== undefined){
+        await playPromise;
+      }
       return;
     }catch(err){
       console.error('iOS audio playback failed', err);
+      // Fallback animation
       startMouth();
       const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
       setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
       return;
     }
   }
-
+  
+  // Desktop: Try WebAudio first
   try{
-    ensureCtx(); ensureAnalyser();
+    ensureCtx(); 
+    ensureAnalyser();
     const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const buf = await audioCtx.decodeAudioData(bin.buffer);
     currentSource = audioCtx.createBufferSource();
     currentSource.buffer = buf;
     currentSource.playbackRate.value = 1.08;
     attachAnalyserToBufferSource(currentSource);
-    setClosed(); startMouth();
+    setClosed(); 
+    startMouth();
     currentSource.start();
-    currentSource.onended = ()=>{ currentSource=null; stopMouth(); onEnd && onEnd(); };
+    currentSource.onended = ()=>{
+      currentSource=null;
+      stopMouth();
+      onEnd && onEnd();
+    };
     return;
   }catch(e){
     console.warn('WebAudio decode failed, fallback to <audio>', e);
   }
 
+  // Desktop fallback: <audio> element
   try{
-    ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
+    ensureCtx(); 
+    ensureAnalyser(); 
+    attachAnalyserToMediaElement();
+    
     const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
     const blob = new Blob([bin], {type:'audio/mp3'});
-    if(!audioEl){ audioEl = document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
-    if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-    currentObjectURL = URL.createObjectURL(blob); audioEl.src = currentObjectURL;
-    audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
-    audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd && onEnd(); };
+    
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.hidden = true;
+      document.body.appendChild(audioEl);
+    }
+    
+    if(currentObjectURL){ 
+      URL.revokeObjectURL(currentObjectURL); 
+      currentObjectURL=null; 
+    }
+    
+    currentObjectURL = URL.createObjectURL(blob);
+    audioEl.src = currentObjectURL;
+
+    audioEl.onplay  = ()=>{ 
+      setClosed(); 
+      startMouth(); 
+      tagPlaying=true; 
+    };
+    
+    audioEl.onended = ()=>{
+      tagPlaying=false;
+      stopMouth();
+      if(currentObjectURL){ 
+        URL.revokeObjectURL(currentObjectURL); 
+        currentObjectURL=null; 
+      }
+      onEnd && onEnd();
+    };
+    
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
+    // Fallback animation
     startMouth();
     const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
     setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
@@ -484,7 +580,10 @@ function stopAudio(){
   if(audioEl){
     try{ audioEl.pause(); audioEl.currentTime = 0; }catch(_){}
   }
-  if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+  if(currentObjectURL){ 
+    URL.revokeObjectURL(currentObjectURL); 
+    currentObjectURL=null; 
+  }
   tagPlaying = false;
 }
 
@@ -497,8 +596,6 @@ function showWork(work){
   span.className = 'work-tag';
   span.textContent = '— ' + work;
   output.appendChild(span);
-  // single settle after tag appears
-  setTimeout(()=> planRaiseForText(lastFullText, true), 0);
 }
 
 /* main */
@@ -507,14 +604,22 @@ const FETCH_URL = ENDPOINT + QUERY;
 async function summon(){
   if(busy) return;
 
-  try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
-  trigger.classList.add('pressed'); setTimeout(()=>trigger.classList.remove('pressed'), 160);
+  /* click fx + quick pop */
+  try{ 
+    clickSnd.currentTime = 0; 
+    clickSnd.play(); 
+  }catch(_){}
+  
+  trigger.classList.add('pressed');
+  setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
   busy = true;
   stopAudio();
 
+  /* clear previous */
   typed.textContent='';
-  const oldTag = output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
+  const oldTag = output.querySelector('.work-tag'); 
+  if(oldTag) oldTag.remove();
 
   try{
     const res = await fetch(FETCH_URL, { cache:'no-store' });
@@ -522,17 +627,13 @@ async function summon(){
     const data = await res.json();
     const work = data.work || null;
     const text = sanitize(data.text);
-    pendingWork = work || '';
-    lastFullText = text;
-
-    // compute raise ONCE using the full phrase before typing
-    planRaiseForText(text, false);
 
     typeOut(text, async ()=>{
-      const onEnd = ()=>{ showWork(work); };
+      const onEnd = ()=>showWork(work);
       if(data.audioBase64){
         await playAudio(data.audioBase64, onEnd);
       }else{
+        // Fallback animation
         startMouth();
         const approx = Math.min(7, Math.max(2.2, text.length/16));
         setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
@@ -541,8 +642,6 @@ async function summon(){
 
   }catch(e){
     console.error(e);
-    lastFullText = 'A SHY PACKET TRIPPED. TRY AGAIN.';
-    planRaiseForText(lastFullText, false);
     typeOut('A shy packet tripped. Try again.');
   }finally{
     busy = false;
