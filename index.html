@@ -3,14 +3,14 @@
 <head>
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png">
-  <!-- (Optional but nice for iOS home screen) -->
   <link rel="apple-touch-icon" href="favicon.png">
-  <meta charset="UTF-8">
+
+  <meta charset="UTF-8" />
   <title>chubby chunklet</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
-  <!-- Retro DOS mono for the phrase -->
   <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 
   <style>
@@ -27,13 +27,8 @@
     --mouth-scale-0:.05; /* initial; JS now drives actual levels */
     --char-ms:18;
 
-    /* Background + UI palette */
-    --bg-url: url('city.png');        /* same file for desktop + mobile */
-    --bg-darken: rgba(0,0,0,.48);
+    /* palette */
     --terminal-color:#cfe8ff;
-
-    --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
-    --font-phrase:'VT323','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
 
     /* Scene sizing and window hotspot (calibrated for city.png) */
     --scene-w: min(1100px, 92vw);
@@ -50,32 +45,27 @@
     background:#000;color:#f1f1f1;
     -webkit-font-smoothing:antialiased;
   }
-  /* full-bleed city wall background */
-  body::before{
-    content:"";
+  body{ position:relative; overflow-x:hidden; }
+
+  /* ======= FULL-BLEED BACKGROUND AS REAL ELEMENT ======= */
+  .bg{
     position:fixed; inset:0;
-    background: center 36%/cover no-repeat var(--bg-url);
-    filter: brightness(.84) contrast(1.05) saturate(1.08);
-    z-index:-2;
+    background: center 28% / cover no-repeat url('city.png'); /* same file desktop + mobile */
+    filter: brightness(.88) contrast(1.06) saturate(1.08);
+    z-index:0; /* below content */
   }
-  body::after{
-    content:"";
-    position:fixed; inset:0;
+  .bg::after{
+    content:""; position:absolute; inset:0;
     background: linear-gradient(
       to bottom,
-      rgba(0,0,0,.28) 0%,
-      var(--bg-darken) 45%,
+      rgba(0,0,0,.18) 0%,
+      rgba(0,0,0,.44) 45%,
       rgba(0,0,0,.62) 100%
     );
-    z-index:-1;
   }
 
-  body{
-    display:flex;flex-direction:column;
-    align-items:center;justify-content:flex-start;
-    padding:12px 16px 6px;
-    overflow-x:hidden;
-  }
+  /* app wrapper sits above bg */
+  .wrapper, .scene, .hud, .header{ position:relative; z-index:1; }
 
   .wrapper{
     flex:0 0 auto;
@@ -83,6 +73,8 @@
     max-width:var(--scene-w);
     display:flex;flex-direction:column;align-items:center;
     gap:14px;
+    padding:12px 16px 6px;
+    margin:0 auto;
   }
   .header{
     font-size:clamp(14px,1.8vw,20px);font-weight:600;letter-spacing:.4px;
@@ -105,7 +97,6 @@
     transform: translate(-50%, 0);
   }
 
-  /* Reuse the original figure container for popout */
   .chunklet-wrap{
     position:relative;
     width:calc(180px*var(--figure-scale));
@@ -150,8 +141,7 @@
   .chunklet-wrap::before{
     content:"";
     position:absolute;
-    left:50%;
-    top:0;
+    left:50%; top:0;
     transform: translate(-50%, -4px);
     width: clamp(150px, 26vw, 300px);
     height: 8px;
@@ -216,7 +206,7 @@
   @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
   .typing .cursor{animation:none}
 
-  /* attribution (work source) — VT323 + ALL CAPS */
+  /* attribution tag */
   .output .work-tag{
     opacity:.85;
     font-family: var(--font-phrase);
@@ -228,12 +218,10 @@
     font-weight: 400;
   }
 
-  /* Guaranteed bottom breathing room (no JS) */
   .spacer{ height:clamp(56px, 6vh, 96px); }
 
   /* ---------- small screens ---------- */
   @media (pointer:coarse){
-    body{ padding-bottom: max(56px, calc(8vh + env(safe-area-inset-bottom, 0px))); }
     .spacer{ height:clamp(88px, 10vh, 140px); }
   }
   @media(max-height:640px){
@@ -246,6 +234,7 @@
       --win-y: 30%;
       --scene-ratio: 9/12;
     }
+    .bg{ background-position:center 24%; }
   }
   @media(max-width:360px){
     :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
@@ -258,6 +247,9 @@
 </head>
 
 <body>
+  <!-- Full-bleed background layer -->
+  <div class="bg"></div>
+
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
   <div class="wrapper">
@@ -295,7 +287,6 @@
   /* ===== CONFIG ===== */
   const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
     || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-  /* modernization OFF */
   const QUERY    = '?style=canon&modern=0&accent=scottish';
   const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
 
