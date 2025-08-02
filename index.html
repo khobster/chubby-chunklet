@@ -1,462 +1,668 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>chubby chunklet</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="favicon.png">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="favicon.png">
+<!-- (Optional but nice for iOS home screen) -->
+<link rel="apple-touch-icon" href="favicon.png">
+<meta charset="UTF-8">
+<title>chubby chunklet</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
+<!-- Retro DOS mono for the phrase -->
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-  <style>
-  :root{
-    --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+  --figure-scale:1.15;
+  --mouth-top:133px;
+  --mouth-left:50%;
+  --mouth-w:38px;
+  --mouth-h:38px;
 
-    /* mouth / figure sizing */
-    --figure-scale:1.15;
-    --mouth-top:133px;
-    --mouth-left:50%;
-    --mouth-w:38px; --mouth-h:38px;
-    --mouth-scale-0:.05;
-    --char-ms:18;
+  --mouth-scale-0:.05; /* initial; JS now drives actual levels */
+  --char-ms:18;
+  --terminal-color:#1034a6;
 
-    /* stage + window hotspot (tuned for city.png) */
-    --stage-w: min(1100px, 92vw);
-    --stage-ratio: 16/9;
-    --win-x: 69%;  /* top row, 2nd window from right */
-    --win-y: 34%;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --font-phrase:'VT323','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
 
-    --terminal-color:#cfe8ff;
-  }
+/* ---------- layout ---------- */
+*{box-sizing:border-box}
+html,body{
+  margin:0;padding:0;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+  background:#fff;color:#111;
+  -webkit-font-smoothing:antialiased;
+}
+body{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:12px 16px 6px;  /* tighter so everything sits higher */
+  overflow-x:hidden;
+}
+.wrapper{
+  /* do NOT stretch to viewport height; prevents bottom push */
+  flex:0 0 auto;
+  width:100%;max-width:950px;
+  display:flex;flex-direction:column;align-items:center;
+  gap:14px; /* tighter vertical rhythm */
+}
+.header{
+  font-size:clamp(14px,1.8vw,20px);font-weight:600;letter-spacing:.4px;
+  text-align:center;margin:0;
+}
+.header span{font-weight:700}
 
-  *{box-sizing:border-box}
-  html,body{
-    margin:0; padding:0;
-    background:#0a0a0a; color:#f2f2f2;
-    font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-    -webkit-font-smoothing:antialiased;
-    overflow-x:hidden;
-  }
+/* ---------- figure ---------- */
+.figure-zone{
+  display:flex;flex-direction:column;align-items:center;
+  gap:12px;          /* tighter */
+  margin-top:-12px;  /* nudge the figure up */
+}
+.chunklet-wrap{
+  position:relative;
+  width:calc(180px*var(--figure-scale));
+  height:calc(230px*var(--figure-scale));
+  display:flex;align-items:flex-end;justify-content:center;
+  pointer-events:none;
+}
+.chunklet-img{
+  width:calc(170px*var(--figure-scale));max-width:100%;
+  user-select:none;-webkit-user-drag:none;
+  filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
+  image-rendering:-webkit-optimize-contrast;
+}
+/* mouth overlay */
+.mouth-overlay{
+  position:absolute;
+  top:var(--mouth-top);left:var(--mouth-left);
+  width:var(--mouth-w);height:var(--mouth-h);
+  transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+.mouth-overlay svg{width:100%;height:100%}
+#mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-  .wrapper{
-    width:100%;
-    display:flex; flex-direction:column; align-items:center;
-    gap:14px; padding:12px 16px 24px;
-  }
+/* ---------- button ---------- */
+.trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
+.trigger-button img{
+  width:150px;height:auto;display:block; /* nice, big tap target */
+  transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
+}
+.trigger-button:active img,
+.trigger-button.pressed img{
+  transform:translateY(8px) scale(.985);
+  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
+}
 
-  .header{
-    font-size:clamp(14px,1.6vw,20px);
-    font-weight:600; letter-spacing:.4px; margin:0;
-    color:#e8ecf7; text-shadow:0 2px 8px rgba(0,0,0,.6);
-  }
-  .header span{font-weight:700}
+/* ---------- output (phrase) ---------- */
+.output{
+  font-family:var(--font-phrase);
+  text-transform:uppercase;                 /* ALL CAPS */
+  font-size:clamp(16px, 1.5vw, 24px);       /* DOS-like, not too tall */
+  line-height:1.22;                         /* tighter to save height */
+  letter-spacing:.04em;                     /* VT323 doesn't need much tracking */
+  font-weight:400;
+  color:var(--terminal-color);
+  max-width:860px;                          /* wider = fewer line wraps */
+  min-height:1.2em;
+  text-align:left;
+  margin:0 auto 0;
+  white-space:pre-wrap;
+  position:relative;
+  text-shadow: 0 0 1px rgba(16,52,166,.35);
+}
+.cursor{
+  display:inline-block;
+  width:.7ch;
+  height:1em;
+  background:var(--terminal-color);
+  vertical-align:baseline;
+  animation:blink 1s steps(1,end) infinite;
+  transform:translateY(1px)
+}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+.typing .cursor{animation:none}
 
-  /* ======= STAGE (photo + fixed ratio so % coords are stable) ======= */
-  .stage{
-    position:relative;
-    width:var(--stage-w);
-    aspect-ratio:var(--stage-ratio);
-    background: center 36% / cover no-repeat url('city.png');
-    border-radius: 10px;
-    overflow:hidden;           /* lets us add a subtle vignette */
-    box-shadow: 0 18px 48px rgba(0,0,0,.45);
-  }
-  .stage::after{
-    /* gentle top/bottom darkening for readability */
-    content:""; position:absolute; inset:0;
-    background: linear-gradient(to bottom,
-      rgba(0,0,0,.18) 0%,
-      rgba(0,0,0,.22) 40%,
-      rgba(0,0,0,.36) 100%);
-    pointer-events:none;
-  }
+/* attribution (work source) — VT323 + ALL CAPS */
+.output .work-tag{
+  opacity:.8;
+  font-family: var(--font-phrase); /* VT323 */
+  text-transform: uppercase;
+  font-style: normal;              /* keep pixels crisp */
+  margin-left:.6em;
+  font-size:.9em;
+  letter-spacing:.06em;
+  font-weight: 400;
+}
 
-  /* window anchor where Chunklet lives */
-  .window-anchor{
-    position:absolute;
-    left:var(--win-x); top:var(--win-y);
-    transform:translate(-50%,0);
-  }
+/* Guaranteed bottom breathing room (no JS) — kept small to sit higher */
+.spacer{
+  height:clamp(56px, 6vh, 96px);
+}
 
-  /* ======= CHUNKLET POP-OUT ======= */
-  .chunklet-wrap{
-    position:relative;
-    width:calc(180px*var(--figure-scale));
-    height:calc(230px*var(--figure-scale));
-    display:flex; align-items:flex-end; justify-content:center;
-    transform:translate(-50%,0) translateZ(0);
-    left:50%;
-    /* start tucked a bit “inside” the window */
-    --pop-y: 8px;
-    transform-style:preserve-3d;
-    transition: transform .22s cubic-bezier(.22,.9,.24,1);
-    filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
-  }
-  /* when speaking, slide outward like a cuckoo clock */
-  .chunklet-wrap.speaking{
-    --pop-y: -10px;
-    filter: drop-shadow(0 18px 26px rgba(0,0,0,.45));
-  }
-  .chunklet-wrap{ transform: translate(-50%, var(--pop-y)); }
-
-  .chunklet-img{
-    width:calc(170px*var(--figure-scale));
-    user-select:none; -webkit-user-drag:none;
-    image-rendering:-webkit-optimize-contrast;
-  }
-
-  .mouth-overlay{
-    position:absolute;
-    top:var(--mouth-top); left:var(--mouth-left);
-    width:var(--mouth-w); height:var(--mouth-h);
-    transform:translate(-50%,-50%);
-    display:flex; align-items:center; justify-content:center;
-    pointer-events:none;
-  }
-  .mouth-overlay svg{width:100%;height:100%}
-  #mouth{transform-origin:50% 50%; transform:scale(1,var(--mouth-scale-0))}
-
-  /* subtle window sill/platform (no harsh outline) */
-  .sill{
-    position:absolute; left:50%; top:100%;
-    transform:translate(-50%,-4px) perspective(900px) rotateX(62deg);
-    width: clamp(140px, 24vw, 280px); height: 14px;
-    background: linear-gradient(#2a2a2a, #121212);
-    border-radius: 8px;
-    box-shadow: 0 14px 24px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.08) inset;
-  }
-
-  /* a soft “frame lip” to sell occlusion without a hard bar */
-  .frame-occluder{
-    position:absolute; left:50%; top:0;
-    transform:translate(-50%,-3px);
-    width: clamp(160px, 26vw, 300px); height:10px;
-    background: rgba(20,20,20,.35);
-    border-radius:3px;
-    filter: blur(.6px);
-    mix-blend-mode:multiply;
-    pointer-events:none;
-  }
-
-  /* ======= HUD (button + typed line BELOW the stage) ======= */
-  .hud{
-    width:var(--stage-w);
-    display:flex; flex-direction:column; align-items:center; gap:10px;
-    margin-top:8px;
-  }
-
-  .trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
-  .trigger-button img{
-    width:140px; height:auto; display:block;
-    transition:transform .08s cubic-bezier(.33,.9,.3,1),filter .12s;
-    filter:drop-shadow(0 6px 12px rgba(0,0,0,.45));
-  }
-  .trigger-button:active img,
-  .trigger-button.pressed img{
-    transform:translateY(6px) scale(.985);
-    filter:drop-shadow(0 3px 8px rgba(0,0,0,.55)) brightness(.96) contrast(1.04)
-  }
-
-  .output{
-    font-family:'VT323','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
-    text-transform:uppercase;
-    font-size:clamp(16px,1.5vw,24px);
-    line-height:1.22; letter-spacing:.04em;
-    color:var(--terminal-color);
-    max-width:860px; min-height:1.2em; text-align:center;
-    padding:12px 16px;
-    background: rgba(0,0,0,.45);
-    border:1px solid rgba(255,255,255,.12);
-    border-radius:14px;
-    text-shadow:0 2px 8px rgba(0,0,0,.65);
-  }
-  .cursor{
-    display:inline-block; width:.7ch; height:1em; background:var(--terminal-color);
-    vertical-align:baseline; animation:blink 1s steps(1,end) infinite; transform:translateY(1px)
-  }
-  @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
-  .typing .cursor{animation:none}
-  .output .work-tag{
-    opacity:.85; margin-left:.6em; font-size:.9em; letter-spacing:.06em;
-  }
-
-  .spacer{height:clamp(56px,6vh,96px)}
-
-  /* ======= Responsive tweaks ======= */
-  @media (max-width: 720px), (max-aspect-ratio:4/5){
-    :root{ --stage-ratio: 9/12; --win-x:58%; --win-y:30%; }
-    .trigger-button img{ width:120px; }
-  }
-  @media (max-width:360px){
-    :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
-    .chunklet-img{ width:calc(140px*var(--figure-scale)); }
-    .output{ font-size:clamp(14px,3.2vw,20px); }
-  }
-  </style>
+/* ---------- small screens ---------- */
+@media (pointer:coarse){
+  /* extra safety on phones so browser chrome doesn't overlap */
+  body{ padding-bottom: max(56px, calc(8vh + env(safe-area-inset-bottom, 0px))); }
+  .spacer{ height:clamp(88px, 10vh, 140px); }
+}
+@media(max-height:640px){
+  .figure-zone{gap:10px}
+  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
+}
+@media(max-width:360px){
+  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
+  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
+  .chunklet-img{width:calc(140px*var(--figure-scale))}
+  .trigger-button img{width:120px}
+  .output{font-size:clamp(14px, 3.2vw, 20px)}
+}
+</style>
 </head>
-
 <body>
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
   <div class="wrapper">
     <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
-    <!-- STAGE with fixed-ratio background so window coords are stable -->
-    <div class="stage" role="img" aria-label="NYC building wall with windows and mural">
-      <div class="window-anchor">
-        <div id="chunklet" class="chunklet-wrap">
-          <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
-          <div class="mouth-overlay">
-            <svg viewBox="0 0 100 100"><ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/></svg>
-          </div>
-          <div class="sill"></div>
-          <div class="frame-occluder"></div>
+    <div class="figure-zone">
+      <div class="chunklet-wrap">
+        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
+        <div class="mouth-overlay">
+          <svg viewBox="0 0 100 100">
+            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+          </svg>
         </div>
       </div>
-    </div>
 
-    <!-- HUD under the scene -->
-    <div class="hud">
       <button id="trigger" class="trigger-button" aria-label="Speak">
-        <img id="keyImage" src="keycap.png" alt="">
+        <img id="keyImage" src="keycap.png" alt="Speak button">
       </button>
-      <div class="output" id="output">
-        <span id="typed"></span><span id="cursor" class="cursor"></span>
-      </div>
     </div>
 
+    <div class="output" id="output">
+      <span id="typed"></span><span id="cursor" class="cursor"></span>
+    </div>
+
+    <!-- Simple, reliable bottom buffer -->
     <div class="spacer" aria-hidden="true"></div>
   </div>
 
-  <script>
-  /* ===== CONFIG ===== */
-  const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
-    || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-  const QUERY    = '?style=canon&modern=0&accent=scottish';
-  const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
+<script>
+/* ===== CONFIG ===== */
+const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
+  || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+/* modernization OFF */
+const QUERY    = '?style=canon&modern=0&accent=scottish';
+const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
 
-  const trigger  = document.getElementById('trigger');
-  const typed    = document.getElementById('typed');
-  const cursor   = document.getElementById('cursor');
-  const mouth    = document.getElementById('mouth');
-  const output   = document.getElementById('output');
-  const clickSnd = document.getElementById('clickSnd');
-  const chunkletWrap = document.getElementById('chunklet');
+const trigger  = document.getElementById('trigger');
+const typed    = document.getElementById('typed');
+const cursor   = document.getElementById('cursor');
+const mouth    = document.getElementById('mouth');
+const output   = document.getElementById('output');
+const clickSnd = document.getElementById('clickSnd');
 
-  const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
+const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-  /* ---------- state ---------- */
-  let busy=false;
-  let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-  let raf,animating=false,tagPlaying=false;
-  let currentObjectURL=null;
-  let iosAudioInitialized = false;
+/* ---------- state ---------- */
+let busy=false;
+let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
+let raf,animating=false,tagPlaying=false;
+let currentObjectURL=null;
+let iosAudioInitialized = false;
 
-  /* ===== mouth levels ===== */
-  const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
-  const THRESH_UP=[0.030,0.060,0.100,0.160], HYST=0.018;
-  const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST));
-  const GATE=0.010, CLOSE_GRACE_MS=20;
-  let level=0,lastChange=0;
+/* ===== multi-level fast flap (discrete bands with hysteresis) ===== */
+const SY = [0.07, 0.55, 1.10, 1.70, 2.30];
+const SX = [1.00, 1.01, 1.02, 1.02, 1.03];
+const THRESH_UP   = [0.030, 0.060, 0.100, 0.160];
+const HYST_DELTA  = 0.018;
+const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
+const GATE_FLOOR  = 0.010;
+const CLOSE_GRACE_MS = 20;
 
-  function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
-  function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
-  function attachAnalyserToBufferSource(src){ ensureAnalyser(); try{src.disconnect();}catch(_){ } src.connect(analyser); analyser.connect(audioCtx.destination); }
-  function attachAnalyserToMediaElement(){
-    ensureAnalyser();
-    if(isIOS && !iosAudioInitialized){ initializeIOSAudio(); return; }
-    if(!audioEl){
-      audioEl=document.createElement('audio');
-      audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-      audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
-      document.body.appendChild(audioEl);
-    }
-    if(!mediaSource && audioCtx && audioEl){
-      try{ mediaSource=audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination);}catch(e){ console.warn('createMediaElementSource failed',e); }
-    }
+let level = 0;
+let lastChange = 0;
+
+function ensureCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function ensureAnalyser(){
+  ensureCtx();
+  if(!analyser){
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.0;
+    timeData = new Float32Array(analyser.fftSize);
   }
-  function rms(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){ const v=timeData[i]; s+=v*v;} let r=Math.sqrt(s/timeData.length); return r<GATE?0:r; }
-  function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]},${SY[level]})`; lastChange=performance.now(); }
-  function setClosed(){ setLevel(0); }
-  function startMouth(){ if(animating) return; animating=true; requestAnimationFrame(tick); }
-  function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
-  function tick(){
-    raf=requestAnimationFrame(tick);
-    const active=!!currentSource||tagPlaying; const now=performance.now();
-    if(active){
-      if(analyser && (currentSource || (tagPlaying && mediaSource))){
-        const e=rms();
-        if(isIOS && e===0 && tagPlaying){ const t=(now/1000); const p=((t*15)|0)%5; setLevel([1,2,3,2,1][p]); return; }
-        let target=level;
-        while(target<4 && e>=THRESH_UP[target]) target++;
-        while(target>0 && e<THRESH_DOWN[target-1]) target--;
-        if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
-        setLevel(target);
-      }else{
-        const t=(now/1000), p=((t*15)|0)%5; setLevel([1,2,3,2,1][p]);
-      }
-      return;
-    }
-    const t=(now/1000), p=((t*13)|0)%4, r=Math.random();
-    const target=p===0?0:p===1?(r<.7?1:2):p===2?(r<.6?2:3):(r<.5?3:4);
-    setLevel(target);
-  }
+}
 
-  /* iOS unlock */
-  function initializeIOSAudio(){
-    if(iosAudioInitialized) return;
+function attachAnalyserToBufferSource(srcNode){
+  ensureAnalyser();
+  try{ srcNode.disconnect(); }catch(_){}
+  srcNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+
+function attachAnalyserToMediaElement(){
+  ensureAnalyser();
+  if(isIOS && !iosAudioInitialized){
+    initializeIOSAudio();
+    return;
+  }
+  if(!audioEl){
+    audioEl = document.createElement('audio');
+    audioEl.style.position = 'absolute';
+    audioEl.style.left = '-9999px';
+    audioEl.setAttribute('playsinline', '');
+    audioEl.setAttribute('webkit-playsinline', '');
+    document.body.appendChild(audioEl);
+  }
+  if(!mediaSource && audioCtx && audioEl){
     try{
-      ensureCtx();
-      if(!audioEl){
-        audioEl=document.createElement('audio');
-        audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-        audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
-        document.body.appendChild(audioEl);
-      }
-      const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-      audioEl.src=silent; audioEl.load();
-      const p=audioEl.play();
-      if(p!==undefined){
-        p.then(()=>{ audioEl.pause(); audioEl.currentTime=0;
-          if(!mediaSource && audioCtx){ try{ mediaSource=audioCtx.createMediaElementSource(audioEl); ensureAnalyser(); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); iosAudioInitialized=true; }catch(e){ console.warn('iOS audio partial init',e);} }
-        }).catch(()=>{});
-      }
-    }catch(_){}
+      mediaSource = audioCtx.createMediaElementSource(audioEl);
+      mediaSource.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }catch(e){ 
+      console.warn('createMediaElementSource failed', e); 
+    }
   }
-  function unlockAudioOnce(){
-    try{
-      ensureCtx();
-      if(isIOS) initializeIOSAudio();
-      else { const b=audioCtx.createBuffer(1,1,22050); const s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0); }
-    }catch(_){}
-    document.removeEventListener('touchstart', unlockAudioOnce);
-    document.removeEventListener('click', unlockAudioOnce);
+}
+
+function rmsLevel(){
+  if(!analyser || !timeData) return 0;
+  analyser.getFloatTimeDomainData(timeData);
+  let sum = 0;
+  for(let i=0;i<timeData.length;i++){
+    const v = timeData[i];
+    sum += v*v;
   }
-  document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
-  document.addEventListener('click', unlockAudioOnce, {once:true});
+  let rms = Math.sqrt(sum / timeData.length);
+  if (rms < GATE_FLOOR) rms = 0;
+  return rms;
+}
 
-  /* helpers */
-  const sanitize = t => { t=(t||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(t)?t:t+'.'; };
+/* set visual level immediately (no tween) */
+function setLevel(n){
+  n = Math.max(0, Math.min(4, n|0));
+  if (n === level) return;
+  level = n;
+  mouth.style.transform = `scale(${SX[level]}, ${SY[level]})`;
+  lastChange = performance.now();
+}
 
-  function typeOut(text, done){
-    typed.textContent='';
-    (function loop(i=0){
-      typed.textContent = text.slice(0,i);
-      if(i<text.length){ setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10)); }
-      else{ done && done(); }
-    })();
-  }
+function setClosed(){ setLevel(0); }
 
-  /* playback */
-  async function playAudio(b64,onEnd){
-    if(isIOS){
-      try{
-        ensureCtx();
-        if(!iosAudioInitialized){ initializeIOSAudio(); await new Promise(r=>setTimeout(r,100)); }
-        attachAnalyserToMediaElement();
-        const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-        const blob=new Blob([bin], {type:'audio/mp3'});
-        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-        currentObjectURL=URL.createObjectURL(blob);
-        if(!audioEl){ audioEl=document.createElement('audio'); audioEl.style.position='absolute'; audioEl.style.left='-9999px'; audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl); }
-        audioEl.src=currentObjectURL; audioEl.load();
-        audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; chunkletWrap.classList.add('speaking'); };
-        audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); chunkletWrap.classList.remove('speaking'); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
-        await audioEl.play(); return;
-      }catch(err){
-        startMouth(); chunkletWrap.classList.add('speaking');
-        const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
-        setTimeout(()=>{ stopMouth(); chunkletWrap.classList.remove('speaking'); onEnd&&onEnd(); }, (approx+0.2)*1000);
+function startMouth(){
+  if(animating) return;
+  animating = true;
+  requestAnimationFrame(tick);
+}
+
+function stopMouth(){
+  animating = false;
+  cancelAnimationFrame(raf);
+  setClosed();
+}
+
+function tick(){
+  raf = requestAnimationFrame(tick);
+  
+  const active = !!currentSource || tagPlaying;
+  const now = performance.now();
+
+  if(active){
+    if(analyser && (currentSource || (tagPlaying && mediaSource))){
+      const e = rmsLevel();
+      
+      // If we're getting no data on iOS, use time-based animation
+      if(isIOS && e === 0 && tagPlaying){
+        const t = (now/1000);
+        const phase = ((t*15)|0) % 5;
+        const levels = [1, 2, 3, 2, 1];
+        setLevel(levels[phase]);
         return;
       }
+
+      // Normal analyser-based animation
+      let target = level;
+      while (target < 4 && e >= THRESH_UP[target]) target++;
+      while (target > 0 && e < THRESH_DOWN[target-1]) target--;
+
+      if (target < level && (now - lastChange) < CLOSE_GRACE_MS) {
+        target = level;
+      }
+
+      setLevel(target);
+    } else {
+      // Fallback when no analyser
+      const t = (now/1000);
+      const phase = ((t*15)|0) % 5;
+      const levels = [1, 2, 3, 2, 1];
+      setLevel(levels[phase]);
     }
-    try{
-      ensureCtx(); ensureAnalyser();
-      const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-      const buf=await audioCtx.decodeAudioData(bin.buffer);
-      currentSource=audioCtx.createBufferSource(); currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
-      attachAnalyserToBufferSource(currentSource);
-      setClosed(); startMouth(); chunkletWrap.classList.add('speaking');
-      currentSource.start();
-      currentSource.onended=()=>{ currentSource=null; stopMouth(); chunkletWrap.classList.remove('speaking'); onEnd&&onEnd(); };
-      return;
-    }catch(e){
-      console.warn('WebAudio decode failed, fallback to <audio>', e);
-    }
-    try{
-      ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
-      const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-      const blob=new Blob([bin], {type:'audio/mp3'});
-      if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
-      audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; chunkletWrap.classList.add('speaking'); };
-      audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); chunkletWrap.classList.remove('speaking'); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
-      await audioEl.play();
-    }catch(err){
-      startMouth(); chunkletWrap.classList.add('speaking');
-      const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
-      setTimeout(()=>{ stopMouth(); chunkletWrap.classList.remove('speaking'); onEnd&&onEnd(); }, (approx+0.2)*1000);
-    }
+    return;
   }
 
-  function stopAudio(){
-    if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
-    if(audioEl){ try{audioEl.pause(); audioEl.currentTime=0;}catch(_){ } }
-    if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-    tagPlaying=false; chunkletWrap.classList.remove('speaking');
-  }
+  // No active audio: idle animation
+  const t = (now/1000);
+  const phase = ((t*13)|0) % 4;
+  const rand = Math.random();
+  const target = phase === 0 ? 0
+                : phase === 1 ? (rand < .7 ? 1 : 2)
+                : phase === 2 ? (rand < .6 ? 2 : 3)
+                :               (rand < .5 ? 3 : 4);
+  setLevel(target);
+}
 
-  function showWork(work, author){
-    const old=output.querySelector('.work-tag'); if(old) old.remove();
-    if(!work && !author) return;
-    const span=document.createElement('span'); span.className='work-tag';
-    span.textContent='— ' + [work, author].filter(Boolean).join(' · ');
-    output.appendChild(span);
-  }
-
-  const FETCH_URL = ENDPOINT + QUERY;
-
-  async function summon(){
-    if(busy) return;
-    try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
-    const btnImg = document.getElementById('keyImage');
-    btnImg.closest('.trigger-button').classList.add('pressed');
-    setTimeout(()=>btnImg.closest('.trigger-button').classList.remove('pressed'), 140);
-
-    busy = true; stopAudio();
-    typed.textContent=''; const oldTag=output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
-
-    try{
-      const res = await fetch(FETCH_URL,{cache:'no-store'});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const data = await res.json();
-      const work = data.work || null;
-      const author = data.author || null;
-      const text = sanitize(data.text);
-
-      typeOut(text, async ()=>{
-        const onEnd = ()=>showWork(work, author);
-        if(data.audioBase64){ await playAudio(data.audioBase64,onEnd); }
-        else{
-          startMouth(); chunkletWrap.classList.add('speaking');
-          const approx=Math.min(7, Math.max(2.2, text.length/16));
-          setTimeout(()=>{ stopMouth(); chunkletWrap.classList.remove('speaking'); onEnd(); }, (approx+0.2)*1000);
+/* iOS unlock */
+function initializeIOSAudio(){
+  if(iosAudioInitialized) return;
+  try{
+    ensureCtx();
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.style.position = 'absolute';
+      audioEl.style.left = '-9999px';
+      audioEl.setAttribute('playsinline', '');
+      audioEl.setAttribute('webkit-playsinline', '');
+      document.body.appendChild(audioEl);
+    }
+    const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    audioEl.src = silentMP3;
+    audioEl.load();
+    const playPromise = audioEl.play();
+    if(playPromise !== undefined){
+      playPromise.then(() => {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        if(!mediaSource && audioCtx){
+          try{
+            mediaSource = audioCtx.createMediaElementSource(audioEl);
+            ensureAnalyser();
+            mediaSource.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            iosAudioInitialized = true;
+          }catch(e){
+            console.warn('iOS audio init partial success, no analyser:', e);
+          }
         }
+      }).catch(e => {
+        console.warn('iOS audio init failed:', e);
       });
-    }catch(e){
-      console.error(e); typeOut('A shy packet tripped. Try again.');
-    }finally{
-      busy=false;
+    }
+  }catch(e){
+    console.warn('iOS audio initialization error:', e);
+  }
+}
+function unlockAudioOnce(){
+  try{
+    ensureCtx();
+    if(isIOS){
+      initializeIOSAudio();
+    } else {
+      const buf = audioCtx.createBuffer(1,1,22050);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; 
+      src.connect(audioCtx.destination); 
+      src.start(0);
+    }
+  }catch(_){}
+  document.removeEventListener('touchstart', unlockAudioOnce);
+  document.removeEventListener('click', unlockAudioOnce);
+}
+document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
+document.addEventListener('click', unlockAudioOnce, {once:true});
+
+/* helpers */
+const sanitize = txt=>{
+  txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
+  return /[.?!]$/.test(txt)?txt:txt+'.';
+};
+
+function typeOut(text, done){
+  typed.textContent='';
+  (function loop(i=0){
+    typed.textContent = text.slice(0,i);
+    if(i<text.length){
+      setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
+    }else{
+      done && done();
+    }
+  })();
+}
+
+/* playback */
+async function playAudio(b64,onEnd){
+  // Always use audio element on iOS
+  if(isIOS){
+    try{
+      ensureCtx(); 
+      if(!iosAudioInitialized){
+        await initializeIOSAudio();
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      attachAnalyserToMediaElement();
+      
+      const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+      const blob = new Blob([bin], {type:'audio/mp3'});
+      
+      if(currentObjectURL){ 
+        URL.revokeObjectURL(currentObjectURL); 
+        currentObjectURL=null; 
+      }
+      
+      currentObjectURL = URL.createObjectURL(blob);
+      
+      if(!audioEl){
+        audioEl = document.createElement('audio');
+        audioEl.style.position = 'absolute';
+        audioEl.style.left = '-9999px';
+        audioEl.setAttribute('playsinline', '');
+        audioEl.setAttribute('webkit-playsinline', '');
+        document.body.appendChild(audioEl);
+      }
+      
+      audioEl.src = currentObjectURL;
+      audioEl.load();
+
+      audioEl.onplay  = ()=>{ 
+        setClosed(); 
+        startMouth(); 
+        tagPlaying=true; 
+      };
+      
+      audioEl.onended = ()=>{
+        tagPlaying=false;
+        stopMouth();
+        if(currentObjectURL){ 
+          URL.revokeObjectURL(currentObjectURL); 
+          currentObjectURL=null; 
+        }
+        onEnd && onEnd();
+      };
+      
+      const playPromise = audioEl.play();
+      if(playPromise !== undefined){
+        await playPromise;
+      }
+      return;
+    }catch(err){
+      console.error('iOS audio playback failed', err);
+      // Fallback animation
+      startMouth();
+      const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
+      setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
+      return;
     }
   }
+  
+  // Desktop: Try WebAudio first
+  try{
+    ensureCtx(); 
+    ensureAnalyser();
+    const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+    const buf = await audioCtx.decodeAudioData(bin.buffer);
+    currentSource = audioCtx.createBufferSource();
+    currentSource.buffer = buf;
+    currentSource.playbackRate.value = 1.08;
+    attachAnalyserToBufferSource(currentSource);
+    setClosed(); 
+    startMouth();
+    currentSource.start();
+    currentSource.onended = ()=>{
+      currentSource=null;
+      stopMouth();
+      onEnd && onEnd();
+    };
+    return;
+  }catch(e){
+    console.warn('WebAudio decode failed, fallback to <audio>', e);
+  }
 
-  trigger.addEventListener('click', summon);
-  document.addEventListener('keydown', e=>{
-    if(e.key===' '||e.key==='Enter'){ summon(); trigger.focus(); }
-  });
-  </script>
+  // Desktop fallback: <audio> element
+  try{
+    ensureCtx(); 
+    ensureAnalyser(); 
+    attachAnalyserToMediaElement();
+    
+    const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+    const blob = new Blob([bin], {type:'audio/mp3'});
+    
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.hidden = true;
+      document.body.appendChild(audioEl);
+    }
+    
+    if(currentObjectURL){ 
+      URL.revokeObjectURL(currentObjectURL); 
+      currentObjectURL=null; 
+    }
+    
+    currentObjectURL = URL.createObjectURL(blob);
+    audioEl.src = currentObjectURL;
+
+    audioEl.onplay  = ()=>{ 
+      setClosed(); 
+      startMouth(); 
+      tagPlaying=true; 
+    };
+    
+    audioEl.onended = ()=>{
+      tagPlaying=false;
+      stopMouth();
+      if(currentObjectURL){ 
+        URL.revokeObjectURL(currentObjectURL); 
+        currentObjectURL=null; 
+      }
+      onEnd && onEnd();
+    };
+    
+    await audioEl.play();
+  }catch(err){
+    console.error('Plain <audio> failed', err);
+    // Fallback animation
+    startMouth();
+    const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
+    setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
+  }
+}
+
+function stopAudio(){
+  if(currentSource){
+    try{ currentSource.stop(); }catch(_){}
+    try{ currentSource.disconnect(); }catch(_){}
+    currentSource = null;
+  }
+  if(audioEl){
+    try{ audioEl.pause(); audioEl.currentTime = 0; }catch(_){}
+  }
+  if(currentObjectURL){ 
+    URL.revokeObjectURL(currentObjectURL); 
+    currentObjectURL=null; 
+  }
+  tagPlaying = false;
+}
+
+/* UI bits */
+function showWork(work, author){
+  const old = output.querySelector('.work-tag'); 
+  if(old) old.remove();
+  if(!work && !author) return;
+  const span = document.createElement('span');
+  span.className = 'work-tag';
+  span.textContent = '— ' + [work, author].filter(Boolean).join(' · ');
+  output.appendChild(span);
+}
+
+/* main */
+const FETCH_URL = ENDPOINT + QUERY;
+
+async function summon(){
+  if(busy) return;
+
+  /* click fx + quick pop */
+  try{ 
+    clickSnd.currentTime = 0; 
+    clickSnd.play(); 
+  }catch(_){}
+  
+  trigger.classList.add('pressed');
+  setTimeout(()=>trigger.classList.remove('pressed'), 160);
+
+  busy = true;
+  stopAudio();
+
+  /* clear previous */
+  typed.textContent='';
+  const oldTag = output.querySelector('.work-tag'); 
+  if(oldTag) oldTag.remove();
+
+  try{
+    const res = await fetch(FETCH_URL, { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const work = data.work || null;
+    const author = data.author || null;
+    const text = sanitize(data.text);
+
+    typeOut(text, async ()=>{
+      const onEnd = ()=>showWork(work, author);
+      if(data.audioBase64){
+        await playAudio(data.audioBase64, onEnd);
+      }else{
+        // Fallback animation
+        startMouth();
+        const approx = Math.min(7, Math.max(2.2, text.length/16));
+        setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
+      }
+    });
+
+  }catch(e){
+    console.error(e);
+    typeOut('A shy packet tripped. Try again.');
+  }finally{
+    busy = false;
+  }
+}
+
+trigger.addEventListener('click', summon);
+document.addEventListener('keydown', e=>{
+  if(e.key===' '||e.key==='Enter'){
+    summon();
+    if(document.activeElement!==trigger) trigger.focus();
+  }
+});
+</script>
 </body>
 </html>
