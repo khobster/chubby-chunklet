@@ -22,7 +22,7 @@
   --mouth-w:38px;
   --mouth-h:38px;
 
-  --mouth-scale-0:.05; /* initial; JS now drives actual levels */
+  --mouth-scale-0:.05;
   --char-ms:18;
   --terminal-color:#1034a6;
 
@@ -35,89 +35,214 @@
 html,body{
   margin:0;padding:0;
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-  background:#fff;color:#111;
+  background:#87CEEB;
+  color:#111;
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  height:100%;
 }
 body{
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-start;
-  padding:12px 16px 6px;  /* tighter so everything sits higher */
-  overflow-x:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  padding:20px;
 }
-.wrapper{
-  /* do NOT stretch to viewport height; prevents bottom push */
-  flex:0 0 auto;
-  width:100%;max-width:950px;
-  display:flex;flex-direction:column;align-items:center;
-  gap:14px; /* tighter vertical rhythm */
-}
-.header{
-  font-size:clamp(14px,1.8vw,20px);font-weight:600;letter-spacing:.4px;
-  text-align:center;margin:0;
-}
-.header span{font-weight:700}
 
-/* ---------- figure ---------- */
-.figure-zone{
-  display:flex;flex-direction:column;align-items:center;
-  gap:12px;          /* tighter */
-  margin-top:-12px;  /* nudge the figure up */
+/* Background scene */
+.scene-container{
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:1;
 }
+
+.scene-bg{
+  width:100%;
+  max-width:800px;
+  height:auto;
+  position:relative;
+}
+
+.scene-bg img{
+  width:100%;
+  height:auto;
+  display:block;
+}
+
+/* Door container - positioned over the door in the image */
+.door-container{
+  position:absolute;
+  top:35%;
+  left:50%;
+  width:18%;
+  height:28%;
+  transform:translateX(-50%);
+  cursor:pointer;
+  z-index:10;
+}
+
+/* Door halves */
+.door-left, .door-right{
+  position:absolute;
+  width:50%;
+  height:100%;
+  background:#654321;
+  border:2px solid #4a3018;
+  transition:transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transform-origin:left center;
+}
+
+.door-left{
+  left:0;
+  box-shadow:inset 2px 0 4px rgba(0,0,0,0.3);
+}
+
+.door-right{
+  right:0;
+  transform-origin:right center;
+  box-shadow:inset -2px 0 4px rgba(0,0,0,0.3);
+}
+
+/* Door panels */
+.door-left::before, .door-right::before,
+.door-left::after, .door-right::after{
+  content:'';
+  position:absolute;
+  width:70%;
+  height:35%;
+  background:#4a3018;
+  border:1px solid #3a2010;
+  left:15%;
+}
+
+.door-left::before, .door-right::before{
+  top:15%;
+}
+
+.door-left::after, .door-right::after{
+  bottom:15%;
+}
+
+/* Open state */
+.door-open .door-left{
+  transform:perspective(800px) rotateY(75deg);
+}
+
+.door-open .door-right{
+  transform:perspective(800px) rotateY(-75deg);
+}
+
+/* Door hint */
+.door-hint{
+  position:absolute;
+  bottom:-30px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:14px;
+  color:#fff;
+  text-shadow:0 2px 4px rgba(0,0,0,0.5);
+  opacity:0.8;
+  transition:opacity 0.3s;
+  white-space:nowrap;
+  pointer-events:none;
+}
+
+.door-container:hover .door-hint{
+  opacity:1;
+}
+
+/* Chunklet character */
+.chunklet-container{
+  position:absolute;
+  top:35%;
+  left:50%;
+  transform:translate(-50%, -100px);
+  opacity:0;
+  transition:opacity 0.5s, transform 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  z-index:5;
+  pointer-events:none;
+}
+
+.chunklet-container.active{
+  opacity:1;
+  transform:translate(-50%, 80px);
+}
+
 .chunklet-wrap{
   position:relative;
-  width:calc(180px*var(--figure-scale));
-  height:calc(230px*var(--figure-scale));
-  display:flex;align-items:flex-end;justify-content:center;
-  pointer-events:none;
+  width:calc(120px*var(--figure-scale));
+  height:calc(150px*var(--figure-scale));
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
 }
+
 .chunklet-img{
-  width:calc(170px*var(--figure-scale));max-width:100%;
-  user-select:none;-webkit-user-drag:none;
-  filter:drop-shadow(0 14px 34px rgba(0,0,0,.23));
+  width:calc(110px*var(--figure-scale));
+  max-width:100%;
+  user-select:none;
+  -webkit-user-drag:none;
+  filter:drop-shadow(0 8px 16px rgba(0,0,0,.4));
   image-rendering:-webkit-optimize-contrast;
 }
-/* mouth overlay */
+
+/* Mouth overlay */
 .mouth-overlay{
   position:absolute;
-  top:var(--mouth-top);left:var(--mouth-left);
-  width:var(--mouth-w);height:var(--mouth-h);
-  transform:translate(-50%,-50%);
-  display:flex;align-items:center;justify-content:center;
+  top:45%;
+  left:50%;
+  width:var(--mouth-w);
+  height:var(--mouth-h);
+  transform:translate(-50%,-50%) scale(0.7);
+  display:flex;
+  align-items:center;
+  justify-content:center;
   pointer-events:none;
 }
+
 .mouth-overlay svg{width:100%;height:100%}
 #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-/* ---------- button ---------- */
-.trigger-button{border:none;background:transparent;padding:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
-.trigger-button img{
-  width:150px;height:auto;display:block; /* nice, big tap target */
-  transition:transform .10s cubic-bezier(.33,.9,.3,1),filter .12s;
-  filter:drop-shadow(0 8px 22px rgba(0,0,0,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18))
-}
-.trigger-button:active img,
-.trigger-button.pressed img{
-  transform:translateY(8px) scale(.985);
-  filter:drop-shadow(0 3px 9px rgba(0,0,0,.4)) brightness(.92) contrast(1.05)
+/* Output */
+.output-container{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  width:90%;
+  max-width:860px;
+  z-index:20;
+  background:rgba(255,255,255,0.95);
+  padding:20px;
+  border-radius:8px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);
+  opacity:0;
+  transition:opacity 0.5s;
 }
 
-/* ---------- output (phrase) ---------- */
+.output-container.active{
+  opacity:1;
+}
+
 .output{
   font-family:var(--font-phrase);
-  text-transform:uppercase;                 /* ALL CAPS */
-  font-size:clamp(16px, 1.5vw, 24px);       /* DOS-like, not too tall */
-  line-height:1.22;                         /* tighter to save height */
-  letter-spacing:.04em;                     /* VT323 doesn't need much tracking */
+  text-transform:uppercase;
+  font-size:clamp(16px, 1.5vw, 24px);
+  line-height:1.22;
+  letter-spacing:.04em;
   font-weight:400;
   color:var(--terminal-color);
-  max-width:860px;                          /* wider = fewer line wraps */
   min-height:1.2em;
   text-align:left;
-  margin:0 auto 0;
+  margin:0;
   white-space:pre-wrap;
   position:relative;
   text-shadow: 0 0 1px rgba(16,52,166,.35);
 }
+
 .cursor{
   display:inline-block;
   width:.7ch;
@@ -130,80 +255,98 @@ body{
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
 
-/* attribution (work source) — VT323 + ALL CAPS */
 .output .work-tag{
   opacity:.8;
-  font-family: var(--font-phrase); /* VT323 */
+  font-family: var(--font-phrase);
   text-transform: uppercase;
-  font-style: normal;              /* keep pixels crisp */
+  font-style: normal;
   margin-left:.6em;
   font-size:.9em;
   letter-spacing:.06em;
   font-weight: 400;
 }
 
-/* Guaranteed bottom breathing room (no JS) — kept small to sit higher */
-.spacer{
-  height:clamp(56px, 6vh, 96px);
+/* Header */
+.header{
+  position:fixed;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:clamp(16px,2vw,24px);
+  font-weight:600;
+  letter-spacing:.4px;
+  text-align:center;
+  margin:0;
+  z-index:20;
+  color:#fff;
+  text-shadow:0 2px 8px rgba(0,0,0,0.5);
 }
+.header span{font-weight:700}
 
-/* ---------- small screens ---------- */
-@media (pointer:coarse){
-  /* extra safety on phones so browser chrome doesn't overlap */
-  body{ padding-bottom: max(56px, calc(8vh + env(safe-area-inset-bottom, 0px))); }
-  .spacer{ height:clamp(88px, 10vh, 140px); }
-}
-@media(max-height:640px){
-  .figure-zone{gap:10px}
-  .chunklet-wrap{height:calc(200px*var(--figure-scale))}
-}
-@media(max-width:360px){
-  :root{--mouth-top:72px;--mouth-w:32px;--mouth-h:32px}
-  .chunklet-wrap{width:calc(150px*var(--figure-scale));height:calc(200px*var(--figure-scale))}
-  .chunklet-img{width:calc(140px*var(--figure-scale))}
-  .trigger-button img{width:120px}
-  .output{font-size:clamp(14px, 3.2vw, 20px)}
+/* Mobile adjustments */
+@media(max-width:600px){
+  .door-container{
+    width:25%;
+    height:25%;
+    top:38%;
+  }
+  .chunklet-container.active{
+    transform:translate(-50%, 60px);
+  }
+  .output-container{
+    bottom:10px;
+    padding:15px;
+  }
 }
 </style>
 </head>
 <body>
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-  <div class="wrapper">
-    <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
+  <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
 
-    <div class="figure-zone">
-      <div class="chunklet-wrap">
-        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" id="chunkletImg">
-        <div class="mouth-overlay">
-          <svg viewBox="0 0 100 100">
-            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
-          </svg>
+  <div class="scene-container">
+    <div class="scene-bg">
+      <img src="skullbones.png" alt="Scene background">
+      
+      <!-- Interactive door -->
+      <div class="door-container" id="doorTrigger">
+        <div class="door-left"></div>
+        <div class="door-right"></div>
+        <div class="door-hint">Click to summon Chunklet</div>
+      </div>
+      
+      <!-- Chunklet character -->
+      <div class="chunklet-container" id="chunkletContainer">
+        <div class="chunklet-wrap">
+          <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img">
+          <div class="mouth-overlay">
+            <svg viewBox="0 0 100 100">
+              <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+            </svg>
+          </div>
         </div>
       </div>
-
-      <button id="trigger" class="trigger-button" aria-label="Speak">
-        <img id="keyImage" src="keycap.png" alt="Speak button">
-      </button>
     </div>
+  </div>
 
+  <!-- Output area -->
+  <div class="output-container" id="outputContainer">
     <div class="output" id="output">
       <span id="typed"></span><span id="cursor" class="cursor"></span>
     </div>
-
-    <!-- Simple, reliable bottom buffer -->
-    <div class="spacer" aria-hidden="true"></div>
   </div>
 
 <script>
 /* ===== CONFIG ===== */
 const ENDPOINT = (document.documentElement.style.getPropertyValue('--endpoint')||'').trim()
   || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-/* modernization OFF */
 const QUERY    = '?style=canon&modern=0&accent=scottish';
 const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
 
-const trigger  = document.getElementById('trigger');
+const doorTrigger = document.getElementById('doorTrigger');
+const chunkletContainer = document.getElementById('chunkletContainer');
+const outputContainer = document.getElementById('outputContainer');
 const typed    = document.getElementById('typed');
 const cursor   = document.getElementById('cursor');
 const mouth    = document.getElementById('mouth');
@@ -214,6 +357,7 @@ const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
 /* ---------- state ---------- */
 let busy=false;
+let doorOpen=false;
 let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
 let raf,animating=false,tagPlaying=false;
 let currentObjectURL=null;
@@ -291,7 +435,6 @@ function rmsLevel(){
   return rms;
 }
 
-/* set visual level immediately (no tween) */
 function setLevel(n){
   n = Math.max(0, Math.min(4, n|0));
   if (n === level) return;
@@ -324,7 +467,6 @@ function tick(){
     if(analyser && (currentSource || (tagPlaying && mediaSource))){
       const e = rmsLevel();
       
-      // If we're getting no data on iOS, use time-based animation
       if(isIOS && e === 0 && tagPlaying){
         const t = (now/1000);
         const phase = ((t*15)|0) % 5;
@@ -333,7 +475,6 @@ function tick(){
         return;
       }
 
-      // Normal analyser-based animation
       let target = level;
       while (target < 4 && e >= THRESH_UP[target]) target++;
       while (target > 0 && e < THRESH_DOWN[target-1]) target--;
@@ -344,7 +485,6 @@ function tick(){
 
       setLevel(target);
     } else {
-      // Fallback when no analyser
       const t = (now/1000);
       const phase = ((t*15)|0) % 5;
       const levels = [1, 2, 3, 2, 1];
@@ -404,6 +544,7 @@ function initializeIOSAudio(){
     console.warn('iOS audio initialization error:', e);
   }
 }
+
 function unlockAudioOnce(){
   try{
     ensureCtx();
@@ -443,7 +584,6 @@ function typeOut(text, done){
 
 /* playback */
 async function playAudio(b64,onEnd){
-  // Always use audio element on iOS
   if(isIOS){
     try{
       ensureCtx(); 
@@ -498,7 +638,6 @@ async function playAudio(b64,onEnd){
       return;
     }catch(err){
       console.error('iOS audio playback failed', err);
-      // Fallback animation
       startMouth();
       const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
       setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
@@ -506,7 +645,6 @@ async function playAudio(b64,onEnd){
     }
   }
   
-  // Desktop: Try WebAudio first
   try{
     ensureCtx(); 
     ensureAnalyser();
@@ -529,7 +667,6 @@ async function playAudio(b64,onEnd){
     console.warn('WebAudio decode failed, fallback to <audio>', e);
   }
 
-  // Desktop fallback: <audio> element
   try{
     ensureCtx(); 
     ensureAnalyser(); 
@@ -571,7 +708,6 @@ async function playAudio(b64,onEnd){
     await audioEl.play();
   }catch(err){
     console.error('Plain <audio> failed', err);
-    // Fallback animation
     startMouth();
     const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
     setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
@@ -605,23 +741,50 @@ function showWork(work, author){
   output.appendChild(span);
 }
 
+/* Door animation */
+function openDoor(){
+  if(doorOpen) return;
+  doorOpen = true;
+  doorTrigger.classList.add('door-open');
+  
+  // Show chunklet after door opens
+  setTimeout(() => {
+    chunkletContainer.classList.add('active');
+    outputContainer.classList.add('active');
+  }, 800);
+}
+
+function closeDoor(){
+  if(!doorOpen) return;
+  doorOpen = false;
+  
+  // Hide chunklet first
+  chunkletContainer.classList.remove('active');
+  outputContainer.classList.remove('active');
+  
+  // Close door after chunklet disappears
+  setTimeout(() => {
+    doorTrigger.classList.remove('door-open');
+  }, 500);
+}
+
 /* main */
 const FETCH_URL = ENDPOINT + QUERY;
 
 async function summon(){
   if(busy) return;
 
-  /* click fx + quick pop */
+  /* click fx */
   try{ 
     clickSnd.currentTime = 0; 
     clickSnd.play(); 
   }catch(_){}
-  
-  trigger.classList.add('pressed');
-  setTimeout(()=>trigger.classList.remove('pressed'), 160);
 
   busy = true;
   stopAudio();
+
+  /* Open door and show chunklet */
+  openDoor();
 
   /* clear previous */
   typed.textContent='';
@@ -629,6 +792,9 @@ async function summon(){
   if(oldTag) oldTag.remove();
 
   try{
+    // Wait for animation to complete
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     const res = await fetch(FETCH_URL, { cache:'no-store' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
@@ -637,11 +803,18 @@ async function summon(){
     const text = sanitize(data.text);
 
     typeOut(text, async ()=>{
-      const onEnd = ()=>showWork(work, author);
+      const onEnd = ()=>{
+        showWork(work, author);
+        // Close door after a pause
+        setTimeout(() => {
+          closeDoor();
+          busy = false;
+        }, 3000);
+      };
+      
       if(data.audioBase64){
         await playAudio(data.audioBase64, onEnd);
       }else{
-        // Fallback animation
         startMouth();
         const approx = Math.min(7, Math.max(2.2, text.length/16));
         setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
@@ -651,16 +824,17 @@ async function summon(){
   }catch(e){
     console.error(e);
     typeOut('A shy packet tripped. Try again.');
-  }finally{
-    busy = false;
+    setTimeout(() => {
+      closeDoor();
+      busy = false;
+    }, 2000);
   }
 }
 
-trigger.addEventListener('click', summon);
+doorTrigger.addEventListener('click', summon);
 document.addEventListener('keydown', e=>{
   if(e.key===' '||e.key==='Enter'){
     summon();
-    if(document.activeElement!==trigger) trigger.focus();
   }
 });
 </script>
