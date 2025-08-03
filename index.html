@@ -15,21 +15,34 @@
 
   <style>
     :root{
+      /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
+      /* Chunklet sprite / mouth */
       --figure-scale:1.15;
       --mouth-top:42%;
       --mouth-left:50%;
       --mouth-w:20px;
       --mouth-h:20px;
-
       --mouth-scale-0:.05;
-      --char-ms:18;
-      --terminal-color:#FFFFFF; /* Jeopardy text color */
-      --jeopardy-blue:#0033CC;
 
+      /* Typing */
+      --char-ms:18;
+
+      /* Colors / fonts */
+      --terminal-color:#FFFFFF;
+      --jeopardy-blue:#0033CC;
       --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
       --font-phrase:'Bebas Neue','Impact',sans-serif;
+
+      /* Door anchor on the background image (fractions 0..1 and size vs image width/height) */
+      --door-x: 0.503;   /* center x */
+      --door-y: 0.560;   /* center y */
+      --door-w: 0.095;   /* width */
+      --door-h: 0.255;   /* height */
+
+      /* Default placement of the blue card (bumped up if it overlaps Chunklet) */
+      --output-top-fallback: 8vmin;
     }
 
     /* ---------- layout ---------- */
@@ -71,16 +84,12 @@
       -webkit-user-drag:none;
     }
 
-    /* Door container - centered */
+    /* Door (positioned by JS from the normalized vars) */
     .door-container{
       position:absolute;
-      top:50%;
-      left:50%;
-      width:140px;
-      height:180px;
-      transform:translate(-50%, -30px);
+      transform:translate(-50%, -50%);
       cursor:pointer;
-      z-index:10;
+      z-index:50; /* above background, below Chunklet */
     }
     /* Brown doors that match the art style */
     .door-left, .door-right{
@@ -129,12 +138,10 @@
     /* Chunklet character */
     .chunklet-container{
       position:absolute;
-      top:50%;
-      left:50%;
       transform:translate(-50%, -30px);
       opacity:0;
       transition:opacity 0.3s;
-      z-index:5;
+      z-index:60;   /* always in front of the blue card */
       pointer-events:none;
     }
     .chunklet-container.active{ opacity:1; }
@@ -201,15 +208,15 @@
     /* Jeopardy-style blue screen container */
     .output-container{
       position:fixed;
-      top:50px;
       left:50%;
       transform:translateX(-50%);
       width:85%;
       max-width:850px;
-      z-index:20;
+      z-index:40;               /* under the star */
       opacity:0;
       transition:opacity 0.5s;
       pointer-events:none;
+      top:var(--output-top-fallback);
     }
     .output-container.active{ opacity:1; }
 
@@ -295,9 +302,7 @@
 
     /* Mobile adjustments */
     @media(max-width:600px){
-      .door-container{ width:100px; height:130px; }
-      .chunklet-container.active{ transform:translate(-50%, 50px); }
-      .output-container{ top:30px; width:92%; }
+      .output-container{ width:92%; }
       .jeopardy-screen{ padding:18px 25px; border-width:6px; }
       .output{ font-size:clamp(16px, 4vw, 24px); }
     }
@@ -365,7 +370,9 @@
     const output            = document.getElementById('output');
     const clickSnd          = document.getElementById('clickSnd');
 
-    const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
+    const bgImg   = document.querySelector('.scene-bg img');
+    const host    = document.querySelector('.scene-bg');
+    const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
     /* ---------- state ---------- */
     let busy=false;
@@ -475,7 +482,6 @@
           const e = rmsLevel();
 
           if(isIOS && e === 0 && tagPlaying){
-            // gentle fake motion on iOS when analyser is muted
             const t = (now/1000);
             const phase = ((t*15)|0) % 5;
             const levels = [1, 2, 3, 2, 1];
@@ -492,7 +498,6 @@
           }
           setLevel(target);
         }else{
-          // fallback motion
           const t = (now/1000);
           const phase = ((t*15)|0) % 5;
           const levels = [1, 2, 3, 2, 1];
@@ -501,7 +506,6 @@
         return;
       }
 
-      // idle small movements
       const t = (now/1000);
       const phase = ((t*13)|0) % 4;
       const rand = Math.random();
@@ -525,7 +529,7 @@
           audioEl.setAttribute('webkit-playsinline', '');
           document.body.appendChild(audioEl);
         }
-        const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+        const silentMP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
         audioEl.src = silentMP3;
         audioEl.load();
         const playPromise = audioEl.play();
@@ -612,30 +616,103 @@
       output.appendChild(span);
     }
 
+    /* ===== Door + Chunklet positioning (normalized to background image) ===== */
+    const DOOR = {
+      get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x')) || 0.5; },
+      get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y')) || 0.55; },
+      get w(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-w')) || 0.10; },
+      get h(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-h')) || 0.25; }
+    };
+
+    function positionDoorAndChunklet(){
+      if(!bgImg.naturalWidth || !host) return;
+
+      const hostRect = host.getBoundingClientRect();
+      const natW = bgImg.naturalWidth, natH = bgImg.naturalHeight;
+
+      // object-fit: cover math
+      const scale = Math.max(hostRect.width / natW, hostRect.height / natH);
+      const dispW = natW * scale;
+      const dispH = natH * scale;
+      const offsetX = (hostRect.width  - dispW) / 2;
+      const offsetY = (hostRect.height - dispH) / 2;
+
+      // Center of door in VIEWPORT pixels
+      const cx = hostRect.left + offsetX + dispW * DOOR.x;
+      const cy = hostRect.top  + offsetY + dispH * DOOR.y;
+
+      const dw = dispW * DOOR.w;
+      const dh = dispH * DOOR.h;
+
+      // Apply relative to host (.scene-bg) by subtracting host origin
+      Object.assign(doorTrigger.style, {
+        left:  (cx - hostRect.left) + 'px',
+        top:   (cy - hostRect.top)  + 'px',
+        width: dw + 'px',
+        height:dh + 'px'
+      });
+
+      // Place chunklet slightly below the door center
+      const exitY = cy + dh * 0.35;
+      Object.assign(chunkletContainer.style, {
+        left: (cx - hostRect.left) + 'px',
+        top:  (exitY - hostRect.top) + 'px',
+        transform: 'translate(-50%, -30px)'
+      });
+
+      avoidOverlap();
+    }
+
+    function avoidOverlap(){
+      // reset to fallback
+      outputContainer.style.top = getComputedStyle(document.documentElement)
+        .getPropertyValue('--output-top-fallback');
+
+      const cardRect = outputContainer.getBoundingClientRect();
+      const guyRect  = chunkletContainer.getBoundingClientRect();
+
+      const overlap = !(cardRect.bottom < guyRect.top || cardRect.top > guyRect.bottom ||
+                        cardRect.right < guyRect.left || cardRect.left > guyRect.right);
+
+      if(overlap){
+        const idealTop = Math.max(8, Math.round(guyRect.top - cardRect.height - 24));
+        outputContainer.style.top = idealTop + 'px';
+      }
+    }
+
+    function onReadyToPosition(){
+      positionDoorAndChunklet();
+      setTimeout(positionDoorAndChunklet, 50);
+      setTimeout(positionDoorAndChunklet, 250);
+    }
+    if(bgImg.complete) onReadyToPosition();
+    else bgImg.addEventListener('load', onReadyToPosition);
+    window.addEventListener('resize', positionDoorAndChunklet);
+    window.addEventListener('orientationchange', positionDoorAndChunklet);
+
     /* ===== Door choreography ===== */
     function openDoor(){
       if(doorOpen) return;
+      positionDoorAndChunklet();  // ensure alignment first
       doorOpen = true;
       doorTrigger.classList.add('door-open');
-      // Show chunklet after door opens
+
       setTimeout(() => {
-        chunkletContainer.classList.add('active');
-        // Start trotting animation
-        chunkletContainer.classList.add('trotting');
-        // Show text after trot completes
-        setTimeout(() => { outputContainer.classList.add('active'); }, 1500);
+        chunkletContainer.classList.add('active','trotting');
+        setTimeout(() => {
+          outputContainer.classList.add('active');
+          avoidOverlap();          // keep the card off the star
+        }, 1500);
       }, 800);
     }
     function closeDoor(){
       if(!doorOpen) return;
       doorOpen = false;
-      // Hide everything
       chunkletContainer.classList.remove('active', 'trotting');
       outputContainer.classList.remove('active');
-      // Close door after chunklet disappears
       setTimeout(() => {
         doorTrigger.classList.remove('door-open');
-        busy = false; // allow next click
+        busy = false;
       }, 500);
     }
 
@@ -738,13 +815,10 @@
     async function summon(){
       if(busy) return;
 
-      // click fx (non-blocking)
       try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
-
       busy = true;
       stopAudio();
 
-      // Open door and show chunklet
       openDoor();
 
       // Clear previous text/tag
@@ -766,14 +840,13 @@
         typeOut(text, async ()=>{
           const onEnd = ()=>{
             showWork(work, author);
-            // Close after a pause
+            avoidOverlap(); // final check after text height is known
             setTimeout(() => { closeDoor(); }, 3000);
           };
 
           if(data.audioBase64){
             await playAudio(data.audioBase64, onEnd);
           }else{
-            // Fake mouth timing based on text length
             startMouth();
             const approx = Math.min(7, Math.max(2.2, text.length/16));
             setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
