@@ -18,9 +18,9 @@
       /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Chunklet sprite / mouth */
+      /* Chunklet sprite / mouth (mouth moved slightly up) */
       --figure-scale:1.15;
-      --mouth-top:42%;
+      --mouth-top:40%;
       --mouth-left:50%;
       --mouth-w:20px;
       --mouth-h:20px;
@@ -35,13 +35,14 @@
       --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
       --font-phrase:'Bebas Neue','Impact',sans-serif;
 
-      /* Door anchor on the background image (fractions 0..1 and size vs image width/height) */
-      --door-x: 0.503;   /* center x */
-      --door-y: 0.560;   /* center y */
-      --door-w: 0.095;   /* width */
-      --door-h: 0.255;   /* height */
+      /* Door anchor on the background image (fractions 0..1; size vs image) */
+      /* Tweaked: shifted slightly left, a hair down, slightly narrower/shorter */
+      --door-x: 0.492;   /* center x */
+      --door-y: 0.558;   /* center y */
+      --door-w: 0.090;   /* width */
+      --door-h: 0.248;   /* height */
 
-      /* Default placement of the blue card (bumped up if it overlaps Chunklet) */
+      /* Default placement of the blue card (will auto-lift if overlapping Chunklet) */
       --output-top-fallback: 8vmin;
     }
 
@@ -91,7 +92,7 @@
       cursor:pointer;
       z-index:50; /* above background, below Chunklet */
     }
-    /* Brown doors that match the art style */
+    /* Brown doors */
     .door-left, .door-right{
       position:absolute;
       width:50%;
@@ -300,6 +301,18 @@
         4px 4px 8px rgba(0,0,0,0.8);
     }
 
+    /* Calibration HUD (toggle with C) */
+    .cal-hud{
+      position:fixed; left:8px; bottom:8px;
+      font:12px/1.3 var(--font-mono);
+      background:rgba(0,0,0,.6); color:#0ff;
+      padding:8px 10px; border:1px solid rgba(0,255,255,.35);
+      border-radius:6px; pointer-events:none; opacity:.0;
+      transition:opacity .15s;
+      white-space:pre; z-index:100;
+    }
+    .cal-hud.on{ opacity:1; }
+
     /* Mobile adjustments */
     @media(max-width:600px){
       .output-container{ width:92%; }
@@ -352,6 +365,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Calibration HUD -->
+  <div class="cal-hud" id="calHud"></div>
 
   <script>
     /* ===== CONFIG ===== */
@@ -865,6 +881,112 @@
     doorTrigger.addEventListener('keydown', (e)=>{
       if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); }
     });
+
+    /* ===== Calibration Mode (press C to toggle) =====
+       Arrow keys adjust door; hold Shift for fine steps.
+       Target = Door (default) or Mouth (toggle with M).
+       Saves to localStorage ('cc_vars').
+    */
+    const calHud = document.getElementById('calHud');
+    let calOn = false;
+    let calTarget = 'door'; // 'door' | 'mouth'
+    const STORAGE_KEY = 'cc_vars';
+
+    function getVar(name, fallback){
+      const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+      return isNaN(v) ? (fallback ?? 0) : v;
+    }
+    function setVar(name, value){
+      document.documentElement.style.setProperty(name, String(value));
+      persistVars();
+      positionDoorAndChunklet();
+      updateHud();
+    }
+    function persistVars(){
+      const data = {
+        door_x: getVar('--door-x'), door_y: getVar('--door-y'),
+        door_w: getVar('--door-w'), door_h: getVar('--door-h'),
+        mouth_top: getComputedStyle(document.documentElement).getPropertyValue('--mouth-top'),
+        mouth_left: getComputedStyle(document.documentElement).getPropertyValue('--mouth-left'),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    function loadVars(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return;
+        const d = JSON.parse(raw);
+        if(d.door_x) document.documentElement.style.setProperty('--door-x', d.door_x);
+        if(d.door_y) document.documentElement.style.setProperty('--door-y', d.door_y);
+        if(d.door_w) document.documentElement.style.setProperty('--door-w', d.door_w);
+        if(d.door_h) document.documentElement.style.setProperty('--door-h', d.door_h);
+        if(d.mouth_top)  document.documentElement.style.setProperty('--mouth-top', d.mouth_top);
+        if(d.mouth_left) document.documentElement.style.setProperty('--mouth-left', d.mouth_left);
+      }catch(_){}
+    }
+    function updateHud(){
+      if(!calOn) return;
+      const door = {
+        x:getVar('--door-x').toFixed(3),
+        y:getVar('--door-y').toFixed(3),
+        w:getVar('--door-w').toFixed(3),
+        h:getVar('--door-h').toFixed(3)
+      };
+      const mTop  = getComputedStyle(document.documentElement).getPropertyValue('--mouth-top').trim();
+      const mLeft = getComputedStyle(document.documentElement).getPropertyValue('--mouth-left').trim();
+      calHud.textContent =
+`CALIBRATION (${calTarget.toUpperCase()})  —  Shift = fine
+Door  x:${door.x}  y:${door.y}  w:${door.w}  h:${door.h}
+Mouth top:${mTop}  left:${mLeft}
+C=toggle  M=switch target  R=reset saved`;
+    }
+    function toggleCal(){
+      calOn = !calOn;
+      calHud.classList.toggle('on', calOn);
+      updateHud();
+    }
+    function resetSaved(){
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+
+    loadVars();
+
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'c' || e.key === 'C'){ toggleCal(); return; }
+      if(!calOn) return;
+
+      if(e.key === 'm' || e.key === 'M'){ calTarget = calTarget === 'door' ? 'mouth' : 'door'; updateHud(); return; }
+      if(e.key === 'r' || e.key === 'R'){ resetSaved(); return; }
+
+      const fine = e.shiftKey;
+      const step = fine ? 0.001 : 0.003;
+      const pctStep = fine ? 0.5 : 1.0; // for mouth % values
+
+      if(calTarget === 'door'){
+        if(e.key === 'ArrowLeft'){ setVar('--door-x', getVar('--door-x') - step); }
+        if(e.key === 'ArrowRight'){ setVar('--door-x', getVar('--door-x') + step); }
+        if(e.key === 'ArrowUp'){ setVar('--door-y', getVar('--door-y') - step); }
+        if(e.key === 'ArrowDown'){ setVar('--door-y', getVar('--door-y') + step); }
+        if(e.key === '['){ setVar('--door-w', Math.max(0.01, getVar('--door-w') - step)); }
+        if(e.key === ']'){ setVar('--door-w', getVar('--door-w') + step); }
+        if(e.key === '{'){ setVar('--door-h', Math.max(0.01, getVar('--door-h') - step)); }
+        if(e.key === '}'){ setVar('--door-h', getVar('--door-h') + step); }
+      }else{
+        // Mouth uses percentage strings
+        const top  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-top'));
+        const left = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-left'));
+        if(e.key === 'ArrowUp'){ document.documentElement.style.setProperty('--mouth-top', (top - pctStep) + '%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key === 'ArrowDown'){ document.documentElement.style.setProperty('--mouth-top', (top + pctStep) + '%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key === 'ArrowLeft'){ document.documentElement.style.setProperty('--mouth-left', (left - pctStep) + '%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key === 'ArrowRight'){ document.documentElement.style.setProperty('--mouth-left', (left + pctStep) + '%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key === '['){ document.documentElement.style.setProperty('--mouth-w', (Math.max(6, parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-w')) - pctStep)) + 'px'); persistVars(); updateHud(); }
+        if(e.key === ']'){ document.documentElement.style.setProperty('--mouth-w', (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-w')) + pctStep) + 'px'); persistVars(); updateHud(); }
+      }
+    });
+
+    // Initial position pass after any loaded vars
+    positionDoorAndChunklet();
   </script>
 </body>
 </html>
