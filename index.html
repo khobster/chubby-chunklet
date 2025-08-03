@@ -238,16 +238,17 @@
       60%  { transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg); }
       100% { transform:translate(-50%,-12px) scale(1,1) rotate(0deg); }
     }
+    /* Shorter distance, slower walk-out (~70px travel in 2.4s) */
     @keyframes waddleDown {
       0%   { transform:translate(-50%,-12px) rotate(0deg); }
-      10%  { transform:translate(-50%,  0px)  rotate(-3deg); }
-      20%  { transform:translate(-50%, 12px)  rotate(3deg); }
-      30%  { transform:translate(-50%, 24px)  rotate(-3deg); }
-      40%  { transform:translate(-50%, 36px)  rotate(3deg); }
-      55%  { transform:translate(-50%, 52px)  rotate(-2deg); }
-      70%  { transform:translate(-50%, 70px)  rotate(2deg); }
-      85%  { transform:translate(-50%, 86px)  rotate(-1deg) scale(1.02,.98); }
-      100% { transform:translate(-50%,100px) rotate(0deg) scale(1,1); }
+      10%  { transform:translate(-50%,   0px) rotate(-3deg); }
+      20%  { transform:translate(-50%,  10px) rotate(3deg); }
+      30%  { transform:translate(-50%,  20px) rotate(-3deg); }
+      40%  { transform:translate(-50%,  30px) rotate(3deg); }
+      55%  { transform:translate(-50%,  45px) rotate(-2deg); }
+      70%  { transform:translate(-50%,  58px) rotate(2deg); }
+      85%  { transform:translate(-50%,  66px) rotate(-1deg) scale(1.02,.98); }
+      100% { transform:translate(-50%,  70px) rotate(0deg)  scale(1,1); }
     }
     @keyframes shadowEmerge {
       0%   { opacity:0; transform:translateX(-50%) scale(0.4); }
@@ -262,9 +263,9 @@
       100% { opacity:.68; transform:translateX(-50%) scale(1.05); }
     }
     .chunklet-container.emerge { animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards; }
-    .chunklet-container.waddle { animation:waddleDown 1.8s cubic-bezier(.22,1,.36,1) forwards; }
+    .chunklet-container.waddle { animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards; }
     .chunklet-container.emerge .ground-shadow { animation:shadowEmerge .7s ease-out forwards; }
-    .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 1.8s ease-out forwards; }
+    .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 2.4s ease-out forwards; }
 
     /* Calibration HUD (press C) */
     .cal-hud{
@@ -334,12 +335,17 @@
   <div class="cal-hud" id="calHud"></div>
 
   <script>
-    /* ===== CONFIG ===== */
+    /* ===== CONFIG & Timings ===== */
     const css = getComputedStyle(document.documentElement);
     const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
       'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
     const QUERY    = '?style=canon&modern=0&accent=scottish';
     const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
+
+    // Entrance timings (ms)
+    const DOOR_SWING_MS = 800;
+    const EMERGE_MS     = 700;
+    const WADDLE_MS     = 2400; // slower for drama
 
     const doorTrigger       = document.getElementById('doorTrigger');
     const chunkletContainer = document.getElementById('chunkletContainer');
@@ -560,13 +566,13 @@
         chunkletContainer.classList.add('active','emerge');   // pop out
         setTimeout(() => {
           chunkletContainer.classList.remove('emerge');
-          chunkletContainer.classList.add('waddle');          // bigger bob down steps
+          chunkletContainer.classList.add('waddle');          // slower bob down steps
           setTimeout(() => {
             outputContainer.classList.add('active');          // show card after entrance
             avoidOverlap();
-          }, 1800); // after waddle
-        }, 700);     // after emerge
-      }, 800);       // after doors swing
+          }, WADDLE_MS); // wait for slow waddle
+        }, EMERGE_MS);   // after emerge
+      }, DOOR_SWING_MS); // after doors swing
     }
     function closeDoor(){
       if(!doorOpen) return;
@@ -620,7 +626,7 @@
         setClosed(); startMouth(); currentSource.start();
         currentSource.onended = ()=>{ currentSource=null; stopMouth(); onEnd && onEnd(); };
         return;
-      }catch(e){ console.warn('WebAudio decode failed, fallback to <audio>', e); }
+      }catch(e){ console.warn('WebAudio decode failed', fallback to <audio>); }
 
       try{
         ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
@@ -648,7 +654,8 @@
       typed.textContent=''; const oldTag=output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
 
       try{
-        await new Promise(r=>setTimeout(r, 800 + 700 + 1800)); // wait for door swing + emerge + waddle
+        // Wait for door swing + emerge + waddle
+        await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
 
         const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
@@ -674,6 +681,7 @@
       }
     }
 
+    // Interactions (click / Space / Enter)
     doorTrigger.addEventListener('click', summon);
     doorTrigger.addEventListener('keydown', (e)=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
 
@@ -748,10 +756,6 @@ C=toggle  M=switch target  R=reset saved`;
 
     // Initial position pass after any loaded vars
     positionDoorAndChunklet();
-
-    /* Summon on first click/Enter/Space */
-    doorTrigger.addEventListener('click', summon);
-    doorTrigger.addEventListener('keydown', (e)=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
   </script>
 </body>
 </html>
