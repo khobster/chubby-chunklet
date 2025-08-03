@@ -12,22 +12,24 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
 <!-- Retro DOS mono for the phrase -->
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<!-- Jeopardy-style font -->
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
 :root{
   --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
   --figure-scale:1.15;
-  --mouth-top:133px;
+  --mouth-top:60%;
   --mouth-left:50%;
-  --mouth-w:38px;
-  --mouth-h:38px;
+  --mouth-w:24px;
+  --mouth-h:24px;
 
   --mouth-scale-0:.05;
   --char-ms:18;
-  --terminal-color:#00ff00; /* Classic green terminal */
+  --terminal-color:#FFD700; /* Jeopardy gold */
 
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
-  --font-phrase:'VT323','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --font-phrase:'Bebas Neue','Impact',sans-serif;
 }
 
 /* ---------- layout ---------- */
@@ -67,103 +69,48 @@ html,body{
 .scene-bg img{
   width:100%;
   height:100%;
-  object-fit:cover; /* This will make the image cover the entire screen */
+  object-fit:cover;
   display:block;
 }
 
-/* Door container - positioned over where the door is in the image */
+/* Door container - positioned exactly over the door in the image */
 .door-container{
   position:absolute;
   top:50%;
   left:50%;
-  width:120px; /* Adjust based on your door size */
-  height:160px; /* Adjust based on your door size */
-  transform:translate(-50%, -50%);
+  width:100px;
+  height:140px;
+  transform:translate(-50%, -20px);
   cursor:pointer;
   z-index:10;
 }
 
-/* Pixel-perfect door recreation */
+/* Simple black rectangle doors that match the opening */
 .door-left, .door-right{
   position:absolute;
   width:50%;
   height:100%;
-  background:#2d1810; /* Dark brown base */
+  background:#000;
   transition:transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  image-rendering:pixelated;
-  image-rendering:-moz-crisp-edges;
-  image-rendering:crisp-edges;
 }
 
 .door-left{
   left:0;
   transform-origin:left center;
-  border-right:1px solid #1a0e08;
 }
 
 .door-right{
   right:0;
   transform-origin:right center;
-  border-left:1px solid #1a0e08;
-}
-
-/* Door panels - 3 rows of panels per door half */
-.door-panel{
-  position:absolute;
-  background:#3d2418;
-  border:2px solid #1a0e08;
-  box-shadow:inset 0 0 0 2px #2d1810;
-}
-
-.door-left .panel-top{
-  width:80%;
-  height:25%;
-  top:10%;
-  left:10%;
-}
-
-.door-left .panel-mid{
-  width:80%;
-  height:25%;
-  top:40%;
-  left:10%;
-}
-
-.door-left .panel-bottom{
-  width:80%;
-  height:25%;
-  top:70%;
-  left:10%;
-}
-
-.door-right .panel-top{
-  width:80%;
-  height:25%;
-  top:10%;
-  right:10%;
-}
-
-.door-right .panel-mid{
-  width:80%;
-  height:25%;
-  top:40%;
-  right:10%;
-}
-
-.door-right .panel-bottom{
-  width:80%;
-  height:25%;
-  top:70%;
-  right:10%;
 }
 
 /* Open state */
 .door-open .door-left{
-  transform:perspective(800px) rotateY(85deg);
+  transform:rotateY(85deg);
 }
 
 .door-open .door-right{
-  transform:perspective(800px) rotateY(-85deg);
+  transform:rotateY(-85deg);
 }
 
 /* Chunklet character */
@@ -171,29 +118,57 @@ html,body{
   position:absolute;
   top:50%;
   left:50%;
-  transform:translate(-50%, -100px);
+  transform:translate(-50%, -20px);
   opacity:0;
-  transition:opacity 0.5s, transform 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transition:opacity 0.3s;
   z-index:5;
   pointer-events:none;
 }
 
 .chunklet-container.active{
   opacity:1;
-  transform:translate(-50%, 80px);
+}
+
+/* Bouncy trot animation */
+@keyframes bouncyTrot {
+  0% { transform:translate(-50%, -20px) }
+  5% { transform:translate(-50%, -15px) rotate(-2deg) }
+  10% { transform:translate(-50%, -10px) }
+  15% { transform:translate(-50%, -5px) rotate(2deg) }
+  20% { transform:translate(-50%, 0px) }
+  25% { transform:translate(-50%, 5px) rotate(-2deg) }
+  30% { transform:translate(-50%, 10px) }
+  35% { transform:translate(-50%, 15px) rotate(2deg) }
+  40% { transform:translate(-50%, 20px) }
+  45% { transform:translate(-50%, 25px) rotate(-2deg) }
+  50% { transform:translate(-50%, 30px) }
+  55% { transform:translate(-50%, 35px) rotate(2deg) }
+  60% { transform:translate(-50%, 40px) }
+  65% { transform:translate(-50%, 45px) rotate(-2deg) }
+  70% { transform:translate(-50%, 50px) }
+  75% { transform:translate(-50%, 55px) rotate(2deg) }
+  80% { transform:translate(-50%, 60px) }
+  85% { transform:translate(-50%, 65px) rotate(-1deg) }
+  90% { transform:translate(-50%, 70px) }
+  95% { transform:translate(-50%, 75px) }
+  100% { transform:translate(-50%, 80px) }
+}
+
+.chunklet-container.trotting{
+  animation:bouncyTrot 1.5s ease-out forwards;
 }
 
 .chunklet-wrap{
   position:relative;
-  width:calc(120px*var(--figure-scale));
-  height:calc(150px*var(--figure-scale));
+  width:calc(100px*var(--figure-scale));
+  height:calc(130px*var(--figure-scale));
   display:flex;
   align-items:flex-end;
   justify-content:center;
 }
 
 .chunklet-img{
-  width:calc(110px*var(--figure-scale));
+  width:calc(90px*var(--figure-scale));
   max-width:100%;
   user-select:none;
   -webkit-user-drag:none;
@@ -201,14 +176,14 @@ html,body{
   image-rendering:-webkit-optimize-contrast;
 }
 
-/* Mouth overlay */
+/* Mouth overlay - positioned on the face */
 .mouth-overlay{
   position:absolute;
-  top:45%;
-  left:50%;
+  top:var(--mouth-top);
+  left:var(--mouth-left);
   width:var(--mouth-w);
   height:var(--mouth-h);
-  transform:translate(-50%,-50%) scale(0.7);
+  transform:translate(-50%,-50%);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -218,78 +193,42 @@ html,body{
 .mouth-overlay svg{width:100%;height:100%}
 #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-/* MS-DOS Style Terminal Output */
+/* Jeopardy-style text output at top */
 .output-container{
   position:fixed;
-  bottom:20px;
+  top:20px;
   left:50%;
   transform:translateX(-50%);
   width:90%;
-  max-width:800px;
+  max-width:900px;
   z-index:20;
   opacity:0;
   transition:opacity 0.5s;
+  text-align:center;
 }
 
 .output-container.active{
   opacity:1;
 }
 
-/* DOS Terminal Style */
-.terminal-frame{
-  background:#000;
-  border:4px solid #333;
-  border-radius:0;
-  padding:2px;
-  box-shadow:0 0 20px rgba(0,255,0,0.2);
-}
-
-.terminal-inner{
-  background:#000;
-  border:2px solid #555;
-  padding:20px;
-  position:relative;
-  overflow:hidden;
-}
-
-/* Scanline effect */
-.terminal-inner::before{
-  content:'';
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  bottom:0;
-  background:linear-gradient(
-    transparent 0%,
-    rgba(0,255,0,0.03) 50%,
-    transparent 100%
-  );
-  background-size:100% 4px;
-  pointer-events:none;
-  animation:scanlines 8s linear infinite;
-}
-
-@keyframes scanlines{
-  0%{background-position:0 0}
-  100%{background-position:0 20px}
-}
-
+/* Jeopardy style text */
 .output{
   font-family:var(--font-phrase);
   text-transform:uppercase;
-  font-size:20px;
-  line-height:1.4;
-  letter-spacing:.05em;
+  font-size:clamp(28px, 4vw, 48px);
+  line-height:1.2;
+  letter-spacing:.08em;
   font-weight:400;
   color:var(--terminal-color);
-  min-height:1.4em;
-  text-align:left;
+  text-align:center;
   margin:0;
   white-space:pre-wrap;
   position:relative;
-  text-shadow: 0 0 5px rgba(0,255,0,0.5);
-  z-index:1;
+  text-shadow: 
+    3px 3px 0 #B8860B,
+    4px 4px 8px rgba(0,0,0,0.8),
+    0 0 20px rgba(255,215,0,0.4);
+  -webkit-text-stroke:1px #8B6914;
 }
 
 .cursor{
@@ -299,58 +238,40 @@ html,body{
   background:var(--terminal-color);
   vertical-align:text-bottom;
   animation:blink 1s steps(1,end) infinite;
-  box-shadow:0 0 5px rgba(0,255,0,0.8);
+  box-shadow:0 0 10px rgba(255,215,0,0.8);
 }
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
 
 .output .work-tag{
-  opacity:.7;
+  opacity:.8;
   font-family: var(--font-phrase);
   text-transform: uppercase;
   font-style: normal;
   margin-left:.6em;
-  font-size:.9em;
+  font-size:.8em;
   letter-spacing:.06em;
   font-weight: 400;
-  color:#00cc00;
+  color:#FFD700;
+  display:block;
+  margin-top:10px;
 }
-
-/* Header */
-.header{
-  position:fixed;
-  top:20px;
-  left:50%;
-  transform:translateX(-50%);
-  font-size:clamp(18px,2.5vw,32px);
-  font-weight:600;
-  letter-spacing:.4px;
-  text-align:center;
-  margin:0;
-  z-index:20;
-  color:#fff;
-  text-shadow:0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);
-}
-.header span{font-weight:700}
 
 /* Mobile adjustments */
 @media(max-width:600px){
   .door-container{
-    width:80px;
-    height:106px;
+    width:70px;
+    height:100px;
   }
   .chunklet-container.active{
     transform:translate(-50%, 60px);
   }
   .output-container{
-    bottom:10px;
+    top:10px;
     width:95%;
   }
-  .terminal-inner{
-    padding:12px;
-  }
   .output{
-    font-size:16px;
+    font-size:clamp(20px, 5vw, 32px);
   }
 }
 </style>
@@ -358,24 +279,14 @@ html,body{
 <body>
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-  <h1 class="header">oh wow hey it's <span>chubby chunklet</span></h1>
-
   <div class="scene-container">
     <div class="scene-bg">
       <img src="skullbones.png" alt="Scene background">
       
-      <!-- Interactive door with pixel-perfect panels -->
+      <!-- Interactive door -->
       <div class="door-container" id="doorTrigger">
-        <div class="door-left">
-          <div class="door-panel panel-top"></div>
-          <div class="door-panel panel-mid"></div>
-          <div class="door-panel panel-bottom"></div>
-        </div>
-        <div class="door-right">
-          <div class="door-panel panel-top"></div>
-          <div class="door-panel panel-mid"></div>
-          <div class="door-panel panel-bottom"></div>
-        </div>
+        <div class="door-left"></div>
+        <div class="door-right"></div>
       </div>
       
       <!-- Chunklet character -->
@@ -392,14 +303,10 @@ html,body{
     </div>
   </div>
 
-  <!-- MS-DOS Style Terminal Output -->
+  <!-- Jeopardy-style text output at top -->
   <div class="output-container" id="outputContainer">
-    <div class="terminal-frame">
-      <div class="terminal-inner">
-        <div class="output" id="output">
-          <span id="typed"></span><span id="cursor" class="cursor"></span>
-        </div>
-      </div>
+    <div class="output" id="output">
+      <span id="typed"></span><span id="cursor" class="cursor"></span>
     </div>
   </div>
 
@@ -818,7 +725,13 @@ function openDoor(){
   // Show chunklet after door opens
   setTimeout(() => {
     chunkletContainer.classList.add('active');
-    outputContainer.classList.add('active');
+    // Start trotting animation
+    chunkletContainer.classList.add('trotting');
+    
+    // Show text after trot completes
+    setTimeout(() => {
+      outputContainer.classList.add('active');
+    }, 1500);
   }, 800);
 }
 
@@ -826,8 +739,8 @@ function closeDoor(){
   if(!doorOpen) return;
   doorOpen = false;
   
-  // Hide chunklet first
-  chunkletContainer.classList.remove('active');
+  // Hide everything
+  chunkletContainer.classList.remove('active', 'trotting');
   outputContainer.classList.remove('active');
   
   // Close door after chunklet disappears
@@ -860,8 +773,8 @@ async function summon(){
   if(oldTag) oldTag.remove();
 
   try{
-    // Wait for animation to complete
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Wait for door open + trot animation
+    await new Promise(resolve => setTimeout(resolve, 2300));
 
     const res = await fetch(FETCH_URL, { cache:'no-store' });
     if(!res.ok) throw new Error('HTTP '+res.status);
