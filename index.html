@@ -41,77 +41,42 @@
       --door-w: 0.099;   /* width */
       --door-h: 0.248;   /* height */
 
-      /* Default placement of the blue card (auto-lifts if overlapping Chunklet) */
+      /* Blue card placement (auto-lifts if overlapping Chunklet) */
       --output-top-fallback: 8vmin;
     }
 
-    /* ---------- layout ---------- */
     *{box-sizing:border-box}
     html,body{
       margin:0;padding:0;
       font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-      background:#000;
-      color:#fff;
-      -webkit-font-smoothing:antialiased;
-      overflow:hidden;
-      height:100%;
-      width:100%;
+      background:#000;color:#fff; -webkit-font-smoothing:antialiased;
+      overflow:hidden; height:100%; width:100%;
     }
 
-    /* Scene background - full screen */
-    .scene-container{
-      position:fixed;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:#4a7ba7;
-    }
-    .scene-bg{
-      width:100%;
-      height:100%;
-      position:relative;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-    .scene-bg img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-      display:block;
-      user-select:none;
-      -webkit-user-drag:none;
-    }
+    .scene-container{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#4a7ba7; }
+    .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; }
+    .scene-bg{ perspective:900px; } /* nicer door swing */
+    .scene-bg img{ width:100%; height:100%; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
 
-    /* Door (positioned by JS from normalized vars) */
+    /* Door (JS positions it; CSS now provides a visible fallback) */
     .door-container{
       position:absolute;
+      left:50%; top:52%;                /* fallback position */
+      width:140px; height:180px;        /* fallback size */
       transform:translate(-50%, -50%);
-      cursor:pointer;
-      z-index:50; /* above background, below Chunklet */
+      cursor:pointer; z-index:50;
     }
     .door-left, .door-right{
-      position:absolute;
-      width:50%;
-      height:100%;
-      background:#3d2418;
-      border:3px solid #2d1810;
-      transition:transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-      box-shadow:
-        inset 0 0 20px rgba(0,0,0,0.4),
-        0 0 10px rgba(0,0,0,0.8);
-      backface-visibility:hidden;
-      transform-style:preserve-3d;
+      position:absolute; width:50%; height:100%;
+      background:#3d2418; border:3px solid #2d1810;
+      transition:transform 0.8s cubic-bezier(0.68,-0.55,0.265,1.55);
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0 0 10px rgba(0,0,0,0.8);
+      backface-visibility:hidden; transform-style:preserve-3d;
     }
     .door-left{ left:0;  transform-origin:left center;  border-right:2px solid #1a0e08; }
     .door-right{right:0;  transform-origin:right center; border-left: 2px solid #1a0e08; }
-    .door-panel{
-      position:absolute;
-      background:#2d1810;
-      border:2px solid #1a0e08;
-      box-shadow: inset 2px 2px 4px rgba(0,0,0,0.4), inset -1px -1px 2px rgba(61,36,24,0.3);
-    }
+    .door-panel{ position:absolute; background:#2d1810; border:2px solid #1a0e08;
+      box-shadow: inset 2px 2px 4px rgba(0,0,0,0.4), inset -1px -1px 2px rgba(61,36,24,0.3); }
     .door-left .panel-top{   width:65%; height:22%; top:15%; left:17.5%;}
     .door-left .panel-mid{   width:65%; height:22%; top:41%; left:17.5%;}
     .door-left .panel-bottom{width:65%; height:22%; top:67%; left:17.5%;}
@@ -123,122 +88,59 @@
 
     /* Chunklet */
     .chunklet-container{
-      position:absolute;
-      transform:translate(-50%, -30px);
-      opacity:0;
-      transition:opacity 0.3s;
-      z-index:60;   /* in front of the blue card */
-      pointer-events:none;
+      position:absolute; transform:translate(-50%, -30px);
+      opacity:0; transition:opacity 0.3s; z-index:60; pointer-events:none;
     }
     .chunklet-container.active{ opacity:1; }
-
-    .chunklet-wrap{
-      position:relative;
-      width:calc(100px*var(--figure-scale));
-      height:calc(130px*var(--figure-scale));
-      display:flex;
-      align-items:flex-end;
-      justify-content:center;
-    }
-    .chunklet-img{
-      width:calc(90px*var(--figure-scale));
-      max-width:100%;
-      user-select:none;
-      -webkit-user-drag:none;
-      filter:drop-shadow(0 8px 16px rgba(0,0,0,.6));
-      image-rendering:-webkit-optimize-contrast;
-    }
+    .chunklet-wrap{ position:relative; width:calc(100px*var(--figure-scale)); height:calc(130px*var(--figure-scale)); display:flex; align-items:flex-end; justify-content:center; }
+    .chunklet-img{ width:calc(90px*var(--figure-scale)); max-width:100%; user-select:none; -webkit-user-drag:none; filter:drop-shadow(0 8px 16px rgba(0,0,0,.6)); image-rendering:-webkit-optimize-contrast; }
 
     /* Ground shadow */
     .ground-shadow{
-      position:absolute;
-      left:50%;
-      bottom:-2px;
-      width:88px;
-      height:18px;
-      transform:translateX(-50%) scale(0.6);
+      position:absolute; left:50%; bottom:-2px; width:88px; height:18px; transform:translateX(-50%) scale(0.6);
       background:radial-gradient(ellipse at center, rgba(0,0,0,.45) 0%, rgba(0,0,0,.25) 40%, rgba(0,0,0,0) 70%);
-      filter:blur(2px);
-      opacity:0;
-      pointer-events:none;
+      filter:blur(2px); opacity:0; pointer-events:none;
     }
 
     /* Mouth overlay */
-    .mouth-overlay{
-      position:absolute;
-      top:var(--mouth-top);
-      left:var(--mouth-left);
-      width:var(--mouth-w);
-      height:var(--mouth-h);
-      transform:translate(-50%,-50%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      pointer-events:none;
-    }
+    .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; }
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-    /* Jeopardy-style blue screen container */
+    /* Blue card */
     .output-container{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      width:85%;
-      max-width:850px;
-      z-index:40;               /* under Chunklet */
-      opacity:0;
-      transition:opacity 0.5s;
-      pointer-events:none;
-      top:var(--output-top-fallback);
+      position:fixed; left:50%; transform:translateX(-50%);
+      width:85%; max-width:850px; z-index:40; opacity:0; transition:opacity 0.5s;
+      pointer-events:none; top:var(--output-top-fallback);
     }
     .output-container.active{ opacity:1; }
-
     .jeopardy-screen{
-      background:var(--jeopardy-blue);
-      border:10px solid #001a66;
-      padding:25px 35px;
+      background:var(--jeopardy-blue); border:10px solid #001a66; padding:25px 35px;
       box-shadow: inset 0 0 30px rgba(0,0,0,0.4), 0 10px 40px rgba(0,0,0,0.9), 0 0 80px rgba(0,51,204,0.4);
-      position:relative;
-      overflow:hidden;
+      position:relative; overflow:hidden;
     }
-    .jeopardy-screen::before{
-      content:'';
-      position:absolute; inset:0;
-      background:repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
-      pointer-events:none;
-    }
+    .jeopardy-screen::before{ content:''; position:absolute; inset:0;
+      background:repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px); pointer-events:none; }
 
     .output{
-      font-family:var(--font-phrase);
-      text-transform:uppercase;
-      font-size:clamp(22px, 3vw, 36px);
-      line-height:1.35;
-      letter-spacing:.15em;
-      font-weight:400;
-      color:var(--terminal-color);
-      text-align:center;
-      margin:0;
-      white-space:pre-wrap;
-      text-shadow: 3px 3px 0 #000, 4px 4px 0 #000, 5px 5px 0 #000, 6px 6px 12px rgba(0,0,0,0.9), 0 0 30px rgba(255,255,255,0.3);
-      z-index:1;
+      font-family:var(--font-phrase); text-transform:uppercase; font-size:clamp(22px, 3vw, 36px);
+      line-height:1.35; letter-spacing:.15em; font-weight:400; color:var(--terminal-color);
+      text-align:center; margin:0; white-space:pre-wrap; text-shadow: 3px 3px 0 #000, 4px 4px 0 #000, 5px 5px 0 #000, 6px 6px 12px rgba(0,0,0,0.9), 0 0 30px rgba(255,255,255,0.3);
     }
     .cursor{ display:inline-block; width:.7ch; height:1.2em; background:var(--terminal-color); vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; box-shadow:3px 3px 0 #000, 0 0 10px rgba(255,255,255,0.8); }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
     .typing .cursor{animation:none}
-    .output .work-tag{
-      opacity:.9; font-family:var(--font-phrase); text-transform:uppercase; margin-left:.6em; font-size:.65em; letter-spacing:.1em; color:#fff; display:block; margin-top:12px;
-      text-shadow:2px 2px 0 #000, 3px 3px 0 #000, 4px 4px 8px rgba(0,0,0,0.8);
-    }
+    .output .work-tag{ opacity:.9; font-family:var(--font-phrase); text-transform:uppercase; margin-left:.6em; font-size:.65em; letter-spacing:.1em; color:#fff; display:block; margin-top:12px;
+      text-shadow:2px 2px 0 #000, 3px 3px 0 #000, 4px 4px 8px rgba(0,0,0,0.8); }
 
-    /* ===== Dramatic entrance animations ===== */
+    /* Entrance animations */
     @keyframes emergePop {
       0%   { transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85); }
       40%  { transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1; }
       60%  { transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg); }
       100% { transform:translate(-50%,-12px) scale(1,1) rotate(0deg); }
     }
-    /* Shorter distance, slower walk-out (~70px travel in 2.4s) */
+    /* Shorter distance (~70px), slower walk-out (2.4s) */
     @keyframes waddleDown {
       0%   { transform:translate(-50%,-12px) rotate(0deg); }
       10%  { transform:translate(-50%,   0px) rotate(-3deg); }
@@ -250,35 +152,17 @@
       85%  { transform:translate(-50%,  66px) rotate(-1deg) scale(1.02,.98); }
       100% { transform:translate(-50%,  70px) rotate(0deg)  scale(1,1); }
     }
-    @keyframes shadowEmerge {
-      0%   { opacity:0; transform:translateX(-50%) scale(0.4); }
-      60%  { opacity:.55; transform:translateX(-50%) scale(0.75); }
-      100% { opacity:.65; transform:translateX(-50%) scale(0.85); }
-    }
-    @keyframes shadowWaddle {
-      0%   { opacity:.65; transform:translateX(-50%) scale(0.85); }
-      25%  { opacity:.70; transform:translateX(-50%) scale(0.95); }
-      50%  { opacity:.60; transform:translateX(-50%) scale(0.88); }
-      75%  { opacity:.72; transform:translateX(-50%) scale(1.00); }
-      100% { opacity:.68; transform:translateX(-50%) scale(1.05); }
-    }
+    @keyframes shadowEmerge { 0%{opacity:0; transform:translateX(-50%) scale(0.4);} 60%{opacity:.55; transform:translateX(-50%) scale(0.75);} 100%{opacity:.65; transform:translateX(-50%) scale(0.85);} }
+    @keyframes shadowWaddle { 0%{opacity:.65; transform:translateX(-50%) scale(0.85);} 25%{opacity:.70; transform:translateX(-50%) scale(0.95);} 50%{opacity:.60; transform:translateX(-50%) scale(0.88);} 75%{opacity:.72; transform:translateX(-50%) scale(1.00);} 100%{opacity:.68; transform:translateX(-50%) scale(1.05);} }
     .chunklet-container.emerge { animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards; }
     .chunklet-container.waddle { animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards; }
     .chunklet-container.emerge .ground-shadow { animation:shadowEmerge .7s ease-out forwards; }
     .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 2.4s ease-out forwards; }
 
     /* Calibration HUD (press C) */
-    .cal-hud{
-      position:fixed; left:8px; bottom:8px;
-      font:12px/1.3 var(--font-mono);
-      background:rgba(0,0,0,.6); color:#0ff;
-      padding:8px 10px; border:1px solid rgba(0,255,255,.35);
-      border-radius:6px; pointer-events:none; opacity:0;
-      transition:opacity .15s; white-space:pre; z-index:100;
-    }
+    .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 var(--font-mono); background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
     .cal-hud.on{ opacity:1; }
 
-    /* Mobile adjustments */
     @media(max-width:600px){
       .output-container{ width:92%; }
       .jeopardy-screen{ padding:18px 25px; border-width:6px; }
@@ -293,7 +177,7 @@
     <div class="scene-bg">
       <img src="skullbones.png" alt="Scene background" />
 
-      <!-- Interactive door -->
+      <!-- Door -->
       <div class="door-container" id="doorTrigger" aria-label="Open the door" role="button" tabindex="0">
         <div class="door-left">
           <div class="door-panel panel-top"></div>
@@ -322,7 +206,7 @@
     </div>
   </div>
 
-  <!-- Jeopardy-style phrase output -->
+  <!-- Phrase output -->
   <div class="output-container" id="outputContainer" aria-live="polite">
     <div class="jeopardy-screen">
       <div class="output" id="output">
@@ -342,10 +226,7 @@
     const QUERY    = '?style=canon&modern=0&accent=scottish';
     const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
-    // Entrance timings (ms)
-    const DOOR_SWING_MS = 800;
-    const EMERGE_MS     = 700;
-    const WADDLE_MS     = 2400; // slower for drama
+    const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
 
     const doorTrigger       = document.getElementById('doorTrigger');
     const chunkletContainer = document.getElementById('chunkletContainer');
@@ -360,83 +241,59 @@
     const host    = document.querySelector('.scene-bg');
     const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-    /* ---------- state ---------- */
-    let busy=false;
-    let doorOpen=false;
+    let busy=false, doorOpen=false;
     let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
     let raf,animating=false,tagPlaying=false;
-    let currentObjectURL=null;
-    let iosAudioInitialized = false;
+    let currentObjectURL=null, iosAudioInitialized=false;
 
-    /* ===== mouth level bands ===== */
-    const SY = [0.07, 0.55, 1.10, 1.70, 2.30];
-    const SX = [1.00, 1.01, 1.02, 1.02, 1.03];
-    const THRESH_UP   = [0.030, 0.060, 0.100, 0.160];
-    const HYST_DELTA  = 0.018;
-    const THRESH_DOWN = THRESH_UP.map(t => Math.max(0, t - HYST_DELTA));
-    const GATE_FLOOR  = 0.010;
-    const CLOSE_GRACE_MS = 20;
+    /* ===== mouth anim bands ===== */
+    const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
+    const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
+    const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
+    const GATE_FLOOR=0.010, CLOSE_GRACE_MS=20;
+    let level=0,lastChange=0;
 
-    let level = 0;
-    let lastChange = 0;
-
-    function ensureCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
-    function ensureAnalyser(){
-      ensureCtx();
-      if(!analyser){ analyser = audioCtx.createAnalyser(); analyser.fftSize = 256; analyser.smoothingTimeConstant = 0.0; timeData = new Float32Array(analyser.fftSize); }
-    }
+    function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
+    function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
     function attachAnalyserToBufferSource(src){ ensureAnalyser(); try{src.disconnect();}catch(_){ } src.connect(analyser); analyser.connect(audioCtx.destination); }
     function attachAnalyserToMediaElement(){
       ensureAnalyser();
       if(isIOS && !iosAudioInitialized){ initializeIOSAudio(); return; }
       if(!audioEl){
-        audioEl = document.createElement('audio');
+        audioEl=document.createElement('audio');
         audioEl.style.position='absolute'; audioEl.style.left='-9999px';
         audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
         document.body.appendChild(audioEl);
       }
       if(!mediaSource && audioCtx && audioEl){
-        try{ mediaSource = audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); }
+        try{ mediaSource=audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); }
         catch(e){ console.warn('createMediaElementSource failed', e); }
       }
     }
-    function rmsLevel(){
-      if(!analyser || !timeData) return 0;
-      analyser.getFloatTimeDomainData(timeData);
-      let sum=0; for(let i=0;i<timeData.length;i++){ const v=timeData[i]; sum+=v*v; }
-      let rms = Math.sqrt(sum / timeData.length);
-      if(rms < GATE_FLOOR) rms = 0;
-      return rms;
-    }
+    function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
     function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
     function setClosed(){ setLevel(0); }
     function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
     function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
     function tick(){
       if(!animating) return; raf=requestAnimationFrame(tick);
-      const active = !!currentSource || tagPlaying; const now=performance.now();
+      const active=!!currentSource||tagPlaying, now=performance.now();
       if(active){
         if(analyser && (currentSource || (tagPlaying && mediaSource))){
-          const e = rmsLevel();
-          if(isIOS && e===0 && tagPlaying){
-            const t=(now/1000); const phase=((t*15)|0)%5; const levels=[1,2,3,2,1]; setLevel(levels[phase]); return;
-          }
+          const e=rmsLevel();
+          if(isIOS && e===0 && tagPlaying){ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); return; }
           let target=level;
-          while (target<4 && e>=THRESH_UP[target]) target++;
-          while (target>0 && e<THRESH_DOWN[target-1]) target--;
-          if (target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
+          while(target<4 && e>=THRESH_UP[target]) target++;
+          while(target>0 && e<THRESH_DOWN[target-1]) target--;
+          if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
           setLevel(target);
-        }else{
-          const t=(now/1000); const phase=((t*15)|0)%5; const levels=[1,2,3,2,1]; setLevel(levels[phase]);
-        }
+        }else{ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); }
         return;
       }
       const t=(now/1000); const phase=((t*13)|0)%4; const rand=Math.random();
-      const target = phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4);
-      setLevel(target);
+      setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
     }
 
-    /* iOS unlock */
     function initializeIOSAudio(){
       if(iosAudioInitialized) return;
       try{
@@ -446,8 +303,8 @@
           audioEl.style.position='absolute'; audioEl.style.left='-9999px';
           audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
         }
-        const silentMP3='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-        audioEl.src=silentMP3; audioEl.load();
+        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+        audioEl.src=silent; audioEl.load();
         const p=audioEl.play();
         if(p!==undefined){
           p.then(()=>{ audioEl.pause(); audioEl.currentTime=0;
@@ -471,7 +328,6 @@
     document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
     document.addEventListener('click', unlockAudioOnce, {once:true});
 
-    /* helpers */
     const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
     function typeOut(text, done){
       typed.textContent=''; output.classList.add('typing');
@@ -494,43 +350,31 @@
       span.textContent='— '+[work,author].filter(Boolean).join(' · '); output.appendChild(span);
     }
 
-    /* Door + Chunklet positioning (normalized to background image) */
-    const DOOR = {
-      get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x')) || 0.5; },
-      get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y')) || 0.55; },
-      get w(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-w')) || 0.10; },
-      get h(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-h')) || 0.25; }
+    /* Normalized door/chunklet positioning */
+    const DOOR={
+      get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
+      get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
+      get w(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-w'))||0.10; },
+      get h(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-h'))||0.25; }
     };
 
     function positionDoorAndChunklet(){
-      if(!bgImg.naturalWidth || !host) return;
+      const hostRect=host.getBoundingClientRect();
+      const natW=bgImg.naturalWidth, natH=bgImg.naturalHeight;
 
-      const hostRect = host.getBoundingClientRect();
-      const natW = bgImg.naturalWidth, natH = bgImg.naturalHeight;
+      // Fallback if image metadata isn't ready
+      const dispW = natW? Math.max(hostRect.width/natW, hostRect.height/natH)*natW : hostRect.width;
+      const dispH = natH? Math.max(hostRect.width/natW, hostRect.height/natH)*natH : hostRect.height;
+      const offsetX=(hostRect.width-dispW)/2, offsetY=(hostRect.height-dispH)/2;
 
-      const scale = Math.max(hostRect.width / natW, hostRect.height / natH);
-      const dispW = natW * scale, dispH = natH * scale;
-      const offsetX = (hostRect.width  - dispW) / 2;
-      const offsetY = (hostRect.height - dispH) / 2;
+      const cx = hostRect.left + offsetX + dispW*DOOR.x;
+      const cy = hostRect.top  + offsetY + dispH*DOOR.y;
+      const dw = dispW*DOOR.w, dh = dispH*DOOR.h;
 
-      const cx = hostRect.left + offsetX + dispW * DOOR.x;
-      const cy = hostRect.top  + offsetY + dispH * DOOR.y;
+      Object.assign(doorTrigger.style, { left:(cx-hostRect.left)+'px', top:(cy-hostRect.top)+'px', width:dw+'px', height:dh+'px' });
 
-      const dw = dispW * DOOR.w, dh = dispH * DOOR.h;
-
-      Object.assign(doorTrigger.style, {
-        left:  (cx - hostRect.left) + 'px',
-        top:   (cy - hostRect.top)  + 'px',
-        width: dw + 'px',
-        height:dh + 'px'
-      });
-
-      const exitY = cy + dh * 0.35;
-      Object.assign(chunkletContainer.style, {
-        left: (cx - hostRect.left) + 'px',
-        top:  (exitY - hostRect.top) + 'px',
-        transform: 'translate(-50%, -30px)'
-      });
+      const exitY = cy + dh*0.35;
+      Object.assign(chunkletContainer.style, { left:(cx-hostRect.left)+'px', top:(exitY-hostRect.top)+'px', transform:'translate(-50%,-30px)' });
 
       avoidOverlap();
     }
@@ -555,151 +399,130 @@
     window.addEventListener('resize', positionDoorAndChunklet);
     window.addEventListener('orientationchange', positionDoorAndChunklet);
 
-    /* Door choreography with dramatic entrance */
+    /* Door choreography */
     function openDoor(){
       if(doorOpen) return;
       positionDoorAndChunklet();
-      doorOpen = true;
-      doorTrigger.classList.add('door-open');
+      doorOpen=true; doorTrigger.classList.add('door-open');
 
-      setTimeout(() => {
-        chunkletContainer.classList.add('active','emerge');   // pop out
-        setTimeout(() => {
+      setTimeout(()=>{
+        chunkletContainer.classList.add('active','emerge');
+        setTimeout(()=>{
           chunkletContainer.classList.remove('emerge');
-          chunkletContainer.classList.add('waddle');          // slower bob down steps
-          setTimeout(() => {
-            outputContainer.classList.add('active');          // show card after entrance
+          chunkletContainer.classList.add('waddle');
+          setTimeout(()=>{
+            outputContainer.classList.add('active');
             avoidOverlap();
-          }, WADDLE_MS); // wait for slow waddle
-        }, EMERGE_MS);   // after emerge
-      }, DOOR_SWING_MS); // after doors swing
+          }, WADDLE_MS);
+        }, EMERGE_MS);
+      }, DOOR_SWING_MS);
     }
     function closeDoor(){
-      if(!doorOpen) return;
-      doorOpen = false;
+      if(!doorOpen) return; doorOpen=false;
       chunkletContainer.classList.remove('active','emerge','waddle');
       outputContainer.classList.remove('active');
-      setTimeout(() => { doorTrigger.classList.remove('door-open'); busy=false; }, 500);
+      setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
     }
 
-    /* playback */
+    /* TTS playback */
     async function playAudio(b64,onEnd){
       if(isIOS){
         try{
           ensureCtx();
           if(!iosAudioInitialized){ initializeIOSAudio(); await new Promise(r=>setTimeout(r,100)); }
           attachAnalyserToMediaElement();
-
-          const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-          const blob = new Blob([bin], {type:'audio/mp3'});
-
+          const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+          const blob=new Blob([bin], {type:'audio/mp3'});
           if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-          currentObjectURL = URL.createObjectURL(blob);
-
+          currentObjectURL=URL.createObjectURL(blob);
           if(!audioEl){
             audioEl=document.createElement('audio');
             audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-            audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
-            document.body.appendChild(audioEl);
+            audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
           }
           audioEl.src=currentObjectURL; audioEl.load();
           audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
-          audioEl.onended= ()=>{
-            tagPlaying=false; stopMouth();
-            if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-            onEnd && onEnd();
-          };
+          audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
           const pp=audioEl.play(); if(pp!==undefined) await pp; return;
         }catch(err){
           console.error('iOS audio playback failed', err);
-          startMouth(); const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
-          setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000); return;
+          startMouth(); const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
+          setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000); return;
         }
       }
-
       try{
         ensureCtx(); ensureAnalyser();
-        const bin = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-        const buf = await audioCtx.decodeAudioData(bin.buffer);
-        currentSource = audioCtx.createBufferSource(); currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
+        const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+        const buf=await audioCtx.decodeAudioData(bin.buffer);
+        currentSource=audioCtx.createBufferSource(); currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
         attachAnalyserToBufferSource(currentSource);
         setClosed(); startMouth(); currentSource.start();
-        currentSource.onended = ()=>{ currentSource=null; stopMouth(); onEnd && onEnd(); };
+        currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd&&onEnd(); };
         return;
-      }catch(e){ console.warn('WebAudio decode failed', fallback to <audio>); }
-
+      }catch(e){
+        console.warn('WebAudio decode failed', e);  /* <-- fixed the syntax error */
+      }
       try{
         ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
-        const bin  = Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-        const blob = new Blob([bin], {type:'audio/mp3'});
+        const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+        const blob=new Blob([bin], {type:'audio/mp3'});
         if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
         if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-        currentObjectURL = URL.createObjectURL(blob); audioEl.src=currentObjectURL;
+        currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
         audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
-        audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd && onEnd(); };
+        audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
         await audioEl.play();
       }catch(err){
         console.error('Plain <audio> failed', err);
-        startMouth(); const approx = Math.min(7, Math.max(2.2, typed.textContent.length/16));
-        setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx+0.2)*1000);
+        startMouth(); const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
+        setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
       }
     }
 
     /* main */
     async function summon(){
       if(busy) return;
-      try{ clickSnd.currentTime = 0; clickSnd.play(); }catch(_){}
-      busy = true; stopAudio(); openDoor();
+      try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
+      busy=true; stopAudio(); openDoor();
 
       typed.textContent=''; const oldTag=output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
 
       try{
-        // Wait for door swing + emerge + waddle
         await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
-
         const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
-        const work = data.work || null;
-        const author = data.author || null;
+        const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
 
         typeOut(text, async ()=>{
           const onEnd = ()=>{
             showWork(work, author);
             avoidOverlap();
-            setTimeout(() => { closeDoor(); }, 3000);
+            setTimeout(()=>{ closeDoor(); }, 3000);
           };
           if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
-          else { startMouth(); const approx = Math.min(7, Math.max(2.2, text.length/16)); setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000); }
+          else { startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16)); setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000); }
         });
 
       }catch(e){
         console.error(e);
         typeOut('A shy packet tripped. Try again.');
-        setTimeout(() => { closeDoor(); }, 2000);
+        setTimeout(()=>{ closeDoor(); }, 2000);
       }
     }
 
-    // Interactions (click / Space / Enter)
     doorTrigger.addEventListener('click', summon);
-    doorTrigger.addEventListener('keydown', (e)=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
+    doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
 
-    /* ===== Calibration Mode (optional) =====
-       Press C to toggle HUD. Arrow keys adjust door; Shift = fine.
-       Press M to switch to mouth (moves top/left in %). R resets saved values.
-    */
-    const calHud = document.getElementById('calHud');
-    let calOn=false, calTarget='door';
-    const STORAGE_KEY='cc_vars';
-    function getVar(name, fallback){ const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v)?(fallback??0):v; }
-    function setVar(name, value){ document.documentElement.style.setProperty(name, String(value)); persistVars(); positionDoorAndChunklet(); updateHud(); }
+    /* Calibration (optional) */
+    const calHud=document.getElementById('calHud'); let calOn=false, calTarget='door'; const STORAGE_KEY='cc_vars';
+    function getVar(name,fallback){ const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v)?(fallback??0):v; }
+    function setVar(name,value){ document.documentElement.style.setProperty(name,String(value)); persistVars(); positionDoorAndChunklet(); updateHud(); }
     function persistVars(){
-      const data = {
-        door_x:getVar('--door-x'), door_y:getVar('--door-y'), door_w:getVar('--door-w'), door_h:getVar('--door-h'),
+      const data={ door_x:getVar('--door-x'), door_y:getVar('--door-y'), door_w:getVar('--door-w'), door_h:getVar('--door-h'),
         mouth_top:getComputedStyle(document.documentElement).getPropertyValue('--mouth-top'),
-        mouth_left:getComputedStyle(document.documentElement).getPropertyValue('--mouth-left'),
-      };
+        mouth_left:getComputedStyle(document.documentElement).getPropertyValue('--mouth-left') };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
     function loadVars(){
@@ -733,7 +556,6 @@ C=toggle  M=switch target  R=reset saved`;
       if(!calOn) return;
       if(e.key==='m'||e.key==='M'){ calTarget=calTarget==='door'?'mouth':'door'; updateHud(); return; }
       if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
-
       const fine=e.shiftKey, step=fine?0.001:0.003, pct=fine?0.5:1.0;
       if(calTarget==='door'){
         if(e.key==='ArrowLeft')  setVar('--door-x', getVar('--door-x')-step);
@@ -754,7 +576,6 @@ C=toggle  M=switch target  R=reset saved`;
       }
     });
 
-    // Initial position pass after any loaded vars
     positionDoorAndChunklet();
   </script>
 </body>
