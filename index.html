@@ -19,14 +19,15 @@
   --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
   --figure-scale:1.15;
-  --mouth-top:60%;
+  --mouth-top:35%;
   --mouth-left:50%;
-  --mouth-w:24px;
-  --mouth-h:24px;
+  --mouth-w:16px;
+  --mouth-h:16px;
 
   --mouth-scale-0:.05;
   --char-ms:18;
   --terminal-color:#FFD700; /* Jeopardy gold */
+  --jeopardy-blue:#0033CC;
 
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
   --font-phrase:'Bebas Neue','Impact',sans-serif;
@@ -85,23 +86,77 @@ html,body{
   z-index:10;
 }
 
-/* Simple black rectangle doors that match the opening */
+/* Brown doors that match the art style */
 .door-left, .door-right{
   position:absolute;
   width:50%;
   height:100%;
-  background:#000;
+  background:#3d2418;
+  border:2px solid #2d1810;
   transition:transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  box-shadow:inset 0 0 10px rgba(0,0,0,0.5);
 }
 
 .door-left{
   left:0;
   transform-origin:left center;
+  border-right:1px solid #1a0e08;
 }
 
 .door-right{
   right:0;
   transform-origin:right center;
+  border-left:1px solid #1a0e08;
+}
+
+/* Door panels */
+.door-panel{
+  position:absolute;
+  background:#2d1810;
+  border:1px solid #1a0e08;
+  box-shadow:inset 1px 1px 3px rgba(0,0,0,0.3);
+}
+
+.door-left .panel-top{
+  width:70%;
+  height:25%;
+  top:12%;
+  left:15%;
+}
+
+.door-left .panel-mid{
+  width:70%;
+  height:25%;
+  top:40%;
+  left:15%;
+}
+
+.door-left .panel-bottom{
+  width:70%;
+  height:25%;
+  top:68%;
+  left:15%;
+}
+
+.door-right .panel-top{
+  width:70%;
+  height:25%;
+  top:12%;
+  right:15%;
+}
+
+.door-right .panel-mid{
+  width:70%;
+  height:25%;
+  top:40%;
+  right:15%;
+}
+
+.door-right .panel-bottom{
+  width:70%;
+  height:25%;
+  top:68%;
+  right:15%;
 }
 
 /* Open state */
@@ -193,10 +248,10 @@ html,body{
 .mouth-overlay svg{width:100%;height:100%}
 #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-/* Jeopardy-style text output at top */
+/* Jeopardy-style blue screen container */
 .output-container{
   position:fixed;
-  top:20px;
+  top:40px;
   left:50%;
   transform:translateX(-50%);
   width:90%;
@@ -204,20 +259,51 @@ html,body{
   z-index:20;
   opacity:0;
   transition:opacity 0.5s;
-  text-align:center;
 }
 
 .output-container.active{
   opacity:1;
 }
 
+/* Jeopardy blue screen */
+.jeopardy-screen{
+  background:var(--jeopardy-blue);
+  border:8px solid #001a66;
+  border-radius:8px;
+  padding:30px 40px;
+  box-shadow:
+    inset 0 0 40px rgba(0,0,0,0.5),
+    0 8px 30px rgba(0,0,0,0.8),
+    0 0 60px rgba(0,51,204,0.5);
+  position:relative;
+  overflow:hidden;
+}
+
+/* TV scan lines effect */
+.jeopardy-screen::before{
+  content:'';
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,0.1) 2px,
+    rgba(0,0,0,0.1) 4px
+  );
+  pointer-events:none;
+}
+
 /* Jeopardy style text */
 .output{
   font-family:var(--font-phrase);
   text-transform:uppercase;
-  font-size:clamp(28px, 4vw, 48px);
-  line-height:1.2;
-  letter-spacing:.08em;
+  font-size:clamp(24px, 3.5vw, 42px);
+  line-height:1.3;
+  letter-spacing:.12em;
   font-weight:400;
   color:var(--terminal-color);
   text-align:center;
@@ -225,10 +311,10 @@ html,body{
   white-space:pre-wrap;
   position:relative;
   text-shadow: 
-    3px 3px 0 #B8860B,
-    4px 4px 8px rgba(0,0,0,0.8),
-    0 0 20px rgba(255,215,0,0.4);
-  -webkit-text-stroke:1px #8B6914;
+    2px 2px 0 #B8860B,
+    3px 3px 0 #8B6914,
+    4px 4px 8px rgba(0,0,0,0.9);
+  z-index:1;
 }
 
 .cursor{
@@ -249,12 +335,15 @@ html,body{
   text-transform: uppercase;
   font-style: normal;
   margin-left:.6em;
-  font-size:.8em;
-  letter-spacing:.06em;
+  font-size:.7em;
+  letter-spacing:.08em;
   font-weight: 400;
   color:#FFD700;
   display:block;
-  margin-top:10px;
+  margin-top:15px;
+  text-shadow: 
+    1px 1px 0 #B8860B,
+    2px 2px 6px rgba(0,0,0,0.8);
 }
 
 /* Mobile adjustments */
@@ -267,11 +356,14 @@ html,body{
     transform:translate(-50%, 60px);
   }
   .output-container{
-    top:10px;
+    top:20px;
     width:95%;
   }
+  .jeopardy-screen{
+    padding:20px 25px;
+  }
   .output{
-    font-size:clamp(20px, 5vw, 32px);
+    font-size:clamp(18px, 4.5vw, 28px);
   }
 }
 </style>
@@ -283,10 +375,18 @@ html,body{
     <div class="scene-bg">
       <img src="skullbones.png" alt="Scene background">
       
-      <!-- Interactive door -->
+      <!-- Interactive door with visible brown panels -->
       <div class="door-container" id="doorTrigger">
-        <div class="door-left"></div>
-        <div class="door-right"></div>
+        <div class="door-left">
+          <div class="door-panel panel-top"></div>
+          <div class="door-panel panel-mid"></div>
+          <div class="door-panel panel-bottom"></div>
+        </div>
+        <div class="door-right">
+          <div class="door-panel panel-top"></div>
+          <div class="door-panel panel-mid"></div>
+          <div class="door-panel panel-bottom"></div>
+        </div>
       </div>
       
       <!-- Chunklet character -->
@@ -303,10 +403,12 @@ html,body{
     </div>
   </div>
 
-  <!-- Jeopardy-style text output at top -->
+  <!-- Jeopardy-style blue screen with text -->
   <div class="output-container" id="outputContainer">
-    <div class="output" id="output">
-      <span id="typed"></span><span id="cursor" class="cursor"></span>
+    <div class="jeopardy-screen">
+      <div class="output" id="output">
+        <span id="typed"></span><span id="cursor" class="cursor"></span>
+      </div>
     </div>
   </div>
 
