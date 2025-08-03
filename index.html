@@ -24,7 +24,7 @@
 
   --mouth-scale-0:.05;
   --char-ms:18;
-  --terminal-color:#1034a6;
+  --terminal-color:#00ff00; /* Classic green terminal */
 
   --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
   --font-phrase:'VT323','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
@@ -35,129 +35,141 @@
 html,body{
   margin:0;padding:0;
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
-  background:#87CEEB;
-  color:#111;
+  background:#000;
+  color:#fff;
   -webkit-font-smoothing:antialiased;
-  overflow-x:hidden;
+  overflow:hidden;
   height:100%;
-}
-body{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-  padding:20px;
+  width:100%;
 }
 
-/* Background scene */
+/* Scene background - full screen */
 .scene-container{
   position:fixed;
   top:0;left:0;right:0;bottom:0;
+  width:100%;
+  height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:1;
+  background:#4a7ba7; /* Sky blue fallback */
 }
 
 .scene-bg{
   width:100%;
-  max-width:800px;
-  height:auto;
+  height:100%;
   position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 .scene-bg img{
   width:100%;
-  height:auto;
+  height:100%;
+  object-fit:cover; /* This will make the image cover the entire screen */
   display:block;
 }
 
-/* Door container - positioned over the door in the image */
+/* Door container - positioned over where the door is in the image */
 .door-container{
   position:absolute;
-  top:35%;
+  top:50%;
   left:50%;
-  width:18%;
-  height:28%;
-  transform:translateX(-50%);
+  width:120px; /* Adjust based on your door size */
+  height:160px; /* Adjust based on your door size */
+  transform:translate(-50%, -50%);
   cursor:pointer;
   z-index:10;
 }
 
-/* Door halves */
+/* Pixel-perfect door recreation */
 .door-left, .door-right{
   position:absolute;
   width:50%;
   height:100%;
-  background:#654321;
-  border:2px solid #4a3018;
+  background:#2d1810; /* Dark brown base */
   transition:transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  transform-origin:left center;
+  image-rendering:pixelated;
+  image-rendering:-moz-crisp-edges;
+  image-rendering:crisp-edges;
 }
 
 .door-left{
   left:0;
-  box-shadow:inset 2px 0 4px rgba(0,0,0,0.3);
+  transform-origin:left center;
+  border-right:1px solid #1a0e08;
 }
 
 .door-right{
   right:0;
   transform-origin:right center;
-  box-shadow:inset -2px 0 4px rgba(0,0,0,0.3);
+  border-left:1px solid #1a0e08;
 }
 
-/* Door panels */
-.door-left::before, .door-right::before,
-.door-left::after, .door-right::after{
-  content:'';
+/* Door panels - 3 rows of panels per door half */
+.door-panel{
   position:absolute;
-  width:70%;
-  height:35%;
-  background:#4a3018;
-  border:1px solid #3a2010;
-  left:15%;
+  background:#3d2418;
+  border:2px solid #1a0e08;
+  box-shadow:inset 0 0 0 2px #2d1810;
 }
 
-.door-left::before, .door-right::before{
-  top:15%;
+.door-left .panel-top{
+  width:80%;
+  height:25%;
+  top:10%;
+  left:10%;
 }
 
-.door-left::after, .door-right::after{
-  bottom:15%;
+.door-left .panel-mid{
+  width:80%;
+  height:25%;
+  top:40%;
+  left:10%;
+}
+
+.door-left .panel-bottom{
+  width:80%;
+  height:25%;
+  top:70%;
+  left:10%;
+}
+
+.door-right .panel-top{
+  width:80%;
+  height:25%;
+  top:10%;
+  right:10%;
+}
+
+.door-right .panel-mid{
+  width:80%;
+  height:25%;
+  top:40%;
+  right:10%;
+}
+
+.door-right .panel-bottom{
+  width:80%;
+  height:25%;
+  top:70%;
+  right:10%;
 }
 
 /* Open state */
 .door-open .door-left{
-  transform:perspective(800px) rotateY(75deg);
+  transform:perspective(800px) rotateY(85deg);
 }
 
 .door-open .door-right{
-  transform:perspective(800px) rotateY(-75deg);
-}
-
-/* Door hint */
-.door-hint{
-  position:absolute;
-  bottom:-30px;
-  left:50%;
-  transform:translateX(-50%);
-  font-size:14px;
-  color:#fff;
-  text-shadow:0 2px 4px rgba(0,0,0,0.5);
-  opacity:0.8;
-  transition:opacity 0.3s;
-  white-space:nowrap;
-  pointer-events:none;
-}
-
-.door-container:hover .door-hint{
-  opacity:1;
+  transform:perspective(800px) rotateY(-85deg);
 }
 
 /* Chunklet character */
 .chunklet-container{
   position:absolute;
-  top:35%;
+  top:50%;
   left:50%;
   transform:translate(-50%, -100px);
   opacity:0;
@@ -185,7 +197,7 @@ body{
   max-width:100%;
   user-select:none;
   -webkit-user-drag:none;
-  filter:drop-shadow(0 8px 16px rgba(0,0,0,.4));
+  filter:drop-shadow(0 8px 16px rgba(0,0,0,.6));
   image-rendering:-webkit-optimize-contrast;
 }
 
@@ -206,19 +218,15 @@ body{
 .mouth-overlay svg{width:100%;height:100%}
 #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-/* Output */
+/* MS-DOS Style Terminal Output */
 .output-container{
   position:fixed;
   bottom:20px;
   left:50%;
   transform:translateX(-50%);
   width:90%;
-  max-width:860px;
+  max-width:800px;
   z-index:20;
-  background:rgba(255,255,255,0.95);
-  padding:20px;
-  border-radius:8px;
-  box-shadow:0 4px 20px rgba(0,0,0,0.2);
   opacity:0;
   transition:opacity 0.5s;
 }
@@ -227,36 +235,77 @@ body{
   opacity:1;
 }
 
+/* DOS Terminal Style */
+.terminal-frame{
+  background:#000;
+  border:4px solid #333;
+  border-radius:0;
+  padding:2px;
+  box-shadow:0 0 20px rgba(0,255,0,0.2);
+}
+
+.terminal-inner{
+  background:#000;
+  border:2px solid #555;
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+}
+
+/* Scanline effect */
+.terminal-inner::before{
+  content:'';
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:linear-gradient(
+    transparent 0%,
+    rgba(0,255,0,0.03) 50%,
+    transparent 100%
+  );
+  background-size:100% 4px;
+  pointer-events:none;
+  animation:scanlines 8s linear infinite;
+}
+
+@keyframes scanlines{
+  0%{background-position:0 0}
+  100%{background-position:0 20px}
+}
+
 .output{
   font-family:var(--font-phrase);
   text-transform:uppercase;
-  font-size:clamp(16px, 1.5vw, 24px);
-  line-height:1.22;
-  letter-spacing:.04em;
+  font-size:20px;
+  line-height:1.4;
+  letter-spacing:.05em;
   font-weight:400;
   color:var(--terminal-color);
-  min-height:1.2em;
+  min-height:1.4em;
   text-align:left;
   margin:0;
   white-space:pre-wrap;
   position:relative;
-  text-shadow: 0 0 1px rgba(16,52,166,.35);
+  text-shadow: 0 0 5px rgba(0,255,0,0.5);
+  z-index:1;
 }
 
 .cursor{
   display:inline-block;
   width:.7ch;
-  height:1em;
+  height:1.2em;
   background:var(--terminal-color);
-  vertical-align:baseline;
+  vertical-align:text-bottom;
   animation:blink 1s steps(1,end) infinite;
-  transform:translateY(1px)
+  box-shadow:0 0 5px rgba(0,255,0,0.8);
 }
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
 .typing .cursor{animation:none}
 
 .output .work-tag{
-  opacity:.8;
+  opacity:.7;
   font-family: var(--font-phrase);
   text-transform: uppercase;
   font-style: normal;
@@ -264,6 +313,7 @@ body{
   font-size:.9em;
   letter-spacing:.06em;
   font-weight: 400;
+  color:#00cc00;
 }
 
 /* Header */
@@ -272,30 +322,35 @@ body{
   top:20px;
   left:50%;
   transform:translateX(-50%);
-  font-size:clamp(16px,2vw,24px);
+  font-size:clamp(18px,2.5vw,32px);
   font-weight:600;
   letter-spacing:.4px;
   text-align:center;
   margin:0;
   z-index:20;
   color:#fff;
-  text-shadow:0 2px 8px rgba(0,0,0,0.5);
+  text-shadow:0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);
 }
 .header span{font-weight:700}
 
 /* Mobile adjustments */
 @media(max-width:600px){
   .door-container{
-    width:25%;
-    height:25%;
-    top:38%;
+    width:80px;
+    height:106px;
   }
   .chunklet-container.active{
     transform:translate(-50%, 60px);
   }
   .output-container{
     bottom:10px;
-    padding:15px;
+    width:95%;
+  }
+  .terminal-inner{
+    padding:12px;
+  }
+  .output{
+    font-size:16px;
   }
 }
 </style>
@@ -309,11 +364,18 @@ body{
     <div class="scene-bg">
       <img src="skullbones.png" alt="Scene background">
       
-      <!-- Interactive door -->
+      <!-- Interactive door with pixel-perfect panels -->
       <div class="door-container" id="doorTrigger">
-        <div class="door-left"></div>
-        <div class="door-right"></div>
-        <div class="door-hint">Click to summon Chunklet</div>
+        <div class="door-left">
+          <div class="door-panel panel-top"></div>
+          <div class="door-panel panel-mid"></div>
+          <div class="door-panel panel-bottom"></div>
+        </div>
+        <div class="door-right">
+          <div class="door-panel panel-top"></div>
+          <div class="door-panel panel-mid"></div>
+          <div class="door-panel panel-bottom"></div>
+        </div>
       </div>
       
       <!-- Chunklet character -->
@@ -330,10 +392,14 @@ body{
     </div>
   </div>
 
-  <!-- Output area -->
+  <!-- MS-DOS Style Terminal Output -->
   <div class="output-container" id="outputContainer">
-    <div class="output" id="output">
-      <span id="typed"></span><span id="cursor" class="cursor"></span>
+    <div class="terminal-frame">
+      <div class="terminal-inner">
+        <div class="output" id="output">
+          <span id="typed"></span><span id="cursor" class="cursor"></span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -572,11 +638,13 @@ const sanitize = txt=>{
 
 function typeOut(text, done){
   typed.textContent='';
+  output.classList.add('typing');
   (function loop(i=0){
     typed.textContent = text.slice(0,i);
     if(i<text.length){
       setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
     }else{
+      output.classList.remove('typing');
       done && done();
     }
   })();
