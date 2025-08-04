@@ -18,7 +18,7 @@
       /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Chunklet sprite / mouth (final placement) */
+      /* Chunklet sprite / mouth */
       --figure-scale:1.15;
       --mouth-top:39%;
       --mouth-left:49%;
@@ -29,20 +29,18 @@
       /* Typing */
       --char-ms:18;
 
-      /* Colors / fonts */
-      --terminal-color:#FFFFFF;
-      --jeopardy-blue:#0033CC;
-      --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+      /* Fonts/colors */
       --font-phrase:'Bebas Neue','Impact',sans-serif;
 
-      /* Door anchor on the background image (your perfect settings) */
-      --door-x: 0.472;   /* center x */
-      --door-y: 0.579;   /* center y */
-      --door-w: 0.099;   /* width */
-      --door-h: 0.248;   /* height */
+      /* Door anchors (normalized) */
+      --door-x: 0.472;
+      --door-y: 0.579;
+      --door-w: 0.099;
+      --door-h: 0.248;
 
-      /* Blue card placement (auto-lifts if overlapping Chunklet) */
+      /* Bubble layout */
       --output-top-fallback: 8vmin;
+      --tail-x: 55%; /* updated dynamically to aim at Chunklet */
     }
 
     *{box-sizing:border-box}
@@ -54,17 +52,13 @@
     }
 
     .scene-container{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#4a7ba7; }
-    .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; }
-    .scene-bg{ perspective:900px; } /* nicer door swing */
+    .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; perspective:900px; }
     .scene-bg img{ width:100%; height:100%; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
 
-    /* Door (JS positions it; CSS now provides a visible fallback) */
+    /* Door (JS positions; CSS fallback ensures visible even if JS hiccups) */
     .door-container{
-      position:absolute;
-      left:50%; top:52%;                /* fallback position */
-      width:140px; height:180px;        /* fallback size */
-      transform:translate(-50%, -50%);
-      cursor:pointer; z-index:50;
+      position:absolute; left:50%; top:52%; width:140px; height:180px;
+      transform:translate(-50%, -50%); cursor:pointer; z-index:50;
     }
     .door-left, .door-right{
       position:absolute; width:50%; height:100%;
@@ -107,40 +101,64 @@
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-    /* Blue card */
+    /* ===== Speech bubble ===== */
     .output-container{
       position:fixed; left:50%; transform:translateX(-50%);
       width:85%; max-width:850px; z-index:40; opacity:0; transition:opacity 0.5s;
       pointer-events:none; top:var(--output-top-fallback);
     }
     .output-container.active{ opacity:1; }
-    .jeopardy-screen{
-      background:var(--jeopardy-blue); border:10px solid #001a66; padding:25px 35px;
-      box-shadow: inset 0 0 30px rgba(0,0,0,0.4), 0 10px 40px rgba(0,0,0,0.9), 0 0 80px rgba(0,51,204,0.4);
-      position:relative; overflow:hidden;
+
+    .speech-bubble{
+      background:#fff;
+      border:6px solid #000;
+      border-radius:28px;
+      padding:22px 30px;
+      color:#111;
+      position:relative;
+      box-shadow:0 6px 0 #000, 0 12px 28px rgba(0,0,0,.35);
     }
-    .jeopardy-screen::before{ content:''; position:absolute; inset:0;
-      background:repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px); pointer-events:none; }
+    /* Tail with black outline using two triangles */
+    .speech-bubble::before,
+    .speech-bubble::after{
+      content:"";
+      position:absolute;
+      bottom:-22px;
+      left:var(--tail-x);
+      transform:translateX(-50%);
+      width:0;height:0; border-style:solid;
+    }
+    .speech-bubble::before{ border-width:18px 14px 0 14px; border-color:#000 transparent transparent transparent; }
+    .speech-bubble::after{ bottom:-18px; border-width:16px 12px 0 12px; border-color:#fff transparent transparent transparent; }
 
     .output{
-      font-family:var(--font-phrase); text-transform:uppercase; font-size:clamp(22px, 3vw, 36px);
-      line-height:1.35; letter-spacing:.15em; font-weight:400; color:var(--terminal-color);
-      text-align:center; margin:0; white-space:pre-wrap; text-shadow: 3px 3px 0 #000, 4px 4px 0 #000, 5px 5px 0 #000, 6px 6px 12px rgba(0,0,0,0.9), 0 0 30px rgba(255,255,255,0.3);
+      font-family:var(--font-phrase);
+      text-transform:uppercase;
+      font-size:clamp(22px, 3vw, 36px);
+      line-height:1.25;
+      letter-spacing:.12em;
+      font-weight:400;
+      color:#111;
+      text-align:center;
+      margin:0;
+      white-space:pre-wrap;
+      text-shadow:none; /* clean comic look */
     }
-    .cursor{ display:inline-block; width:.7ch; height:1.2em; background:var(--terminal-color); vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; box-shadow:3px 3px 0 #000, 0 0 10px rgba(255,255,255,0.8); }
+    .cursor{ display:inline-block; width:.7ch; height:1.2em; background:#111; vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
     .typing .cursor{animation:none}
-    .output .work-tag{ opacity:.9; font-family:var(--font-phrase); text-transform:uppercase; margin-left:.6em; font-size:.65em; letter-spacing:.1em; color:#fff; display:block; margin-top:12px;
-      text-shadow:2px 2px 0 #000, 3px 3px 0 #000, 4px 4px 8px rgba(0,0,0,0.8); }
+    .output .work-tag{
+      opacity:.9; text-transform:uppercase; margin-left:.6em; font-size:.65em; letter-spacing:.08em; color:#333;
+      display:block; margin-top:10px; text-shadow:none;
+    }
 
-    /* Entrance animations */
+    /* ===== Dramatic entrance (shorter distance + slower) ===== */
     @keyframes emergePop {
       0%   { transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85); }
       40%  { transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1; }
       60%  { transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg); }
       100% { transform:translate(-50%,-12px) scale(1,1) rotate(0deg); }
     }
-    /* Shorter distance (~70px), slower walk-out (2.4s) */
     @keyframes waddleDown {
       0%   { transform:translate(-50%,-12px) rotate(0deg); }
       10%  { transform:translate(-50%,   0px) rotate(-3deg); }
@@ -159,13 +177,12 @@
     .chunklet-container.emerge .ground-shadow { animation:shadowEmerge .7s ease-out forwards; }
     .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 2.4s ease-out forwards; }
 
-    /* Calibration HUD (press C) */
-    .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 var(--font-mono); background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
+    /* Calibration HUD */
+    .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
     .cal-hud.on{ opacity:1; }
 
     @media(max-width:600px){
       .output-container{ width:92%; }
-      .jeopardy-screen{ padding:18px 25px; border-width:6px; }
       .output{ font-size:clamp(16px, 4vw, 24px); }
     }
   </style>
@@ -206,9 +223,9 @@
     </div>
   </div>
 
-  <!-- Phrase output -->
+  <!-- Speech bubble output -->
   <div class="output-container" id="outputContainer" aria-live="polite">
-    <div class="jeopardy-screen">
+    <div class="speech-bubble">
       <div class="output" id="output">
         <span id="typed"></span><span id="cursor" class="cursor"></span>
       </div>
@@ -344,13 +361,13 @@
       tagPlaying=false;
     }
     function showWork(work, author){
-      const old = output.querySelector('.work-tag'); if(old) old.remove();
+      const old = document.querySelector('#output .work-tag'); if(old) old.remove();
       if(!work && !author) return;
       const span=document.createElement('span'); span.className='work-tag';
-      span.textContent='— '+[work,author].filter(Boolean).join(' · '); output.appendChild(span);
+      span.textContent='— '+[work,author].filter(Boolean).join(' · '); document.getElementById('output').appendChild(span);
     }
 
-    /* Normalized door/chunklet positioning */
+    /* Door/chunklet normalized positioning */
     const DOOR={
       get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
       get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -362,9 +379,9 @@
       const hostRect=host.getBoundingClientRect();
       const natW=bgImg.naturalWidth, natH=bgImg.naturalHeight;
 
-      // Fallback if image metadata isn't ready
-      const dispW = natW? Math.max(hostRect.width/natW, hostRect.height/natH)*natW : hostRect.width;
-      const dispH = natH? Math.max(hostRect.width/natW, hostRect.height/natH)*natH : hostRect.height;
+      const scale = (natW&&natH) ? Math.max(hostRect.width/natW, hostRect.height/natH) : 1;
+      const dispW = (natW||hostRect.width)*scale;
+      const dispH = (natH||hostRect.height)*scale;
       const offsetX=(hostRect.width-dispW)/2, offsetY=(hostRect.height-dispH)/2;
 
       const cx = hostRect.left + offsetX + dispW*DOOR.x;
@@ -376,17 +393,24 @@
       const exitY = cy + dh*0.35;
       Object.assign(chunkletContainer.style, { left:(cx-hostRect.left)+'px', top:(exitY-hostRect.top)+'px', transform:'translate(-50%,-30px)' });
 
-      avoidOverlap();
+      placeBubble();
     }
 
-    function avoidOverlap(){
+    /* Bubble placement: above Chunklet; tail auto-aims at him */
+    function placeBubble(){
+      // start from fallback
       outputContainer.style.top = getComputedStyle(document.documentElement).getPropertyValue('--output-top-fallback');
+
       const cardRect = outputContainer.getBoundingClientRect();
       const guyRect  = chunkletContainer.getBoundingClientRect();
-      const overlap = !(cardRect.bottom < guyRect.top || cardRect.top > guyRect.bottom || cardRect.right < guyRect.left || cardRect.left > guyRect.right);
-      if(overlap){
-        const idealTop = Math.max(8, Math.round(guyRect.top - cardRect.height - 24));
-        outputContainer.style.top = idealTop + 'px';
+
+      if(cardRect.width && guyRect.width){
+        const newTop = Math.max(8, Math.round(guyRect.top - cardRect.height - 22));
+        outputContainer.style.top = newTop + 'px';
+
+        // Aim the tail at Chunklet center
+        const tailPct = Math.max(8, Math.min(92, ((guyRect.left + guyRect.width/2) - cardRect.left) / cardRect.width * 100));
+        outputContainer.style.setProperty('--tail-x', tailPct + '%');
       }
     }
 
@@ -412,7 +436,7 @@
           chunkletContainer.classList.add('waddle');
           setTimeout(()=>{
             outputContainer.classList.add('active');
-            avoidOverlap();
+            placeBubble();
           }, WADDLE_MS);
         }, EMERGE_MS);
       }, DOOR_SWING_MS);
@@ -460,7 +484,7 @@
         currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd&&onEnd(); };
         return;
       }catch(e){
-        console.warn('WebAudio decode failed', e);  /* <-- fixed the syntax error */
+        console.warn('WebAudio decode failed', e);
       }
       try{
         ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
@@ -485,7 +509,7 @@
       try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
       busy=true; stopAudio(); openDoor();
 
-      typed.textContent=''; const oldTag=output.querySelector('.work-tag'); if(oldTag) oldTag.remove();
+      typed.textContent=''; const oldTag=document.querySelector('#output .work-tag'); if(oldTag) oldTag.remove();
 
       try{
         await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
@@ -498,7 +522,7 @@
         typeOut(text, async ()=>{
           const onEnd = ()=>{
             showWork(work, author);
-            avoidOverlap();
+            placeBubble();
             setTimeout(()=>{ closeDoor(); }, 3000);
           };
           if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
