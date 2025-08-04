@@ -11,7 +11,8 @@
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@600;700&family=VT323&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <!-- Rounded, friendly comic-ish look -->
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -29,9 +30,6 @@
       /* Typing */
       --char-ms:18;
 
-      /* Fonts/colors */
-      --font-phrase:'Bebas Neue','Impact',sans-serif;
-
       /* Door anchors (normalized) */
       --door-x: 0.472;
       --door-y: 0.579;
@@ -39,14 +37,15 @@
       --door-h: 0.248;
 
       /* Bubble layout */
-      --output-top-fallback: 8vmin;
-      --tail-x: 55%; /* updated dynamically to aim at Chunklet */
+      --output-top-fallback: 8vmin; /* starting spot; JS lifts it further if needed */
+      --bubble-gap: 18px;           /* min space between bubble bottom and Chunklet top */
+      --tail-x: 50%;                /* updated dynamically */
     }
 
     *{box-sizing:border-box}
     html,body{
       margin:0;padding:0;
-      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+      font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       background:#000;color:#fff; -webkit-font-smoothing:antialiased;
       overflow:hidden; height:100%; width:100%;
     }
@@ -55,7 +54,7 @@
     .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; perspective:900px; }
     .scene-bg img{ width:100%; height:100%; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
 
-    /* Door (JS positions; CSS fallback ensures visible even if JS hiccups) */
+    /* Door (CSS fallback so it's visible even if JS hasn't run yet) */
     .door-container{
       position:absolute; left:50%; top:52%; width:140px; height:180px;
       transform:translate(-50%, -50%); cursor:pointer; z-index:50;
@@ -101,54 +100,57 @@
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-    /* ===== Speech bubble ===== */
+    /* ===== Speech bubble (Peanuts-style) ===== */
     .output-container{
       position:fixed; left:50%; transform:translateX(-50%);
-      width:85%; max-width:850px; z-index:40; opacity:0; transition:opacity 0.5s;
+      width:76%; max-width:860px; min-width:280px;
+      z-index:40; opacity:0; transition:opacity 0.5s;
       pointer-events:none; top:var(--output-top-fallback);
     }
     .output-container.active{ opacity:1; }
 
+    .bubble-wrap{ position:relative; }
     .speech-bubble{
       background:#fff;
       border:6px solid #000;
-      border-radius:28px;
-      padding:22px 30px;
+      border-radius:38px;
+      padding:26px 32px;
       color:#111;
-      position:relative;
-      box-shadow:0 6px 0 #000, 0 12px 28px rgba(0,0,0,.35);
+      box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
     }
-    /* Tail with black outline using two triangles */
-    .speech-bubble::before,
-    .speech-bubble::after{
-      content:"";
+    /* Rounded tail via SVG (stroke = outline) */
+    .bubble-tail{
       position:absolute;
-      bottom:-22px;
+      bottom:-2px;  /* overlaps slightly so stroke connects */
       left:var(--tail-x);
-      transform:translateX(-50%);
-      width:0;height:0; border-style:solid;
+      transform:translate(-50%, 100%); /* place below bubble edge */
+      width:44px; height:28px;
+      overflow:visible; pointer-events:none;
     }
-    .speech-bubble::before{ border-width:18px 14px 0 14px; border-color:#000 transparent transparent transparent; }
-    .speech-bubble::after{ bottom:-18px; border-width:16px 12px 0 12px; border-color:#fff transparent transparent transparent; }
 
     .output{
-      font-family:var(--font-phrase);
+      font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
-      font-size:clamp(22px, 3vw, 36px);
-      line-height:1.25;
-      letter-spacing:.12em;
-      font-weight:400;
+      font-weight:700;
+      font-size:clamp(20px, 2.6vw, 34px);
+      line-height:1.22;
+      letter-spacing:.08em;   /* tighter, less “machine” */
       color:#111;
       text-align:center;
       margin:0;
       white-space:pre-wrap;
-      text-shadow:none; /* clean comic look */
+      text-shadow:none;
     }
-    .cursor{ display:inline-block; width:.7ch; height:1.2em; background:#111; vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; }
+    .cursor{
+      display:inline-block; width:.65ch; height:1.05em; background:#111;
+      vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite;
+      border-radius:2px;
+    }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
     .typing .cursor{animation:none}
+
     .output .work-tag{
-      opacity:.9; text-transform:uppercase; margin-left:.6em; font-size:.65em; letter-spacing:.08em; color:#333;
+      opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.62em; letter-spacing:.06em; color:#333;
       display:block; margin-top:10px; text-shadow:none;
     }
 
@@ -178,12 +180,13 @@
     .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 2.4s ease-out forwards; }
 
     /* Calibration HUD */
-    .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
+    .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
     .cal-hud.on{ opacity:1; }
 
     @media(max-width:600px){
       .output-container{ width:92%; }
       .output{ font-size:clamp(16px, 4vw, 24px); }
+      .speech-bubble{ border-radius:30px; padding:20px 22px; }
     }
   </style>
 </head>
@@ -225,10 +228,19 @@
 
   <!-- Speech bubble output -->
   <div class="output-container" id="outputContainer" aria-live="polite">
-    <div class="speech-bubble">
-      <div class="output" id="output">
-        <span id="typed"></span><span id="cursor" class="cursor"></span>
+    <div class="bubble-wrap">
+      <div class="speech-bubble" id="bubble">
+        <div class="output" id="output">
+          <span id="typed"></span><span id="cursor" class="cursor"></span>
+        </div>
       </div>
+      <!-- SVG rounded tail -->
+      <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <!-- rounded droplet -->
+        <path d="M4,2
+                 C 14,20 30,20 40,2"
+              fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
     </div>
   </div>
 
@@ -248,6 +260,8 @@
     const doorTrigger       = document.getElementById('doorTrigger');
     const chunkletContainer = document.getElementById('chunkletContainer');
     const outputContainer   = document.getElementById('outputContainer');
+    const bubble            = document.getElementById('bubble');
+    const bubbleTail        = document.getElementById('bubbleTail');
     const typed             = document.getElementById('typed');
     const cursor            = document.getElementById('cursor');
     const mouth             = document.getElementById('mouth');
@@ -346,25 +360,30 @@
     document.addEventListener('click', unlockAudioOnce, {once:true});
 
     const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
+
     function typeOut(text, done){
       typed.textContent=''; output.classList.add('typing');
       (function loop(i=0){
         typed.textContent = text.slice(0,i);
+        placeBubble(); // keep bubble clear of Chunklet as text wraps
         if(i<text.length){ setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10)); }
-        else { output.classList.remove('typing'); done && done(); }
+        else { output.classList.remove('typing'); placeBubble(); done && done(); }
       })();
     }
+
     function stopAudio(){
       if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
       if(audioEl){ try{ audioEl.pause(); audioEl.currentTime=0; }catch(_){ } }
       if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
       tagPlaying=false;
     }
+
     function showWork(work, author){
       const old = document.querySelector('#output .work-tag'); if(old) old.remove();
       if(!work && !author) return;
       const span=document.createElement('span'); span.className='work-tag';
-      span.textContent='— '+[work,author].filter(Boolean).join(' · '); document.getElementById('output').appendChild(span);
+      span.textContent='— '+[work,author].filter(Boolean).join(' · ');
+      document.getElementById('output').appendChild(span);
     }
 
     /* Door/chunklet normalized positioning */
@@ -396,23 +415,31 @@
       placeBubble();
     }
 
-    /* Bubble placement: above Chunklet; tail auto-aims at him */
+    /* Bubble placement:
+       - sets bubble top so its bottom stays at least --bubble-gap above Chunklet
+       - aims the rounded tail at Chunklet’s center
+    */
     function placeBubble(){
-      // start from fallback
-      outputContainer.style.top = getComputedStyle(document.documentElement).getPropertyValue('--output-top-fallback');
-
       const cardRect = outputContainer.getBoundingClientRect();
       const guyRect  = chunkletContainer.getBoundingClientRect();
 
-      if(cardRect.width && guyRect.width){
-        const newTop = Math.max(8, Math.round(guyRect.top - cardRect.height - 22));
-        outputContainer.style.top = newTop + 'px';
+      if(!(cardRect.width && guyRect.width)) return;
 
-        // Aim the tail at Chunklet center
-        const tailPct = Math.max(8, Math.min(92, ((guyRect.left + guyRect.width/2) - cardRect.left) / cardRect.width * 100));
-        outputContainer.style.setProperty('--tail-x', tailPct + '%');
-      }
+      // Keep bubble above Chunklet with a safe gap
+      const desiredBottom = Math.max(8, guyRect.top - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')));
+      const newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
+      outputContainer.style.top = newTop + 'px';
+
+      // Aim tail
+      const cardLeft = cardRect.left;
+      const tailPx = (guyRect.left + guyRect.width/2) - cardLeft;
+      const tailPct = Math.max(8, Math.min(92, tailPx / cardRect.width * 100));
+      outputContainer.style.setProperty('--tail-x', tailPct + '%');
     }
+
+    // Re-aim tail whenever bubble size changes (text wrapping)
+    const ro = new ResizeObserver(()=>placeBubble());
+    ro.observe(outputContainer);
 
     function onReadyToPosition(){
       positionDoorAndChunklet();
