@@ -9,17 +9,16 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts -->
+  <!-- Fonts (include 400/500/700 so we can go thinner) -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- Rounded, friendly comic-ish look -->
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <style>
     :root{
       /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Chunklet sprite / mouth */
+      /* Chunklet sprite / mouth (calibrated) */
       --figure-scale:1.15;
       --mouth-top:39%;
       --mouth-left:49%;
@@ -30,7 +29,7 @@
       /* Typing */
       --char-ms:18;
 
-      /* Door anchors (normalized) */
+      /* Door anchors (normalized, calibrated) */
       --door-x: 0.472;
       --door-y: 0.579;
       --door-w: 0.099;
@@ -128,13 +127,14 @@
       overflow:visible; pointer-events:none;
     }
 
+    /* Speech text — thinner + tighter tracking */
     .output{
       font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
-      font-weight:700;
+      font-weight:500;                 /* thinner */
       font-size:clamp(20px, 2.6vw, 34px);
-      line-height:1.22;
-      letter-spacing:.08em;   /* tighter, less “machine” */
+      line-height:1.18;                /* slightly tighter */
+      letter-spacing:.015em;           /* closer letters */
       color:#111;
       text-align:center;
       margin:0;
@@ -143,8 +143,7 @@
     }
     .cursor{
       display:inline-block; width:.65ch; height:1.05em; background:#111;
-      vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite;
-      border-radius:2px;
+      vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px;
     }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
     .typing .cursor{animation:none}
@@ -237,9 +236,7 @@
       <!-- SVG rounded tail -->
       <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <!-- rounded droplet -->
-        <path d="M4,2
-                 C 14,20 30,20 40,2"
-              fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
   </div>
@@ -415,14 +412,10 @@
       placeBubble();
     }
 
-    /* Bubble placement:
-       - sets bubble top so its bottom stays at least --bubble-gap above Chunklet
-       - aims the rounded tail at Chunklet’s center
-    */
+    /* Bubble placement: keeps bubble above Chunklet + aims tail */
     function placeBubble(){
       const cardRect = outputContainer.getBoundingClientRect();
       const guyRect  = chunkletContainer.getBoundingClientRect();
-
       if(!(cardRect.width && guyRect.width)) return;
 
       // Keep bubble above Chunklet with a safe gap
