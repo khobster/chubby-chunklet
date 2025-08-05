@@ -9,10 +9,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts -->
+  <!-- Fonts: keep Rubik for UI/HUD; use Schoolbell for the bubble text -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- Keep Rubik for UI/HUD; add Short Stack for hand-printed bubble text -->
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Short+Stack&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Schoolbell&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -145,14 +144,15 @@
     }
     .output-container.active .freeze-emoji{ display:flex; pointer-events:auto; }
 
-    /* Speech text — printed/handwritten vibe, very tight tracking */
+    /* Speech text — printed/hand vibe, **very** tight tracking */
     .output{
-      font-family:'Short Stack', Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family:'Schoolbell', Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
       font-weight:400;
-      font-size:clamp(20px, 2.55vw, 34px);
-      line-height:1.12;
-      letter-spacing:-0.03em;   /* super tight */
+      font-size:clamp(20px, 2.5vw, 34px);
+      line-height:1.10;
+      letter-spacing:-0.065em;   /* tighter */
+      word-spacing:-0.03em;      /* and squeeze words a hair */
       color:#111;
       text-align:center;
       margin:0;
@@ -160,7 +160,7 @@
       text-shadow:none;
     }
     .cursor{
-      display:inline-block; width:.6ch; height:1.05em; background:#111;
+      display:inline-block; width:.55ch; height:1.05em; background:#111;
       vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px;
     }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
@@ -202,7 +202,7 @@
 
     @media(max-width:600px){
       .output-container{ width:92%; }
-      .output{ font-size:clamp(16px, 4vw, 24px); letter-spacing:-0.02em; line-height:1.14; }
+      .output{ font-size:clamp(16px, 4vw, 24px); letter-spacing:-0.055em; line-height:1.12; }
       .speech-bubble{ border-radius:30px; padding:20px 28px 20px 22px; }
       .freeze-emoji{ top:6px; right:8px; }
     }
@@ -558,7 +558,7 @@
       freezeEmoji.textContent = frozen ? '▶️' : '⏸️';
       freezeEmoji.setAttribute('title', frozen ? 'Unfreeze' : 'Freeze');
       if(frozen){ clearTimers(); } // pin everything exactly as-is
-      else { // resume normal flow: if quote is up and door open, schedule a close
+      else { // resume normal flow
         if(doorOpen && outputContainer.classList.contains('active')){
           scheduleAutoClose();
         }
