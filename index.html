@@ -171,6 +171,12 @@
       display:block; margin-top:10px; text-shadow:none;
     }
 
+    /* Per-letter colors (blue, red, yellow, green loop) */
+    .output .c0{ color:#1f4fff; }  /* blue */
+    .output .c1{ color:#e53935; }  /* red  */
+    .output .c2{ color:#ffb300; }  /* yellow (darker for contrast) */
+    .output .c3{ color:#2e7d32; }  /* green */
+
     /* ===== Dramatic entrance (shorter distance + slower) ===== */
     @keyframes emergePop {
       0%   { transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85); }
@@ -251,8 +257,8 @@
         <div class="output" id="output">
           <span id="typed"></span><span id="cursor" class="cursor"></span>
         </div>
-        <!-- tiny freeze toggle emoji -->
-        <div id="freezeEmoji" class="freeze-emoji" title="Freeze">⏸️</div>
+        <!-- artsy/cute freeze toggle emoji -->
+        <div id="freezeEmoji" class="freeze-emoji" title="Freeze">❄️</div>
       </div>
       <!-- SVG rounded tail -->
       <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -387,13 +393,31 @@
 
     const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
+    /* Per-letter color typing */
     function typeOut(text, done){
-      typed.textContent=''; output.classList.add('typing');
-      (function loop(i=0){
-        typed.textContent = text.slice(0,i);
-        placeBubble(); // keep bubble clear of Chunklet as text wraps
-        if(i<text.length){ delay(CHAR_MS + ((i%7)?0:Math.random()*10), ()=>loop(i+1)); }
-        else { output.classList.remove('typing'); placeBubble(); done && done(); }
+      typed.textContent='';
+      output.classList.add('typing');
+      let i = 0, colorIdx = 0;
+      (function loop(){
+        if(i < text.length){
+          const ch = text[i];
+          if(/\s/.test(ch)){
+            typed.appendChild(document.createTextNode(ch));
+          }else{
+            const span = document.createElement('span');
+            span.textContent = ch;
+            span.className = 'c' + (colorIdx % 4); // c0 blue, c1 red, c2 yellow, c3 green
+            typed.appendChild(span);
+            colorIdx++;
+          }
+          i++;
+          placeBubble();
+          delay(CHAR_MS + ((i%7)?0:Math.random()*10), loop);
+        }else{
+          output.classList.remove('typing');
+          placeBubble();
+          done && done();
+        }
       })();
     }
 
@@ -555,7 +579,7 @@
     /* Freeze toggle (emoji) */
     function setFrozen(v){
       frozen = !!v;
-      freezeEmoji.textContent = frozen ? '▶️' : '⏸️';
+      freezeEmoji.textContent = frozen ? '💫' : '❄️';  // ❄️ click to freeze, 💫 to resume
       freezeEmoji.setAttribute('title', frozen ? 'Unfreeze' : 'Freeze');
       if(frozen){ clearTimers(); } // pin everything exactly as-is
       else { // resume normal flow
@@ -667,6 +691,13 @@ C=toggle  M=switch target  R=reset saved`;
         if(e.key==='ArrowRight') { document.documentElement.style.setProperty('--mouth-left',(left+ pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
       }
     });
+
+    function onReadyToPosition(){
+      positionDoorAndChunklet();
+      delay(50, positionDoorAndChunklet);
+      delay(250, positionDoorAndChunklet);
+    }
+    if(bgImg.complete) onReadyToPosition(); else bgImg.addEventListener('load', onReadyToPosition);
 
     positionDoorAndChunklet();
   </script>
