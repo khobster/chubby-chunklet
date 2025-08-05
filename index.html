@@ -9,9 +9,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: keep Rubik for UI/HUD; use Comic Neue for the bubble text -->
+  <!-- Fonts: keep Rubik for UI/HUD; use Rampart One for the bubble text -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Rampart+One&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -144,14 +144,14 @@
     }
     .output-container.active .freeze-emoji{ display:flex; pointer-events:auto; }
 
-    /* Speech text — Comic Neue + ultra-tight tracking */
+    /* Speech text — Rampart One + ultra-tight tracking */
     .output{
-      font-family:'Comic Neue', Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family:'Rampart One', Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
       font-weight:400;
       font-size:clamp(20px, 2.5vw, 34px);
-      line-height:1.10;
-      letter-spacing:-0.065em;   /* very tight */
+      line-height:1.08;
+      letter-spacing:-0.085em;  /* super close */
       word-spacing:-0.03em;
       color:#111;
       text-align:center;
@@ -202,7 +202,7 @@
 
     @media(max-width:600px){
       .output-container{ width:92%; }
-      .output{ font-size:clamp(16px, 4vw, 24px); letter-spacing:-0.055em; line-height:1.12; }
+      .output{ font-size:clamp(16px, 4vw, 24px); letter-spacing:-0.075em; line-height:1.1; }
       .speech-bubble{ border-radius:30px; padding:20px 28px 20px 22px; }
       .freeze-emoji{ top:6px; right:8px; }
     }
