@@ -9,9 +9,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: keep Rubik for UI/HUD; use Luckiest Guy for the bubble text -->
+  <!-- Fonts: keep Rubik for UI/HUD; use Emily's Candy for the bubble text -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Luckiest+Guy&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Emily's+Candy&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -139,15 +139,15 @@
     }
     .output-container.active .freeze-emoji{ display:block; pointer-events:auto; }
 
-    /* Speech text — Luckiest Guy + ultra-tight tracking */
+    /* Speech text — Emily's Candy + ultra-tight tracking */
     .output{
-      font-family:'Luckiest Guy', Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family:"Emily's Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
       font-weight:400;
-      font-size:clamp(20px, 2.5vw, 34px);
-      line-height:1.08;
-      letter-spacing:-0.085em;  /* super close */
-      word-spacing:-0.03em;
+      font-size:clamp(22px, 2.5vw, 36px);
+      line-height:1.06;               /* tighter vertical rhythm */
+      letter-spacing:-0.095em;         /* super close */
+      word-spacing:-0.04em;
       color:#111;
       text-align:center;
       margin:0;
@@ -155,7 +155,7 @@
       text-shadow:none;
     }
     .cursor{
-      display:inline-block; width:.55ch; height:1.05em; background:#111;
+      display:inline-block; width:.5ch; height:1.05em; background:#111;
       vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px;
     }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
@@ -165,7 +165,7 @@
     .output .work-tag{
       opacity:.95; text-transform:uppercase;
       margin-left:.6em; font-size:.62em;
-      letter-spacing:-0.085em; word-spacing:-0.03em;
+      letter-spacing:-0.095em; word-spacing:-0.04em;
       color:#333; display:block; margin-top:10px; text-shadow:none;
     }
 
@@ -200,7 +200,7 @@
 
     @media(max-width:600px){
       .output-container{ width:92%; }
-      .output{ font-size:clamp(16px, 4vw, 24px); letter-spacing:-0.075em; line-height:1.1; }
+      .output{ font-size:clamp(18px, 4vw, 28px); letter-spacing:-0.09em; line-height:1.08; }
       .speech-bubble{ border-radius:30px; padding:20px 28px 20px 22px; }
       .freeze-emoji{ top:6px; right:8px; }
     }
@@ -385,7 +385,7 @@
 
     const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
-    /* Simple typing (no color spans) */
+    /* Simple typing */
     function typeOut(text, done){
       typed.textContent='';
       output.classList.add('typing');
