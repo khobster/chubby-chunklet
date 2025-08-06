@@ -102,11 +102,10 @@
     /* ===== Speech bubble (Peanuts-style) ===== */
     .output-container{
       position:fixed; left:50%; transform:translateX(-50%);
-      /* allow the bubble to size to content (but cap the width) */
       width:auto; max-width:90vw;
       z-index:40; opacity:0; transition:opacity 0.5s;
       pointer-events:none; top:var(--output-top-fallback);
-      text-align:center; /* centers inline bubble when it’s narrower */
+      text-align:center;
     }
     .output-container.active{ opacity:1; }
 
@@ -116,18 +115,17 @@
       background:#fff;
       border:6px solid #000;
       border-radius:32px;
-      padding:18px 26px 18px 22px; /* tighter all around + room for emoji */
+      padding:18px 26px 18px 22px;
       color:#111;
       box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
       display:inline-block;
-      max-width:86vw; /* wrapping cap */
+      max-width:86vw;
     }
-    /* Rounded tail via SVG (stroke = outline) */
     .bubble-tail{
       position:absolute;
-      bottom:-2px;  /* overlaps slightly so stroke connects */
+      bottom:-2px;
       left:var(--tail-x);
-      transform:translate(-50%, 100%); /* place below bubble edge */
+      transform:translate(-50%, 100%);
       width:44px; height:28px;
       overflow:visible; pointer-events:none;
     }
@@ -174,7 +172,7 @@
       color:#333; display:block; margin-top:10px; text-shadow:none;
     }
 
-    /* ===== Dramatic entrance (unchanged) ===== */
+    /* ===== Dramatic entrance ===== */
     @keyframes emergePop {
       0%   { transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85); }
       40%  { transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1; }
@@ -203,33 +201,6 @@
     .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
     .cal-hud.on{ opacity:1; }
 
-    /* --- Mode switch button --- */
-    .mode-switch {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 120;
-      background:#fff;
-      color:#111;
-      border:3px solid #000;
-      border-radius:999px;
-      padding:10px 14px;
-      font: 500 14px/1 Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      text-decoration:none;
-      box-shadow:0 4px 0 #000, 0 10px 22px rgba(0,0,0,.25);
-      transform: translateZ(0);
-      transition: transform .08s ease, box-shadow .08s ease;
-    }
-    .mode-switch:hover,
-    .mode-switch:focus-visible {
-      transform: translateY(-1px);
-      box-shadow:0 5px 0 #000, 0 12px 26px rgba(0,0,0,.28);
-      outline: none;
-    }
-    @media (max-width:600px){
-      .mode-switch{ top:8px; right:8px; padding:9px 12px; font-size:13px; }
-    }
-
     @media(max-width:600px){
       .output-container{ max-width:94vw; }
       .speech-bubble{ border-radius:28px; padding:14px 18px 14px 16px; }
@@ -239,9 +210,6 @@
   </style>
 </head>
 <body>
-  <!-- Airmail mode switch -->
-  <a class="mode-switch" href="airmail.html" aria-label="Switch to Airmail mode" aria-keyshortcuts="Shift+M">✈️&nbsp;Airmail mode</a>
-
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
   <div class="scene-container">
@@ -327,7 +295,7 @@
     let raf,animating=false,tagPlaying=false;
     let currentObjectURL=null, iosAudioInitialized=false;
 
-    /* ===== micro scheduler: kill stale timeouts to avoid early closes ===== */
+    /* ===== micro scheduler ===== */
     const timers = new Set();
     function delay(ms, fn){
       const id = setTimeout(()=>{ timers.delete(id); fn && fn(); }, ms);
@@ -602,11 +570,9 @@
       if(busy) return;
       try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
       busy=true; setFrozen(false); 
-      // stop any old audio
       try{ if(window.currentSource) currentSource.stop(0); }catch(_){}
       try{ if(window.audioEl){ audioEl.pause(); audioEl.currentTime=0; } }catch(_){}
 
-      // open & stage
       typed.textContent='';
       const oldTag=document.querySelector('#output .work-tag'); if(oldTag) oldTag.remove();
       openDoor();
@@ -617,9 +583,9 @@
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
         const work = data.work || null, author = data.author || null;
-        const text = (data.text||'').trim().replace(/!+$/,''); // bubble handles period
+        const text = (data.text||'').trim().replace(/!+$/,'');
 
-        typeOut(text.endsWith('.')||text.endsWith('?')||text.endsWith('!') ? text : text+'.', async ()=>{
+        typeOut(/[.?!]$/.test(text) ? text : (text + '.'), async ()=>{
           const onEnd = ()=>{
             showWork(work, author);
             placeBubble();
@@ -627,7 +593,6 @@
           };
           if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
           else {
-            // silent timing fallback
             const approx=Math.min(7, Math.max(2.2, text.length/16));
             setTimeout(onEnd, (approx+0.2)*1000);
           }
@@ -701,13 +666,6 @@ C=toggle  M=switch target  R=reset saved`;
         if(e.key==='ArrowDown')  { document.documentElement.style.setProperty('--mouth-top', (top + pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
         if(e.key==='ArrowLeft')  { document.documentElement.style.setProperty('--mouth-left',(left- pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
         if(e.key==='ArrowRight') { document.documentElement.style.setProperty('--mouth-left',(left+ pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
-      }
-    });
-
-    /* Optional: Shift+M to jump to Airmail mode */
-    window.addEventListener('keydown', (e)=>{
-      if(e.shiftKey && (e.key==='m' || e.key==='M')) {
-        location.href = 'airmail.html';
       }
     });
 
