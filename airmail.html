@@ -16,61 +16,63 @@
     :root{
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* mouth */
+      --ivy-h: 22vh;          /* lower wall so sky dominates */
       --mouth-top:39%;
       --mouth-left:49%;
       --mouth-w:20px;
       --mouth-h:20px;
       --mouth-scale-0:.05;
-
       --char-ms:18;
       --tail-x:50%;
-      --ivy-h:28vh; /* lower wall so sky dominates */
     }
 
     *{box-sizing:border-box}
     html,body{
       margin:0;padding:0;height:100%;overflow:hidden;
       background:
-        radial-gradient(1200px 600px at 50% -200px, rgba(255,255,255,.45), transparent 60%),
-        linear-gradient(#86c2ff 0%, #a9d6ff 45%, #cfe8ff 100%); /* cleaner sky */
+        radial-gradient(1200px 600px at 50% -220px, rgba(255,255,255,.42), transparent 60%),
+        linear-gradient(#86c2ff 0%, #a9d6ff 45%, #cfe8ff 100%);
       font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       color:#111;
     }
 
     /* ===== Back button ===== */
     .mode-switch {
-      position: fixed; top: 10px; left: 10px; z-index: 500;
+      position: fixed; top: 10px; left: 10px; z-index: 900;
       background:#fff; color:#111; border:3px solid #000; border-radius:12px;
       padding:10px 12px; text-decoration:none;
       display:flex; gap:8px; align-items:center;
       box-shadow:0 4px 0 #000, 0 10px 22px rgba(0,0,0,.25);
     }
 
-    /* ===== Planes (nice SVG + bob) ===== */
-    .sky{ position:absolute; inset:0; pointer-events:none; z-index:120; }
+    /* ===== SKY / PLANES ===== */
+    .sky{ position:absolute; inset:0; z-index:120; }
 
     .plane{
-      position:absolute; top:12vh; width:84px; height:48px;
-      pointer-events:auto; cursor:pointer;
-      animation:
-        driftLR var(--spd,18s) linear infinite,
-        bob var(--bobDur,4.8s) ease-in-out infinite;
+      position:absolute; top:12vh; width:84px; height:48px; left:-18vw;
+      cursor:pointer; pointer-events:auto;
       filter: drop-shadow(0 8px 14px rgba(0,0,0,.22));
+      animation: driftLR var(--spd,18s) linear forwards;
+      /* each plane wrapper animates translateX; inner SVG handles bob/tilt */
     }
-    /* LEFT -> RIGHT */
-    @keyframes driftLR{
-      from{ transform: translateX(-18vw); }
-      to  { transform: translateX(118vw); }
+    .plane.rl{ left:auto; right:-18vw; animation: driftRL var(--spd,18s) linear forwards; }
+
+    /* bob/tilt only on the SVG so it doesn't overwrite drift */
+    .plane svg{
+      width:100%; height:100%; display:block;
+      animation:
+        bob var(--bobDur,4.8s) ease-in-out infinite,
+        tilt 6s ease-in-out infinite;
+      transform-origin: 60% 50%;
     }
-    @keyframes bob{
-      0%,100%{ transform: translateY(0); }
-      50%    { transform: translateY(-10px); }
-    }
-    .plane svg{ width:100%; height:100%; display:block; }
-    .plane .body{
-      fill:url(#paperShade); stroke:#111; stroke-width:3.5; stroke-linejoin:round;
-    }
+    .plane.face-left svg{ transform: scaleX(-1); }
+
+    @keyframes driftLR { from{ transform: translateX(0); } to{ transform: translateX(120vw); } }
+    @keyframes driftRL { from{ transform: translateX(0); } to{ transform: translateX(-120vw); } }
+    @keyframes bob { 0%,100%{ translate: 0 0; } 50%{ translate: 0 -10px; } }
+    @keyframes tilt{ 0%,100%{ rotate: 0deg; } 50%{ rotate: -4deg; } }
+
+    .plane .body{ fill:url(#paperShade); stroke:#111; stroke-width:3.5; stroke-linejoin:round; }
     .plane .crease{ stroke:#111; stroke-width:2.2; fill:none; stroke-linecap:round; opacity:.9; }
     .plane .edge{ stroke:#111; stroke-width:3; fill:none; stroke-linecap:round; }
 
@@ -86,48 +88,37 @@
       100%{ transform: translate(var(--tx), var(--ty)) rotate(480deg) scale(.94); opacity:.92; }
     }
 
-    /* ===== Ivy wall ===== */
+    /* ===== IVY WALL ===== */
     .ivy{
       position:absolute; left:0; right:0; bottom:0; height:var(--ivy-h);
       z-index:150;
-      background: url('ivy.jpg') center/cover no-repeat, linear-gradient(#1c5a2b, #184b24); /* photo texture + safe fallback */
+      background: url('ivy.jpg') center/cover no-repeat, linear-gradient(#1c5a2b, #184b24);
       border-top:6px solid rgba(0,0,0,.6);
       box-shadow: inset 0 18px 28px rgba(0,0,0,.35);
     }
 
-    /* Opening/sign block like Wrigley */
     .opening{
       position:absolute; left:50%; transform:translateX(-50%);
-      bottom: calc(var(--ivy-h) - 54px);
+      bottom: calc(var(--ivy-h) - 40px);   /* sits a touch below the rim */
       width:150px; height:86px; z-index:180;
-      background:#f6c41f; /* sign yellow */
+      background:#f6c41f;
       border:6px solid #111; border-radius:6px;
       box-shadow:0 8px 0 #000, 0 16px 26px rgba(0,0,0,.45), inset 0 -8px 0 rgba(0,0,0,.12);
       display:flex; align-items:center; justify-content:center;
     }
-    .opening::after{ /* grime/age */
-      content:""; position:absolute; inset:0;
-      background:
-        radial-gradient(circle at 20% 30%, rgba(0,0,0,.06), transparent 38%),
-        radial-gradient(circle at 80% 70%, rgba(0,0,0,.05), transparent 42%);
-      pointer-events:none; border-radius:2px;
-    }
     .digits{
       font:900 42px/1 Rubik, system-ui;
       letter-spacing:2px;
-      color:#c75f00; /* warm orange like the 400 */
-      text-shadow:
-        0 0 1px #c75f00,
-        0 2px 0 #000,
-        0 4px 6px rgba(0,0,0,.35);
+      color:#c75f00;
+      text-shadow: 0 0 1px #c75f00, 0 2px 0 #000, 0 4px 6px rgba(0,0,0,.35);
       transform:skewX(-6deg);
     }
 
-    /* Ivy lip that hides the reader’s body */
+    /* rim just ABOVE the sign (no overlap on numbers) */
     .ivy-lip{
-      position:absolute; z-index:190;
-      width:200px; height:36px; left:50%; transform:translateX(-50%);
-      bottom: calc(var(--ivy-h) - 12px);
+      position:absolute; z-index:190; width:220px; height:28px;
+      left:50%; transform:translateX(-50%);
+      bottom: calc(var(--ivy-h) - 8px);  /* above sign by ~32px */
       background: url('ivy.jpg') center/cover no-repeat, linear-gradient(#1c5a2b,#184b24);
       border-top:5px solid rgba(0,0,0,.55);
       box-shadow:0 -2px 10px rgba(0,0,0,.45), 0 10px 14px rgba(0,0,0,.35);
@@ -135,11 +126,11 @@
       pointer-events:none;
     }
 
-    /* Reader head that pops up at opening */
+    /* ===== READER (head only) ===== */
     .reader{
-      position:absolute; z-index:185;
-      left:50%; transform:translateX(-50%) translateY(40px) scale(.96);
-      bottom: calc(var(--ivy-h) - 4px);
+      position:absolute; z-index:185; left:50%;
+      transform:translateX(-50%) translateY(40px) scale(.96);
+      bottom: calc(var(--ivy-h) - 6px);
       width:118px; height:160px; display:none;
       filter: drop-shadow(0 12px 24px rgba(0,0,0,.5));
     }
@@ -185,8 +176,8 @@
 
     @media (max-width:680px){
       .reader{ width:102px; height:140px; }
-      .plane{ width:72px; height:42px; }
-      .opening{ width:136px; height:78px; }
+      .opening{ width:136px; height:78px; bottom: calc(var(--ivy-h) - 36px); }
+      .ivy-lip{ bottom: calc(var(--ivy-h) - 6px); }
       .digits{ font-size:38px; }
     }
   </style>
@@ -194,7 +185,7 @@
 <body>
   <a class="mode-switch" href="index.html">🏛 Temple</a>
 
-  <!-- planes -->
+  <!-- planes go here -->
   <div class="sky" id="sky"></div>
 
   <!-- ivy wall + opening + lip -->
@@ -226,9 +217,9 @@
 
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
+  <!-- defs for paper shading -->
   <svg width="0" height="0" style="position:absolute">
     <defs>
-      <!-- subtle paper shading -->
       <linearGradient id="paperShade" x1="0" x2="1" y1="0" y2="1">
         <stop offset="0" stop-color="#ffffff"/>
         <stop offset=".65" stop-color="#f7f7f7"/>
@@ -252,35 +243,39 @@
     const clickSnd = document.getElementById('clickSnd');
     const sky = document.getElementById('sky');
 
-    /* ===== Pretty paper airplane SVG ===== */
+    /* ===== Nice plane SVG ===== */
     const PLANE_SVG = `
       <svg viewBox="0 0 84 48" aria-hidden="true">
-        <!-- outline body -->
         <path class="body" d="M6 24 L78 10 L52 40 L40 30 L30 36 L34 26 L6 24 Z"/>
-        <!-- wing edge -->
         <path class="edge" d="M34 26 L72 14" />
-        <!-- inner creases -->
         <path class="crease" d="M6 24 L40 30" />
         <path class="crease" d="M34 26 L44 34" />
       </svg>`;
 
-    /* ===== Planes ===== */
-    function makePlane({delay=0, top='12vh', speed=16, bob=4.8}={}){
+    /* ===== Spawner: real drift across screen ===== */
+    function spawnPlane(){
+      const dirRL = Math.random() < 0.65; // mostly right->left
       const el = document.createElement('div');
-      el.className = 'plane';
-      el.style.top = top;
-      el.style.setProperty('--spd', speed+'s');
-      el.style.setProperty('--bobDur', bob+'s');
-      el.style.animationDelay = delay + 's';
+      el.className = 'plane' + (dirRL ? ' rl' : '');
       el.innerHTML = PLANE_SVG;
-      el.addEventListener('click', onPlaneClick);
+      if(dirRL) el.classList.add('face-left');
+
+      // random altitude & pace
+      el.style.top = (8 + Math.random()*12) + 'vh';
+      el.style.setProperty('--spd', (14 + Math.random()*7) + 's');
+      el.style.setProperty('--bobDur', (4.4 + Math.random()*1.2) + 's');
+
+      el.addEventListener('click', onPlaneClick, {once:true});
       sky.appendChild(el);
+
+      // cleanup after it leaves
+      const total = parseFloat(getComputedStyle(el).getPropertyValue('--spd'))*1000;
+      setTimeout(()=> el.remove(), total + 200);
     }
-    // a few varied planes
-    makePlane({delay:.2,  top:'11vh', speed:14, bob:4.6});
-    makePlane({delay:3.4, top:'15vh', speed:17, bob:5.2});
-    makePlane({delay:6.6, top:'9vh',  speed:19, bob:4.9});
-    makePlane({delay:9.8, top:'13vh', speed:16, bob:5.3});
+
+    // start a few immediately, then keep spawning
+    for(let i=0;i<3;i++) setTimeout(spawnPlane, i*800);
+    setInterval(spawnPlane, 2600 + Math.random()*1600);
 
     function onPlaneClick(e){
       try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
@@ -294,6 +289,7 @@
       fall.style.width = r.width + 'px';
       fall.style.height= r.height + 'px';
       fall.innerHTML = PLANE_SVG;
+      if(plane.classList.contains('face-left')) fall.firstElementChild.style.transform='scaleX(-1)';
 
       // target: opening center, just above its top edge
       const pr = opening.getBoundingClientRect();
@@ -303,10 +299,9 @@
       fall.style.setProperty('--ty', ty + 'px');
 
       document.body.appendChild(fall);
-
       fall.addEventListener('animationend', ()=>{
         fall.remove();
-        setTimeout(()=>popAndSpeak(), 200); // a beat behind the ivy
+        setTimeout(()=>popAndSpeak(), 180);
       }, {once:true});
     }
 
@@ -342,7 +337,7 @@
       document.getElementById('output').appendChild(span);
     }
 
-    /* ===== Audio mouth (same rig) ===== */
+    /* ===== Audio mouth rig (unchanged from temple) ===== */
     let audioCtx, analyser, timeData, currentSource, audioEl, mediaSource, tagPlaying=false, currentURL=null, iosInit=false;
     const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
     function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
@@ -384,9 +379,9 @@
     const TH_UP=[0.030,0.060,0.100,0.160], HDEL=0.018, TH_DN=TH_UP.map(t=>Math.max(0,t-HDEL));
     const FLOOR=0.010, CLOSE_MS=20; let level=0, lastChange=0, rafId=null, animOn=false;
     function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; document.getElementById('mouth').style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
-    function rms(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++) s+=timeData[i]*timeData[i]; const r=Math.sqrt(s/timeData.length); return r<FLOOR?0:r; }
     function startMouth(){ if(animOn) return; animOn=true; rafId=requestAnimationFrame(tick); }
     function stopMouth(){ animOn=false; cancelAnimationFrame(rafId); setLevel(0); }
+    function rms(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++) s+=timeData[i]*timeData[i]; const r=Math.sqrt(s/timeData.length); return r<FLOOR?0:r; }
     function tick(){
       if(!animOn) return; rafId=requestAnimationFrame(tick);
       const active=!!currentSource||tagPlaying, now=performance.now();
@@ -420,7 +415,8 @@
         const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
         const buf=await audioCtx.decodeAudioData(bin.buffer);
         currentSource=audioCtx.createBufferSource(); currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
-        attachAnalyserToBufferSource(currentSource);
+        try{ currentSource.disconnect(); }catch(_){}
+        currentSource.connect(analyser); analyser.connect(audioCtx.destination);
         setLevel(0); startMouth(); currentSource.start();
         currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd&&onEnd(); };
         return;
@@ -430,6 +426,20 @@
     }
 
     /* ===== Sequence ===== */
+    function placeBubbleOverOpening(){
+      const pr = opening.getBoundingClientRect();
+      outputContainer.classList.add('active');
+      const x = pr.left + pr.width/2;
+      const y = pr.top;
+      const card = outputContainer.getBoundingClientRect();
+      const gap = 18;
+      const top = Math.max(8, Math.round(y - gap - card.height));
+      outputContainer.style.top = top + 'px';
+      const tailPx = x - card.left;
+      const tailPct = Math.max(8, Math.min(92, tailPx / card.width * 100));
+      outputContainer.style.setProperty('--tail-x', tailPct + '%');
+    }
+
     async function popAndSpeak(){
       reader.classList.remove('hide');
       reader.classList.add('active');
@@ -442,10 +452,7 @@
         const textRaw = (data.text || '').trim().replace(/!+$/,'');
         const text = /[.?!]$/.test(textRaw) ? textRaw : textRaw + '.';
 
-        const pr = opening.getBoundingClientRect();
-        outputContainer.classList.add('active');
-        placeBubbleOver(pr.left + pr.width/2, pr.top);
-
+        placeBubbleOverOpening();
         typeOut(text, ()=>{ showWork(data.work||null, data.author||null); });
 
         if(data.audioBase64){
@@ -466,7 +473,7 @@
       }
     }
 
-    // keyboard helper: Shift+T to temple
+    // little accessibility helper: Shift+T to temple
     window.addEventListener('keydown', e=>{ if(e.shiftKey && (e.key==='t'||e.key==='T')) location.href='index.html'; });
   </script>
 </body>
