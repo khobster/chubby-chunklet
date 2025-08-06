@@ -9,9 +9,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: Rubik for UI/HUD; Boogaloo for the bubble text -->
+  <!-- Fonts: Rubik for UI/HUD; Emilys Candy for the bubble text -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -102,21 +102,25 @@
     /* ===== Speech bubble (Peanuts-style) ===== */
     .output-container{
       position:fixed; left:50%; transform:translateX(-50%);
-      width:76%; max-width:860px; min-width:280px;
+      /* allow the bubble to size to content (but cap the width) */
+      width:auto; max-width:90vw;
       z-index:40; opacity:0; transition:opacity 0.5s;
       pointer-events:none; top:var(--output-top-fallback);
+      text-align:center; /* centers inline bubble when it’s narrower */
     }
     .output-container.active{ opacity:1; }
 
-    .bubble-wrap{ position:relative; }
+    .bubble-wrap{ position:relative; display:inline-block; }
     .speech-bubble{
       position:relative;
       background:#fff;
       border:6px solid #000;
-      border-radius:38px;
-      padding:26px 40px 26px 32px; /* room for the emoji */
+      border-radius:32px;
+      padding:18px 26px 18px 22px; /* tighter all around + room for emoji */
       color:#111;
       box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
+      display:inline-block;
+      max-width:86vw; /* wrapping cap */
     }
     /* Rounded tail via SVG (stroke = outline) */
     .bubble-tail{
@@ -128,31 +132,31 @@
       overflow:visible; pointer-events:none;
     }
 
-    /* Freeze toggle emoji — no ring/chip, sits inside bubble */
+    /* Freeze toggle emoji — minimal, inside bubble */
     .freeze-emoji{
       position:absolute;
-      top:8px; right:10px;
-      display:none; /* only show when bubble shows */
+      top:6px; right:8px;
+      display:none;
       font-size:18px; line-height:1;
-      background:transparent; border:none; border-radius:0; box-shadow:none;
+      background:transparent; border:none;
       cursor:pointer; user-select:none;
     }
     .output-container.active .freeze-emoji{ display:block; pointer-events:auto; }
 
-    /* Speech text — Boogaloo + slightly relaxed tight tracking */
+    /* Speech text — Emilys Candy + very tight tracking */
     .output{
-      font-family:"Boogaloo", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
       font-weight:400;
-      font-size:clamp(22px, 2.5vw, 36px);
-      line-height:1.06;
-      letter-spacing:-0.035em;      /* a little wider than before */
-      word-spacing:-0.02em;
+      font-size:clamp(22px, 2.4vw, 36px);
+      line-height:1.04;
+      letter-spacing:-0.06em;
+      word-spacing:-0.04em;
       color:#111;
-      text-align:center;
       margin:0;
       white-space:pre-wrap;
       text-shadow:none;
+      text-align:center;
     }
     .cursor{
       display:inline-block; width:.5ch; height:1.05em; background:#111;
@@ -165,12 +169,12 @@
     .output .work-tag{
       opacity:.95; text-transform:uppercase;
       margin-left:.6em; font-size:.62em;
-      letter-spacing:-0.035em;      /* match main tracking */
-      word-spacing:-0.02em;
+      letter-spacing:-0.06em;
+      word-spacing:-0.04em;
       color:#333; display:block; margin-top:10px; text-shadow:none;
     }
 
-    /* ===== Dramatic entrance (shorter distance + slower) ===== */
+    /* ===== Dramatic entrance (unchanged) ===== */
     @keyframes emergePop {
       0%   { transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85); }
       40%  { transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1; }
@@ -200,10 +204,10 @@
     .cal-hud.on{ opacity:1; }
 
     @media(max-width:600px){
-      .output-container{ width:92%; }
-      .output{ font-size:clamp(18px, 4vw, 28px); letter-spacing:-0.035em; line-height:1.1; }
-      .speech-bubble{ border-radius:30px; padding:20px 28px 20px 22px; }
-      .freeze-emoji{ top:6px; right:8px; }
+      .output-container{ max-width:94vw; }
+      .speech-bubble{ border-radius:28px; padding:14px 18px 14px 16px; }
+      .output{ font-size:clamp(18px, 4.1vw, 28px); letter-spacing:-0.06em; line-height:1.07; }
+      .freeze-emoji{ top:4px; right:6px; font-size:16px; }
     }
   </style>
 </head>
@@ -250,7 +254,6 @@
         <div class="output" id="output">
           <span id="typed"></span><span id="cursor" class="cursor"></span>
         </div>
-        <!-- simple emoji freeze toggle (no ring) -->
         <div id="freezeEmoji" class="freeze-emoji" title="Freeze">❄️</div>
       </div>
       <!-- SVG rounded tail -->
@@ -452,26 +455,23 @@
       const guyRect  = chunkletContainer.getBoundingClientRect();
       if(!(cardRect.width && guyRect.width)) return;
 
-      // Keep bubble above Chunklet with a safe gap
       const desiredBottom = Math.max(8, guyRect.top - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')));
       const newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
       outputContainer.style.top = newTop + 'px';
 
-      // Aim tail
       const cardLeft = cardRect.left;
       const tailPx = (guyRect.left + guyRect.width/2) - cardLeft;
       const tailPct = Math.max(8, Math.min(92, tailPx / cardRect.width * 100));
       outputContainer.style.setProperty('--tail-x', tailPct + '%');
     }
 
-    // Re-aim tail whenever bubble size changes (text wrapping)
     const ro = new ResizeObserver(()=>placeBubble());
     ro.observe(outputContainer);
 
     function onReadyToPosition(){
       positionDoorAndChunklet();
-      delay(50, positionDoorAndChunklet);
-      delay(250, positionDoorAndChunklet);
+      setTimeout(positionDoorAndChunklet, 50);
+      setTimeout(positionDoorAndChunklet, 250);
     }
     if(bgImg.complete) onReadyToPosition(); else bgImg.addEventListener('load', onReadyToPosition);
     window.addEventListener('resize', positionDoorAndChunklet);
@@ -483,23 +483,23 @@
       positionDoorAndChunklet();
       doorOpen=true; doorTrigger.classList.add('door-open');
 
-      delay(DOOR_SWING_MS, ()=>{
+      setTimeout(()=>{
         chunkletContainer.classList.add('active','emerge');
-        delay(EMERGE_MS, ()=>{
+        setTimeout(()=>{
           chunkletContainer.classList.remove('emerge');
           chunkletContainer.classList.add('waddle');
-          delay(WADDLE_MS, ()=>{
+          setTimeout(()=>{
             outputContainer.classList.add('active');
             placeBubble();
-          });
-        });
-      });
+          }, WADDLE_MS);
+        }, EMERGE_MS);
+      }, DOOR_SWING_MS);
     }
     function closeDoor(){
       if(!doorOpen) return; doorOpen=false;
       chunkletContainer.classList.remove('active','emerge','waddle');
       outputContainer.classList.remove('active');
-      delay(500, ()=>{ doorTrigger.classList.remove('door-open'); busy=false; });
+      setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
     }
 
     /* TTS playback */
@@ -525,7 +525,7 @@
         }catch(err){
           console.error('iOS audio playback failed', err);
           startMouth(); const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
-          delay((approx+0.2)*1000, ()=>{ stopMouth(); onEnd&&onEnd(); }); return;
+          setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000); return;
         }
       }
       try{
@@ -553,55 +553,60 @@
       }catch(err){
         console.error('Plain <audio> failed', err);
         startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
-        delay((approx+0.2)*1000, ()=>{ stopMouth(); onEnd&&onEnd(); });
+        setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
       }
     }
 
     /* Freeze toggle (emoji) */
     function setFrozen(v){
       frozen = !!v;
-      freezeEmoji.textContent = frozen ? '💫' : '❄️';  // ❄️ click to freeze, 💫 to resume
+      freezeEmoji.textContent = frozen ? '💫' : '❄️';
       freezeEmoji.setAttribute('title', frozen ? 'Unfreeze' : 'Freeze');
-      if(frozen){ clearTimers(); } // pin everything exactly as-is
-      else { if(doorOpen && outputContainer.classList.contains('active')) scheduleAutoClose(); }
+      if(frozen){ [...document.querySelectorAll('video,audio')].forEach(el=>{ try{el.pause();}catch(_){}}); }
+      else { if(doorOpen && outputContainer.classList.contains('active')) setTimeout(()=>closeDoor(), 3000); }
     }
     freezeEmoji.addEventListener('click', (e)=>{ e.stopPropagation(); setFrozen(!frozen); });
-
-    function scheduleAutoClose(){
-      clearTimers();
-      delay(3000, ()=>{ if(!frozen) closeDoor(); });
-    }
 
     /* main */
     async function summon(){
       if(busy) return;
       try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
-      busy=true; stopAudio(); clearTimers(); setFrozen(false); openDoor();
+      busy=true; setFrozen(false); 
+      // stop any old audio
+      try{ if(window.currentSource) currentSource.stop(0); }catch(_){}
+      try{ if(window.audioEl){ audioEl.pause(); audioEl.currentTime=0; } }catch(_){}
 
-      typed.textContent=''; const oldTag=document.querySelector('#output .work-tag'); if(oldTag) oldTag.remove();
+      // open & stage
+      typed.textContent='';
+      const oldTag=document.querySelector('#output .work-tag'); if(oldTag) oldTag.remove();
+      openDoor();
 
       try{
-        await new Promise(r=>delay(DOOR_SWING_MS + EMERGE_MS + WADDLE_MS, r));
+        await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
         const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
         const work = data.work || null, author = data.author || null;
-        const text = sanitize(data.text);
+        const text = (data.text||'').trim().replace(/!+$/,''); // bubble handles period
 
-        typeOut(text, async ()=>{
+        typeOut(text.endsWith('.')||text.endsWith('?')||text.endsWith('!') ? text : text+'.', async ()=>{
           const onEnd = ()=>{
             showWork(work, author);
             placeBubble();
-            if(!frozen) scheduleAutoClose();
+            if(!frozen) setTimeout(()=>closeDoor(), 3000);
           };
           if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
-          else { startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16)); delay((approx+0.2)*1000, ()=>{ stopMouth(); onEnd(); }); }
+          else {
+            // silent timing fallback
+            const approx=Math.min(7, Math.max(2.2, text.length/16));
+            setTimeout(onEnd, (approx+0.2)*1000);
+          }
         });
 
       }catch(e){
         console.error(e);
         typeOut('A shy packet tripped. Try again.');
-        delay(2000, ()=>{ if(!frozen) closeDoor(); else busy=false; });
+        setTimeout(()=>{ if(!frozen) closeDoor(); else busy=false; }, 2000);
       }
     }
 
@@ -669,7 +674,11 @@ C=toggle  M=switch target  R=reset saved`;
       }
     });
 
-    positionDoorAndChunklet();
+    // initial layout
+    (function boot(){
+      positionDoorAndChunklet();
+      if(bgImg.complete) placeBubble(); else bgImg.addEventListener('load', placeBubble);
+    })();
   </script>
 </body>
 </html>
