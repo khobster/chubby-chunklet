@@ -8,15 +8,15 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: Emilys Candy for bubble text; Rubik for UI -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;700&display=swap" rel="stylesheet" />
 
   <style>
     :root{
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* reader mouth tuning */
+      /* mouth */
       --mouth-top:39%;
       --mouth-left:49%;
       --mouth-w:20px;
@@ -24,109 +24,113 @@
       --mouth-scale-0:.05;
 
       --char-ms:18;
-
-      /* bubble */
-      --bubble-gap: 18px;
-      --tail-x: 50%;
+      --tail-x:50%;
+      --ivy-h:44vh;     /* ivy wall height */
     }
 
     *{box-sizing:border-box}
     html,body{
       margin:0;padding:0;height:100%;overflow:hidden;
-      background:linear-gradient(#87c3ff, #b9e0ff 55%, #bfe6ff);
+      background:linear-gradient(#8cc8ff 0%, #bfe2ff 55%, #cfeaff 100%);
       font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       color:#111;
     }
 
-    /* ===== Top bar / back button ===== */
+    /* ===== Back button ===== */
     .mode-switch {
-      position: fixed;
-      top: 10px; left: 10px;
-      z-index: 200;
-      background:#fff; color:#111;
-      border:3px solid #000; border-radius:12px;
+      position: fixed; top: 10px; left: 10px; z-index: 300;
+      background:#fff; color:#111; border:3px solid #000; border-radius:12px;
       padding:10px 12px; text-decoration:none;
-      box-shadow:0 4px 0 #000, 0 10px 22px rgba(0,0,0,.25);
       display:flex; gap:8px; align-items:center;
+      box-shadow:0 4px 0 #000, 0 10px 22px rgba(0,0,0,.25);
     }
 
-    /* ===== Plane layer ===== */
-    .sky {
-      position: absolute; inset:0; overflow:hidden; pointer-events:none;
-    }
-    .plane {
-      position:absolute; top:12vh;
-      width:64px; height:36px;
-      pointer-events:auto; cursor:pointer; z-index:110;
-      animation:drift 18s linear infinite;
+    /* ===== Planes ===== */
+    .sky{ position:absolute; inset:0; pointer-events:none; z-index:120; }
+    .plane{
+      position:absolute; top:12vh; width:66px; height:38px;
+      pointer-events:auto; cursor:pointer;
+      animation:driftLR var(--spd,18s) linear infinite;
       filter: drop-shadow(0 6px 10px rgba(0,0,0,.18));
     }
-    /* move RIGHT -> LEFT */
-    @keyframes drift {
-      from { transform: translateX(110vw) translateY(0) rotate(0deg); }
-      to   { transform: translateX(-20vw) translateY(0) rotate(0deg); }
+    /* LEFT -> RIGHT drift */
+    @keyframes driftLR{
+      from{ transform: translateX(-20vw) translateY(0) rotate(0deg); }
+      to  { transform: translateX(110vw) translateY(0) rotate(0deg); }
     }
-    /* gentle bob (composed via nested wrapper) */
-    .bob { animation:bob 3.6s ease-in-out infinite; }
-    @keyframes bob {
-      0%,100%{ transform: translateY(0); }
-      50%{ transform: translateY(-10px); }
+    .plane svg{ width:100%; height:100%; }
+    .plane path{ fill:#fff; stroke:#111; stroke-width:4; stroke-linejoin:round; }
+    .plane .accent{ stroke-width:3; }
+
+    /* Falling clone */
+    .falling{
+      position:fixed; z-index:130; width:66px; height:38px; pointer-events:none;
+      animation:fallspin 1.1s cubic-bezier(.22,1,.36,1) forwards;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+    }
+    @keyframes fallspin{
+      0%  { transform: translate(var(--sx,0px), var(--sy,0px)) rotate(0deg) scale(1); }
+      68% { transform: translate(calc(var(--tx)*.9), calc(var(--ty)*.9)) rotate(360deg) scale(1); }
+      100%{ transform: translate(var(--tx), var(--ty)) rotate(420deg) scale(.92); }
     }
 
-    /* plane SVG look */
-    .plane svg { width:100%; height:100%; }
-    .plane path { fill:#fff; stroke:#111; stroke-width:4; stroke-linejoin:round; }
+    /* ===== Ivy wall ===== */
+    .ivy{
+      position:absolute; left:0; right:0; bottom:0; height:var(--ivy-h);
+      z-index:150;
+      /* Ivy-ish fake texture: layered radial-gradients */
+      background:
+        radial-gradient(circle at 20% 30%, #1d5b2a 0 18px, transparent 18px) 0 0/48px 48px,
+        radial-gradient(circle at 70% 60%, #1f6b31 0 18px, transparent 18px) 24px 24px/48px 48px,
+        linear-gradient(#1f662f, #1a5227);
+      border-top:6px solid #0a2f15;
+      box-shadow: inset 0 12px 18px rgba(0,0,0,.22);
+    }
 
-    /* falling clone */
-    .falling {
-      position: fixed; z-index:130; width:64px; height:36px;
+    /* Opening/sign */
+    .placard{
+      position:absolute; left:50%; transform:translateX(-50%);
+      bottom: calc(var(--ivy-h) - 64px); /* sit embedded in ivy */
+      width:120px; height:70px;
+      background:#ffd028; border:6px solid #111; border-radius:6px;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 6px 0 #000, 0 14px 26px rgba(0,0,0,.35);
+      z-index:170;
+    }
+    .placard span{
+      font:700 36px/1 Rubik, system-ui; letter-spacing:1px;
+      color:#3c2c00; text-shadow:0 2px 0 rgba(0,0,0,.2);
+    }
+
+    /* Lip that hides the reader’s body (sits above reader) */
+    .ivy-lip{
+      position:absolute; z-index:190;
+      width:160px; height:28px; left:50%; transform:translateX(-50%);
+      bottom: calc(var(--ivy-h) - 32px); /* right above placard */
+      background:
+        radial-gradient(circle at 25% 60%, #1e612e 0 12px, transparent 12px) 0 0/36px 36px,
+        radial-gradient(circle at 70% 40%, #1a5227 0 12px, transparent 12px) 18px 18px/36px 36px,
+        linear-gradient(#1c5a2b,#184b24);
+      border-top:4px solid #0a2f15;
+      box-shadow:0 -2px 6px rgba(0,0,0,.35), 0 6px 10px rgba(0,0,0,.35);
+      border-radius:6px;
       pointer-events:none;
-      animation:fallspin 1.65s cubic-bezier(.22,1,.36,1) forwards;
-      filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
-    }
-    @keyframes fallspin {
-      0% { transform: translate(var(--x,0px), var(--y,0px)) rotate(0deg) scale(1); }
-      60%{ transform: translate(calc(var(--tx,0px) * .9), calc(var(--ty,0px) * .9)) rotate(380deg) scale(1); }
-      100%{ transform: translate(var(--tx,0px), var(--ty,0px)) rotate(420deg) scale(.9); }
     }
 
-    /* ===== Crowd ===== */
-    .ground {
-      position:absolute; left:0; right:0; bottom:0; height:44vh; /* taller band */
-      display:block;
-    }
-    .crowd { position:absolute; left:50%; transform:translateX(-50%); bottom:5vh; width:min(1200px, 92vw); height:38vh; }
-    .layer { position:absolute; left:0; right:0; }
-    .layer.back  { bottom:24vh; }
-    .layer.mid   { bottom:12vh; }
-    .layer.front { bottom:0; }
-
-    /* little SVG chunklets (crowd) */
-    .chonk {
-      position:absolute;
-      width:64px; height:64px;  /* bigger than before */
-      transform: translate(-50%,-50%) scale(var(--s,1));
-      filter: drop-shadow(0 6px 10px rgba(0,0,0,.22));
-      transition: transform .25s ease, opacity .25s ease;
-    }
-    .chonk svg { width:100%; height:100%; }
-    .head   { fill:#ffd9c4; stroke:#000; stroke-width:3; }
-    .shirt  { fill:var(--shirt,#ffd028); stroke:#000; stroke-width:3; }
-    .base   { fill:#f3f3f3; stroke:#000; stroke-width:3; }
-    .face   { fill:none; stroke:#000; stroke-width:5; stroke-linecap:round; }
-
-    /* ===== Reader that pops up ===== */
-    .reader {
-      position:absolute; z-index:140; left:0; top:0; width:110px; height:150px;
-      display:none; transform:translate(-50%,-55%) scale(.86);
+    /* Reader head that pops up at opening */
+    .reader{
+      position:absolute; z-index:180;
+      left:50%; transform:translateX(-50%) translateY(40px) scale(.94);
+      bottom: calc(var(--ivy-h) - 12px);
+      width:110px; height:150px; display:none;
       filter: drop-shadow(0 10px 18px rgba(0,0,0,.45));
     }
-    .reader.active { display:block; animation:pop .35s cubic-bezier(.22,1,.36,1) forwards; }
-    @keyframes pop {
-      0%{ transform:translate(-50%,-60%) scale(.7); opacity:0; }
-      100%{ transform:translate(-50%,-55%) scale(1); opacity:1; }
-    }
-    .reader img { width:100%; height:auto; user-select:none; -webkit-user-drag:none; }
+    .reader.active{ display:block; animation:pop-up .35s cubic-bezier(.22,1,.36,1) forwards; }
+    .reader.hide { animation:pop-down .35s cubic-bezier(.22,1,.36,1) forwards; }
+    @keyframes pop-up   { from{ transform:translateX(-50%) translateY(40px) scale(.9); opacity:0; } to{ transform:translateX(-50%) translateY(-22px) scale(1); opacity:1; } }
+    @keyframes pop-down { from{ transform:translateX(-50%) translateY(-22px) scale(1); opacity:1; } to{ transform:translateX(-50%) translateY(40px) scale(.9); opacity:0; } }
+
+    .reader img{ width:100%; height:auto; user-select:none; -webkit-user-drag:none; }
     .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; }
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
@@ -135,39 +139,34 @@
     .output-container{
       position:fixed; left:50%; transform:translateX(-50%); top:8vmin;
       width:auto; max-width:90vw; text-align:center;
-      z-index:150; opacity:0; transition:opacity .4s;
-      pointer-events:none;
+      z-index:250; opacity:0; transition:opacity .35s; pointer-events:none;
     }
     .output-container.active{ opacity:1; }
     .bubble-wrap{ position:relative; display:inline-block; }
     .speech-bubble{
       position:relative; background:#fff; color:#111;
       border:6px solid #000; border-radius:32px;
-      padding:18px 26px 18px 22px; box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
+      padding:18px 26px 18px 22px;
+      box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
       display:inline-block; max-width:86vw;
     }
     .bubble-tail{
       position:absolute; bottom:-2px; left:var(--tail-x);
-      transform:translate(-50%, 100%); width:44px; height:28px;
-      overflow:visible; pointer-events:none;
+      transform:translate(-50%, 100%); width:44px; height:28px; overflow:visible;
     }
     .output{
       font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase; font-weight:400;
       font-size:clamp(22px, 2.4vw, 36px);
       line-height:1.04; letter-spacing:-0.06em; word-spacing:-0.04em;
-      margin:0; white-space:pre-wrap; text-shadow:none; text-align:center;
+      margin:0; white-space:pre-wrap; text-align:center;
     }
     .cursor{ display:inline-block; width:.5ch; height:1.05em; background:#111; vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px; }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
     .typing .cursor{animation:none}
-    .output .work-tag{
-      opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.62em;
-      letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:10px;
-    }
+    .output .work-tag{ opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.62em; letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:10px; }
 
     @media (max-width:680px){
-      .chonk{ width:52px; height:52px; }
       .reader{ width:96px; height:132px; }
     }
   </style>
@@ -178,16 +177,12 @@
   <!-- planes -->
   <div class="sky" id="sky"></div>
 
-  <!-- ground & crowd -->
-  <div class="ground">
-    <div class="crowd" id="crowd">
-      <div class="layer back"></div>
-      <div class="layer mid"></div>
-      <div class="layer front"></div>
-    </div>
-  </div>
+  <!-- ivy wall + sign + lip -->
+  <div class="ivy" id="ivy"></div>
+  <div class="placard" id="placard"><span>43899</span></div>
+  <div class="ivy-lip" id="ivyLip"></div>
 
-  <!-- reader pop-up (uses PNG) -->
+  <!-- reader head -->
   <div class="reader" id="reader">
     <img src="littleboytalk.png" alt="Reader" />
     <div class="mouth-overlay">
@@ -199,7 +194,9 @@
   <div class="output-container" id="outputContainer" aria-live="polite">
     <div class="bubble-wrap">
       <div class="speech-bubble" id="bubble">
-        <div class="output" id="output"><span id="typed"></span><span id="cursor" class="cursor"></span></div>
+        <div class="output" id="output">
+          <span id="typed"></span><span id="cursor" class="cursor"></span>
+        </div>
       </div>
       <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -210,7 +207,7 @@
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
   <script>
-    /* ===== Endpoint / fonts / helpers ===== */
+    /* ===== Endpoint / basics ===== */
     const ENDPOINT = getComputedStyle(document.documentElement).getPropertyValue('--endpoint').trim()
       || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
     const QUERY = '?style=canon&modern=0&accent=scottish';
@@ -219,92 +216,63 @@
     const outputContainer = document.getElementById('outputContainer');
     const bubbleTail = document.getElementById('bubbleTail');
     const typed = document.getElementById('typed');
-    const cursor = document.getElementById('cursor');
-
     const reader = document.getElementById('reader');
+    const placard = document.getElementById('placard');
     const clickSnd = document.getElementById('clickSnd');
-
     const sky = document.getElementById('sky');
-    const crowdEl = document.getElementById('crowd');
 
-    /* ===== build planes ===== */
-    function makePlane(delay=0, top='12vh', speed=18){
-      const wrap = document.createElement('div');
-      wrap.className = 'plane';
-      wrap.style.top = top;
-      wrap.style.animationDuration = speed + 's';
-      wrap.style.animationDelay = delay + 's';
-
-      const bob = document.createElement('div');
-      bob.className = 'bob';
-      bob.innerHTML = `
-        <svg viewBox="0 0 64 36" aria-hidden="true">
-          <path d="M6 18 L58 6 L38 30 L30 22 Z"/>
-          <path d="M32 16 L46 12" />
-        </svg>`;
-      wrap.appendChild(bob);
-
-      wrap.addEventListener('click', onPlaneClick);
-      sky.appendChild(wrap);
-    }
-
-    // a few planes staggered
-    makePlane(0.2,  '10vh', 16);
-    makePlane(4.2,  '8vh',  18);
-    makePlane(8.1,  '15vh', 20);
-
-    /* ===== crowd ===== */
-    const COLORS = ['#ffd028','#ff6a5e','#8fd14f','#6ecbff','#b588ff','#ff9ed1','#ffb86b','#69e0c1'];
-    const LAYERS = Array.from(crowdEl.querySelectorAll('.layer'));
-    const CROWD_COUNT = 60;
-
-    const crowd = [];
-    for(let i=0;i<CROWD_COUNT;i++){
-      const layer = (i%3); // scatter roughly equally
+    /* ===== Planes ===== */
+    function makePlane(delay=0, top='12vh', speed=16){
       const el = document.createElement('div');
-      el.className = 'chonk';
-      const shirt = COLORS[(Math.random()*COLORS.length)|0];
-      const s = 0.9 + Math.random()*0.3;
-      el.style.setProperty('--s', s.toFixed(2));
-      el.style.setProperty('--shirt', shirt);
-
-      // dense pack: three bands, jittered
-      const col = i % 20;
-      const row = (i / 20) | 0; // 0..2
-      const baseX = (col + 0.5) / 20; // 0..1
-      const jitterX = (Math.random()*0.06 - 0.03);
-      const jitterY = (Math.random()*0.06 - 0.03);
-      const x = baseX + jitterX + (row===1?0.015:row===2?-0.015:0);
-      const yN = row*0.34 + 0.16 + jitterY; // normalized in layer
-      el.dataset.x = x; // keep logical X for picking
-
-      // place within layer with jitter, keep tight
-      el.style.left = (x*100) + '%';
-      el.style.top  = (yN*100) + '%';
-
+      el.className = 'plane';
+      el.style.top = top;
+      el.style.setProperty('--spd', speed+'s');
+      el.style.animationDelay = delay + 's';
       el.innerHTML = `
-        <svg viewBox="0 0 100 100" aria-hidden="true">
-          <circle class="head" cx="50" cy="26" r="18"/>
-          <path class="face" d="M50 35 q-6 8 0 14" />
-          <ellipse class="shirt" cx="50" cy="58" rx="20" ry="18"/>
-          <ellipse class="base"  cx="50" cy="78" rx="18" ry="10"/>
-        </svg>
-      `;
-      LAYERS[layer].appendChild(el);
-      crowd.push(el);
+        <svg viewBox="0 0 66 38" aria-hidden="true">
+          <path d="M8 20 L62 10 L40 34 L32 24 Z"/>
+          <path class="accent" d="M34 18 L48 14"/>
+        </svg>`;
+      el.addEventListener('click', onPlaneClick);
+      sky.appendChild(el);
+    }
+    makePlane(0.2, '10vh', 14);
+    makePlane(3.8, '14vh', 17);
+    makePlane(7.1, '8vh',  19);
+
+    function onPlaneClick(e){
+      try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
+      const plane = e.currentTarget;
+      const r = plane.getBoundingClientRect();
+      const fall = plane.cloneNode(true);
+      fall.classList.remove('plane'); fall.classList.add('falling');
+      fall.style.left = r.left + 'px'; fall.style.top = r.top + 'px';
+      fall.style.setProperty('--sx','0px'); fall.style.setProperty('--sy','0px');
+
+      // target: placard center, just above its top edge
+      const pr = placard.getBoundingClientRect();
+      const tx = (pr.left + pr.width/2) - (r.left + r.width/2);
+      const ty = (pr.top + pr.height*0.15) - (r.top + r.height/2);
+      fall.style.setProperty('--tx', tx + 'px');
+      fall.style.setProperty('--ty', ty + 'px');
+
+      document.body.appendChild(fall);
+
+      fall.addEventListener('animationend', ()=>{
+        fall.remove();
+        // wait a beat "behind the ivy", then pop reader + speak
+        setTimeout(()=>popAndSpeak(), 220);
+      }, {once:true});
     }
 
-    /* ===== bubble typing + placement ===== */
+    /* ===== Bubble typing & placement ===== */
     function placeBubbleOver(xPx, yPx){
-      // keep bubble above target by --bubble-gap
-      const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')) || 18;
       const card = outputContainer.getBoundingClientRect();
+      const gap = 18;
       const top = Math.max(8, Math.round(yPx - gap - card.height));
       outputContainer.style.top = top + 'px';
 
-      // tail aim
-      const cardLeft = card.left;
-      const tailPx = xPx - cardLeft;
+      const tailPx = xPx - card.left;
       const tailPct = Math.max(8, Math.min(92, tailPx / card.width * 100));
       outputContainer.style.setProperty('--tail-x', tailPct + '%');
     }
@@ -329,7 +297,7 @@
       document.getElementById('output').appendChild(span);
     }
 
-    /* ===== audio mouth ===== */
+    /* ===== Audio mouth (same rig as temple) ===== */
     let audioCtx, analyser, timeData, currentSource, audioEl, mediaSource, tagPlaying=false, currentURL=null, iosInit=false;
     const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
     function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
@@ -369,8 +337,7 @@
     }
     const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
     const TH_UP=[0.030,0.060,0.100,0.160], HDEL=0.018, TH_DN=TH_UP.map(t=>Math.max(0,t-HDEL));
-    const FLOOR=0.010, CLOSE_MS=20;
-    let level=0, lastChange=0, rafId=null, animOn=false;
+    const FLOOR=0.010, CLOSE_MS=20; let level=0, lastChange=0, rafId=null, animOn=false;
     function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; document.getElementById('mouth').style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
     function rms(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++) s+=timeData[i]*timeData[i]; const r=Math.sqrt(s/timeData.length); return r<FLOOR?0:r; }
     function startMouth(){ if(animOn) return; animOn=true; rafId=requestAnimationFrame(tick); }
@@ -401,7 +368,7 @@
           audioEl.onplay = ()=>{ setLevel(0); startMouth(); tagPlaying=true; };
           audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentURL){ URL.revokeObjectURL(currentURL); currentURL=null; } onEnd&&onEnd(); };
           const pp=audioEl.play(); if(pp!==undefined) await pp; return;
-        }catch(e){ /* fallback below */ }
+        }catch(e){ /* fall through */ }
       }
       try{
         ensureCtx(); ensureAnalyser();
@@ -413,107 +380,67 @@
         currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd&&onEnd(); };
         return;
       }catch(e){
-        // last resort: silent duration
         startMouth(); setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, 3000);
       }
     }
 
-    /* ===== plane click → fall → pick reader → speak ===== */
-    function onPlaneClick(e){
-      try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
-      const plane = e.currentTarget;
+    /* ===== Sequence ===== */
+    async function popAndSpeak(){
+      // Position bubble tail over the opening
+      const rr = reader.getBoundingClientRect();
+      const pr = placard.getBoundingClientRect();
 
-      // Freeze its drift at current spot by cloning to fixed coords
-      const r = plane.getBoundingClientRect();
-      const clone = plane.cloneNode(true);
-      clone.classList.remove('plane'); // drop drift
-      clone.classList.add('falling');
-      clone.style.left = r.left + 'px';
-      clone.style.top  = r.top  + 'px';
-      clone.style.setProperty('--x', '0px');
-      clone.style.setProperty('--y', '0px');
-
-      // landing target: directly above crowd center at same X
-      const crowdRect = crowdEl.getBoundingClientRect();
-      const targetX = 0; // we animate via translate, start at 0
-      const ty = (crowdRect.top + 8) - r.top; // fully to the crowd band
-      const tx = (r.left - r.left); // 0, we keep left fixed, translate handles path
-      clone.style.setProperty('--tx', ( (r.left) - r.left ) + 'px');
-      clone.style.setProperty('--ty', ty + 'px');
-
-      // actually, we want the plane to keep its current X, so no translateX delta
-      document.body.appendChild(clone);
-
-      // After fall completes, pick a nearby crowd member under that X
-      clone.addEventListener('animationend', ()=>{
-        const centerX = r.left + r.width/2;
-        triggerReaderAtX(centerX);
-        clone.remove();
-      }, {once:true});
-    }
-
-    function triggerReaderAtX(xPx){
-      // find nearest crowd sprite by screen X
-      let best=null, bestDist=1e9, bestRect=null;
-      for(const el of crowd){
-        const rect = el.getBoundingClientRect();
-        const cx = rect.left + rect.width/2;
-        const d = Math.abs(cx - xPx);
-        if(d<bestDist){ best=el; bestDist=d; bestRect=rect; }
-      }
-      if(!best || !bestRect) return;
-
-      // pop the reader overlay at that spot (no walking)
-      reader.style.left = (bestRect.left + bestRect.width/2) + 'px';
-      reader.style.top  = (bestRect.top + bestRect.height/2) + 'px';
+      // Pop the head
+      reader.classList.remove('hide');
       reader.classList.add('active');
 
-      // fetch a chunk and speak
-      speakAt(bestRect.left + bestRect.width/2, bestRect.top);
-    }
-
-    async function speakAt(xPx, yPx){
+      // Fetch and speak
       try{
         const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
-        const textRaw = (data.text||'').trim().replace(/!+$/,'');
+
+        const textRaw = (data.text || '').trim().replace(/!+$/,'');
         const text = /[.?!]$/.test(textRaw) ? textRaw : textRaw + '.';
 
-        // show bubble above
+        // place bubble above the opening
+        const x = pr.left + pr.width/2;
+        const y = pr.top;
         outputContainer.classList.add('active');
-        placeBubbleOver(xPx, yPx);
-        typeOut(text, ()=>{
-          showWork(data.work||null, data.author||null);
-        });
+        placeBubbleOver(x, y);
+
+        typeOut(text, ()=>{ showWork(data.work||null, data.author||null); });
 
         if(data.audioBase64){
           await playAudio(data.audioBase64, ()=>{
-            // sink back down after a beat
-            setTimeout(()=>{ reader.classList.remove('active'); outputContainer.classList.remove('active'); }, 650);
+            setTimeout(()=>{ reader.classList.add('hide'); outputContainer.classList.remove('active'); }, 500);
           });
-        } else {
-          // silent fallback timing
+        }else{
+          // silent fallback
           const approx=Math.min(7, Math.max(2.2, text.length/16));
-          setTimeout(()=>{ reader.classList.remove('active'); outputContainer.classList.remove('active'); }, (approx+0.4)*1000);
+          setTimeout(()=>{ reader.classList.add('hide'); outputContainer.classList.remove('active'); }, (approx+0.4)*1000);
         }
+
       }catch(e){
-        typed.textContent = 'A shy packet tripped. Try again.';
-        setTimeout(()=>{ reader.classList.remove('active'); outputContainer.classList.remove('active'); }, 1200);
+        outputContainer.classList.add('active');
+        typeOut('A shy packet tripped. Try again.', ()=>{
+          setTimeout(()=>{ outputContainer.classList.remove('active'); }, 1000);
+        });
+        setTimeout(()=> reader.classList.add('hide'), 800);
       }
     }
 
-    // Keep bubble tail aligned as text wraps
-    const ro = new ResizeObserver(()=>{
-      const r = reader.getBoundingClientRect();
-      if(reader.classList.contains('active')) placeBubbleOver(r.left + r.width/2, r.top);
-    });
-    ro.observe(outputContainer);
+    // Build reader at start so positioning is stable
+    (function init(){
+      // ensure reader is visually there (hidden) so bubble can aim later
+      reader.style.display='block';
+      reader.classList.add('hide'); // tucked under lip
+      setTimeout(()=>reader.classList.remove('hide'), 10); // reset
+      reader.style.display='none';
+    })();
 
-    // Optional keyboard: Shift+T to go back to Temple
-    window.addEventListener('keydown', (e)=>{
-      if(e.shiftKey && (e.key==='t' || e.key==='T')) location.href='index.html';
-    });
+    // keyboard helper: Shift+T to temple
+    window.addEventListener('keydown', e=>{ if(e.shiftKey && (e.key==='t'||e.key==='T')) location.href='index.html'; });
   </script>
 </body>
 </html>
