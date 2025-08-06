@@ -9,9 +9,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: keep Rubik for UI/HUD; use Emily's Candy for the bubble text -->
+  <!-- Fonts: Rubik for UI/HUD; Emilys Candy for the bubble text -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Emily's+Candy&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -128,7 +128,7 @@
       overflow:visible; pointer-events:none;
     }
 
-    /* Freeze toggle emoji — NO ring/chip, sits inside bubble */
+    /* Freeze toggle emoji — no ring/chip, sits inside bubble */
     .freeze-emoji{
       position:absolute;
       top:8px; right:10px;
@@ -139,15 +139,15 @@
     }
     .output-container.active .freeze-emoji{ display:block; pointer-events:auto; }
 
-    /* Speech text — Emily's Candy + ultra-tight tracking */
+    /* Speech text — Emilys Candy + slightly relaxed tight tracking */
     .output{
-      font-family:"Emily's Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
       font-weight:400;
       font-size:clamp(22px, 2.5vw, 36px);
-      line-height:1.06;               /* tighter vertical rhythm */
-      letter-spacing:-0.095em;         /* super close */
-      word-spacing:-0.04em;
+      line-height:1.08;
+      letter-spacing:-0.060em;      /* was -0.095em — a bit wider now */
+      word-spacing:-0.02em;
       color:#111;
       text-align:center;
       margin:0;
@@ -165,7 +165,8 @@
     .output .work-tag{
       opacity:.95; text-transform:uppercase;
       margin-left:.6em; font-size:.62em;
-      letter-spacing:-0.095em; word-spacing:-0.04em;
+      letter-spacing:-0.060em;      /* match main tracking */
+      word-spacing:-0.02em;
       color:#333; display:block; margin-top:10px; text-shadow:none;
     }
 
@@ -200,7 +201,7 @@
 
     @media(max-width:600px){
       .output-container{ width:92%; }
-      .output{ font-size:clamp(18px, 4vw, 28px); letter-spacing:-0.09em; line-height:1.08; }
+      .output{ font-size:clamp(18px, 4vw, 28px); letter-spacing:-0.06em; line-height:1.1; }
       .speech-bubble{ border-radius:30px; padding:20px 28px 20px 22px; }
       .freeze-emoji{ top:6px; right:8px; }
     }
@@ -385,7 +386,6 @@
 
     const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
-    /* Simple typing */
     function typeOut(text, done){
       typed.textContent='';
       output.classList.add('typing');
