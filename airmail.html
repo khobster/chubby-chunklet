@@ -25,111 +25,128 @@
 
       --char-ms:18;
       --tail-x:50%;
-      --ivy-h:44vh;     /* ivy wall height */
+      --ivy-h:28vh; /* lower wall so sky dominates */
     }
 
     *{box-sizing:border-box}
     html,body{
       margin:0;padding:0;height:100%;overflow:hidden;
-      background:linear-gradient(#8cc8ff 0%, #bfe2ff 55%, #cfeaff 100%);
+      background:
+        radial-gradient(1200px 600px at 50% -200px, rgba(255,255,255,.45), transparent 60%),
+        linear-gradient(#86c2ff 0%, #a9d6ff 45%, #cfe8ff 100%); /* cleaner sky */
       font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       color:#111;
     }
 
     /* ===== Back button ===== */
     .mode-switch {
-      position: fixed; top: 10px; left: 10px; z-index: 300;
+      position: fixed; top: 10px; left: 10px; z-index: 500;
       background:#fff; color:#111; border:3px solid #000; border-radius:12px;
       padding:10px 12px; text-decoration:none;
       display:flex; gap:8px; align-items:center;
       box-shadow:0 4px 0 #000, 0 10px 22px rgba(0,0,0,.25);
     }
 
-    /* ===== Planes ===== */
+    /* ===== Planes (nice SVG + bob) ===== */
     .sky{ position:absolute; inset:0; pointer-events:none; z-index:120; }
+
     .plane{
-      position:absolute; top:12vh; width:66px; height:38px;
+      position:absolute; top:12vh; width:84px; height:48px;
       pointer-events:auto; cursor:pointer;
-      animation:driftLR var(--spd,18s) linear infinite;
-      filter: drop-shadow(0 6px 10px rgba(0,0,0,.18));
+      animation:
+        driftLR var(--spd,18s) linear infinite,
+        bob var(--bobDur,4.8s) ease-in-out infinite;
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,.22));
     }
-    /* LEFT -> RIGHT drift */
+    /* LEFT -> RIGHT */
     @keyframes driftLR{
-      from{ transform: translateX(-20vw) translateY(0) rotate(0deg); }
-      to  { transform: translateX(110vw) translateY(0) rotate(0deg); }
+      from{ transform: translateX(-18vw); }
+      to  { transform: translateX(118vw); }
     }
-    .plane svg{ width:100%; height:100%; }
-    .plane path{ fill:#fff; stroke:#111; stroke-width:4; stroke-linejoin:round; }
-    .plane .accent{ stroke-width:3; }
+    @keyframes bob{
+      0%,100%{ transform: translateY(0); }
+      50%    { transform: translateY(-10px); }
+    }
+    .plane svg{ width:100%; height:100%; display:block; }
+    .plane .body{
+      fill:url(#paperShade); stroke:#111; stroke-width:3.5; stroke-linejoin:round;
+    }
+    .plane .crease{ stroke:#111; stroke-width:2.2; fill:none; stroke-linecap:round; opacity:.9; }
+    .plane .edge{ stroke:#111; stroke-width:3; fill:none; stroke-linecap:round; }
 
     /* Falling clone */
     .falling{
-      position:fixed; z-index:130; width:66px; height:38px; pointer-events:none;
-      animation:fallspin 1.1s cubic-bezier(.22,1,.36,1) forwards;
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+      position:fixed; z-index:300; width:84px; height:48px; pointer-events:none;
+      animation:fallspin 1.05s cubic-bezier(.22,1,.36,1) forwards;
+      filter: drop-shadow(0 12px 22px rgba(0,0,0,.35));
     }
     @keyframes fallspin{
       0%  { transform: translate(var(--sx,0px), var(--sy,0px)) rotate(0deg) scale(1); }
-      68% { transform: translate(calc(var(--tx)*.9), calc(var(--ty)*.9)) rotate(360deg) scale(1); }
-      100%{ transform: translate(var(--tx), var(--ty)) rotate(420deg) scale(.92); }
+      72% { transform: translate(calc(var(--tx)*.9), calc(var(--ty)*.9)) rotate(430deg) scale(1); }
+      100%{ transform: translate(var(--tx), var(--ty)) rotate(480deg) scale(.94); opacity:.92; }
     }
 
     /* ===== Ivy wall ===== */
     .ivy{
       position:absolute; left:0; right:0; bottom:0; height:var(--ivy-h);
       z-index:150;
-      /* Ivy-ish fake texture: layered radial-gradients */
-      background:
-        radial-gradient(circle at 20% 30%, #1d5b2a 0 18px, transparent 18px) 0 0/48px 48px,
-        radial-gradient(circle at 70% 60%, #1f6b31 0 18px, transparent 18px) 24px 24px/48px 48px,
-        linear-gradient(#1f662f, #1a5227);
-      border-top:6px solid #0a2f15;
-      box-shadow: inset 0 12px 18px rgba(0,0,0,.22);
+      background: url('ivy.jpg') center/cover no-repeat, linear-gradient(#1c5a2b, #184b24); /* photo texture + safe fallback */
+      border-top:6px solid rgba(0,0,0,.6);
+      box-shadow: inset 0 18px 28px rgba(0,0,0,.35);
     }
 
-    /* Opening/sign */
-    .placard{
+    /* Opening/sign block like Wrigley */
+    .opening{
       position:absolute; left:50%; transform:translateX(-50%);
-      bottom: calc(var(--ivy-h) - 64px); /* sit embedded in ivy */
-      width:120px; height:70px;
-      background:#ffd028; border:6px solid #111; border-radius:6px;
+      bottom: calc(var(--ivy-h) - 54px);
+      width:150px; height:86px; z-index:180;
+      background:#f6c41f; /* sign yellow */
+      border:6px solid #111; border-radius:6px;
+      box-shadow:0 8px 0 #000, 0 16px 26px rgba(0,0,0,.45), inset 0 -8px 0 rgba(0,0,0,.12);
       display:flex; align-items:center; justify-content:center;
-      box-shadow:0 6px 0 #000, 0 14px 26px rgba(0,0,0,.35);
-      z-index:170;
     }
-    .placard span{
-      font:700 36px/1 Rubik, system-ui; letter-spacing:1px;
-      color:#3c2c00; text-shadow:0 2px 0 rgba(0,0,0,.2);
+    .opening::after{ /* grime/age */
+      content:""; position:absolute; inset:0;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(0,0,0,.06), transparent 38%),
+        radial-gradient(circle at 80% 70%, rgba(0,0,0,.05), transparent 42%);
+      pointer-events:none; border-radius:2px;
+    }
+    .digits{
+      font:900 42px/1 Rubik, system-ui;
+      letter-spacing:2px;
+      color:#c75f00; /* warm orange like the 400 */
+      text-shadow:
+        0 0 1px #c75f00,
+        0 2px 0 #000,
+        0 4px 6px rgba(0,0,0,.35);
+      transform:skewX(-6deg);
     }
 
-    /* Lip that hides the reader’s body (sits above reader) */
+    /* Ivy lip that hides the reader’s body */
     .ivy-lip{
       position:absolute; z-index:190;
-      width:160px; height:28px; left:50%; transform:translateX(-50%);
-      bottom: calc(var(--ivy-h) - 32px); /* right above placard */
-      background:
-        radial-gradient(circle at 25% 60%, #1e612e 0 12px, transparent 12px) 0 0/36px 36px,
-        radial-gradient(circle at 70% 40%, #1a5227 0 12px, transparent 12px) 18px 18px/36px 36px,
-        linear-gradient(#1c5a2b,#184b24);
-      border-top:4px solid #0a2f15;
-      box-shadow:0 -2px 6px rgba(0,0,0,.35), 0 6px 10px rgba(0,0,0,.35);
-      border-radius:6px;
+      width:200px; height:36px; left:50%; transform:translateX(-50%);
+      bottom: calc(var(--ivy-h) - 12px);
+      background: url('ivy.jpg') center/cover no-repeat, linear-gradient(#1c5a2b,#184b24);
+      border-top:5px solid rgba(0,0,0,.55);
+      box-shadow:0 -2px 10px rgba(0,0,0,.45), 0 10px 14px rgba(0,0,0,.35);
+      border-radius:8px;
       pointer-events:none;
     }
 
     /* Reader head that pops up at opening */
     .reader{
-      position:absolute; z-index:180;
-      left:50%; transform:translateX(-50%) translateY(40px) scale(.94);
-      bottom: calc(var(--ivy-h) - 12px);
-      width:110px; height:150px; display:none;
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,.45));
+      position:absolute; z-index:185;
+      left:50%; transform:translateX(-50%) translateY(40px) scale(.96);
+      bottom: calc(var(--ivy-h) - 4px);
+      width:118px; height:160px; display:none;
+      filter: drop-shadow(0 12px 24px rgba(0,0,0,.5));
     }
     .reader.active{ display:block; animation:pop-up .35s cubic-bezier(.22,1,.36,1) forwards; }
     .reader.hide { animation:pop-down .35s cubic-bezier(.22,1,.36,1) forwards; }
-    @keyframes pop-up   { from{ transform:translateX(-50%) translateY(40px) scale(.9); opacity:0; } to{ transform:translateX(-50%) translateY(-22px) scale(1); opacity:1; } }
-    @keyframes pop-down { from{ transform:translateX(-50%) translateY(-22px) scale(1); opacity:1; } to{ transform:translateX(-50%) translateY(40px) scale(.9); opacity:0; } }
-
+    @keyframes pop-up   { from{ transform:translateX(-50%) translateY(40px) scale(.9); opacity:0; } to{ transform:translateX(-50%) translateY(-26px) scale(1); opacity:1; } }
+    @keyframes pop-down { from{ transform:translateX(-50%) translateY(-26px) scale(1); opacity:1; } to{ transform:translateX(-50%) translateY(40px) scale(.9); opacity:0; } }
     .reader img{ width:100%; height:auto; user-select:none; -webkit-user-drag:none; }
     .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; }
     .mouth-overlay svg{width:100%;height:100%}
@@ -137,9 +154,9 @@
 
     /* ===== Bubble ===== */
     .output-container{
-      position:fixed; left:50%; transform:translateX(-50%); top:8vmin;
+      position:fixed; left:50%; transform:translateX(-50%); top:7vmin;
       width:auto; max-width:90vw; text-align:center;
-      z-index:250; opacity:0; transition:opacity .35s; pointer-events:none;
+      z-index:400; opacity:0; transition:opacity .35s; pointer-events:none;
     }
     .output-container.active{ opacity:1; }
     .bubble-wrap{ position:relative; display:inline-block; }
@@ -167,7 +184,10 @@
     .output .work-tag{ opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.62em; letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:10px; }
 
     @media (max-width:680px){
-      .reader{ width:96px; height:132px; }
+      .reader{ width:102px; height:140px; }
+      .plane{ width:72px; height:42px; }
+      .opening{ width:136px; height:78px; }
+      .digits{ font-size:38px; }
     }
   </style>
 </head>
@@ -177,9 +197,9 @@
   <!-- planes -->
   <div class="sky" id="sky"></div>
 
-  <!-- ivy wall + sign + lip -->
+  <!-- ivy wall + opening + lip -->
   <div class="ivy" id="ivy"></div>
-  <div class="placard" id="placard"><span>43899</span></div>
+  <div class="opening" id="opening"><div class="digits">43899</div></div>
   <div class="ivy-lip" id="ivyLip"></div>
 
   <!-- reader head -->
@@ -206,6 +226,17 @@
 
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <!-- subtle paper shading -->
+      <linearGradient id="paperShade" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/>
+        <stop offset=".65" stop-color="#f7f7f7"/>
+        <stop offset="1" stop-color="#ececec"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
   <script>
     /* ===== Endpoint / basics ===== */
     const ENDPOINT = getComputedStyle(document.documentElement).getPropertyValue('--endpoint').trim()
@@ -217,40 +248,55 @@
     const bubbleTail = document.getElementById('bubbleTail');
     const typed = document.getElementById('typed');
     const reader = document.getElementById('reader');
-    const placard = document.getElementById('placard');
+    const opening = document.getElementById('opening');
     const clickSnd = document.getElementById('clickSnd');
     const sky = document.getElementById('sky');
 
+    /* ===== Pretty paper airplane SVG ===== */
+    const PLANE_SVG = `
+      <svg viewBox="0 0 84 48" aria-hidden="true">
+        <!-- outline body -->
+        <path class="body" d="M6 24 L78 10 L52 40 L40 30 L30 36 L34 26 L6 24 Z"/>
+        <!-- wing edge -->
+        <path class="edge" d="M34 26 L72 14" />
+        <!-- inner creases -->
+        <path class="crease" d="M6 24 L40 30" />
+        <path class="crease" d="M34 26 L44 34" />
+      </svg>`;
+
     /* ===== Planes ===== */
-    function makePlane(delay=0, top='12vh', speed=16){
+    function makePlane({delay=0, top='12vh', speed=16, bob=4.8}={}){
       const el = document.createElement('div');
       el.className = 'plane';
       el.style.top = top;
       el.style.setProperty('--spd', speed+'s');
+      el.style.setProperty('--bobDur', bob+'s');
       el.style.animationDelay = delay + 's';
-      el.innerHTML = `
-        <svg viewBox="0 0 66 38" aria-hidden="true">
-          <path d="M8 20 L62 10 L40 34 L32 24 Z"/>
-          <path class="accent" d="M34 18 L48 14"/>
-        </svg>`;
+      el.innerHTML = PLANE_SVG;
       el.addEventListener('click', onPlaneClick);
       sky.appendChild(el);
     }
-    makePlane(0.2, '10vh', 14);
-    makePlane(3.8, '14vh', 17);
-    makePlane(7.1, '8vh',  19);
+    // a few varied planes
+    makePlane({delay:.2,  top:'11vh', speed:14, bob:4.6});
+    makePlane({delay:3.4, top:'15vh', speed:17, bob:5.2});
+    makePlane({delay:6.6, top:'9vh',  speed:19, bob:4.9});
+    makePlane({delay:9.8, top:'13vh', speed:16, bob:5.3});
 
     function onPlaneClick(e){
       try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
       const plane = e.currentTarget;
+      // snapshot position
       const r = plane.getBoundingClientRect();
-      const fall = plane.cloneNode(true);
-      fall.classList.remove('plane'); fall.classList.add('falling');
-      fall.style.left = r.left + 'px'; fall.style.top = r.top + 'px';
-      fall.style.setProperty('--sx','0px'); fall.style.setProperty('--sy','0px');
+      const fall = document.createElement('div');
+      fall.className = 'falling';
+      fall.style.left = r.left + 'px';
+      fall.style.top  = r.top + 'px';
+      fall.style.width = r.width + 'px';
+      fall.style.height= r.height + 'px';
+      fall.innerHTML = PLANE_SVG;
 
-      // target: placard center, just above its top edge
-      const pr = placard.getBoundingClientRect();
+      // target: opening center, just above its top edge
+      const pr = opening.getBoundingClientRect();
       const tx = (pr.left + pr.width/2) - (r.left + r.width/2);
       const ty = (pr.top + pr.height*0.15) - (r.top + r.height/2);
       fall.style.setProperty('--tx', tx + 'px');
@@ -260,12 +306,11 @@
 
       fall.addEventListener('animationend', ()=>{
         fall.remove();
-        // wait a beat "behind the ivy", then pop reader + speak
-        setTimeout(()=>popAndSpeak(), 220);
+        setTimeout(()=>popAndSpeak(), 200); // a beat behind the ivy
       }, {once:true});
     }
 
-    /* ===== Bubble typing & placement ===== */
+    /* ===== Bubble placement/typing ===== */
     function placeBubbleOver(xPx, yPx){
       const card = outputContainer.getBoundingClientRect();
       const gap = 18;
@@ -297,7 +342,7 @@
       document.getElementById('output').appendChild(span);
     }
 
-    /* ===== Audio mouth (same rig as temple) ===== */
+    /* ===== Audio mouth (same rig) ===== */
     let audioCtx, analyser, timeData, currentSource, audioEl, mediaSource, tagPlaying=false, currentURL=null, iosInit=false;
     const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
     function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
@@ -386,15 +431,9 @@
 
     /* ===== Sequence ===== */
     async function popAndSpeak(){
-      // Position bubble tail over the opening
-      const rr = reader.getBoundingClientRect();
-      const pr = placard.getBoundingClientRect();
-
-      // Pop the head
       reader.classList.remove('hide');
       reader.classList.add('active');
 
-      // Fetch and speak
       try{
         const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
@@ -403,11 +442,9 @@
         const textRaw = (data.text || '').trim().replace(/!+$/,'');
         const text = /[.?!]$/.test(textRaw) ? textRaw : textRaw + '.';
 
-        // place bubble above the opening
-        const x = pr.left + pr.width/2;
-        const y = pr.top;
+        const pr = opening.getBoundingClientRect();
         outputContainer.classList.add('active');
-        placeBubbleOver(x, y);
+        placeBubbleOver(pr.left + pr.width/2, pr.top);
 
         typeOut(text, ()=>{ showWork(data.work||null, data.author||null); });
 
@@ -416,7 +453,6 @@
             setTimeout(()=>{ reader.classList.add('hide'); outputContainer.classList.remove('active'); }, 500);
           });
         }else{
-          // silent fallback
           const approx=Math.min(7, Math.max(2.2, text.length/16));
           setTimeout(()=>{ reader.classList.add('hide'); outputContainer.classList.remove('active'); }, (approx+0.4)*1000);
         }
@@ -429,15 +465,6 @@
         setTimeout(()=> reader.classList.add('hide'), 800);
       }
     }
-
-    // Build reader at start so positioning is stable
-    (function init(){
-      // ensure reader is visually there (hidden) so bubble can aim later
-      reader.style.display='block';
-      reader.classList.add('hide'); // tucked under lip
-      setTimeout(()=>reader.classList.remove('hide'), 10); // reset
-      reader.style.display='none';
-    })();
 
     // keyboard helper: Shift+T to temple
     window.addEventListener('keydown', e=>{ if(e.shiftKey && (e.key==='t'||e.key==='T')) location.href='index.html'; });
