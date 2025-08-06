@@ -2,391 +2,517 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>chubby chunklet — Airmail mode</title>
+  <title>chubby chunklet — airmail</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Fonts -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+
+  <!-- Fonts: Emilys Candy for bubble text; Rubik for UI -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <style>
     :root{
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
-      --char-ms: 18;
 
-      /* Mouth calibration matches your main page */
+      /* reader mouth tuning */
       --mouth-top:39%;
       --mouth-left:49%;
       --mouth-w:20px;
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Bubble look matches your tuned one */
+      --char-ms:18;
+
+      /* bubble */
+      --bubble-gap: 18px;
       --tail-x: 50%;
     }
 
     *{box-sizing:border-box}
-    html,body{height:100%; margin:0}
-    body{
+    html,body{
+      margin:0;padding:0;height:100%;overflow:hidden;
+      background:linear-gradient(#87c3ff, #b9e0ff 55%, #bfe6ff);
       font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background:linear-gradient(#7fc0ff 0%, #8ed0ff 50%, #cbe9ff 100%);
-      overflow:hidden; color:#111;
+      color:#111;
     }
 
-    /* Back button */
-    .mode-back{
-      position:fixed; left:10px; top:10px; z-index:9999; text-decoration:none;
-      font-size:16px; background:#fff; color:#000; border:2px solid #000;
-      border-radius:10px; padding:6px 10px; box-shadow:0 4px 0 #000;
-    }
-    .mode-back:active{ transform:translateY(2px); box-shadow:0 2px 0 #000; }
-
-    /* Sky layer with airplanes */
-    .sky{
-      position:absolute; inset:0; overflow:hidden; pointer-events:none;
-    }
-
-    .plane{
-      position:absolute; top:10%; left:-15%;
-      width:54px; height:auto; pointer-events:auto; cursor:pointer;
-      filter: drop-shadow(0 3px 0 rgba(0,0,0,.2));
-      transition:transform .2s;
-      z-index:5;
-    }
-    .plane:hover{ transform:scale(1.05); }
-    .drift{
-      animation:drift linear var(--speed, 18s) infinite;
-    }
-    @keyframes drift{
-      from{ transform:translateX(0) translateY(var(--ywave, 0px)); }
-      to  { transform:translateX(140vw) translateY(calc(var(--ywave, 0px)*-1)); }
-    }
-    /* Spiral descent when clicked */
-    .spiral{
-      animation: spiral 1.6s cubic-bezier(.22,1,.36,1) forwards;
-    }
-    @keyframes spiral{
-      0%   { transform: translate(var(--x,0), var(--y,0)) rotate(0deg) scale(1); }
-      60%  { transform: translate(calc(var(--x,0) + 10px), calc(var(--y,0) + 45vh)) rotate(540deg) scale(1.05); }
-      100% { transform: translate(calc(var(--x,0) + 0px),  calc(var(--y,0) + 62vh)) rotate(720deg) scale(.98); opacity:.9; }
+    /* ===== Top bar / back button ===== */
+    .mode-switch {
+      position: fixed;
+      top: 10px; left: 10px;
+      z-index: 200;
+      background:#fff; color:#111;
+      border:3px solid #000; border-radius:12px;
+      padding:10px 12px; text-decoration:none;
+      box-shadow:0 4px 0 #000, 0 10px 22px rgba(0,0,0,.25);
+      display:flex; gap:8px; align-items:center;
     }
 
-    /* Crowd (three rows, parallax) */
-    .crowd{
-      position:absolute; left:0; right:0; bottom:0; height:48vh; pointer-events:none;
-      display:grid; grid-template-rows: 1fr 1fr 1fr; align-items:end;
+    /* ===== Plane layer ===== */
+    .sky {
+      position: absolute; inset:0; overflow:hidden; pointer-events:none;
     }
-    .row{ position:relative; height:100%; }
-    .row[data-depth="back"]   { transform:translateY(6vh) scale(.7);  filter:blur(.2px); }
-    .row[data-depth="mid"]    { transform:translateY(2vh) scale(.85); filter:blur(.1px); }
-    .row[data-depth="front"]  { transform:translateY(0)   scale(1); }
-
-    .mini{
-      position:absolute; bottom:0; width:56px; height:80px;
-      transform-origin:50% 100%;
-      animation: bob var(--bob, 3.8s) ease-in-out infinite alternate;
-      filter: drop-shadow(0 6px 8px rgba(0,0,0,.35));
+    .plane {
+      position:absolute; top:12vh;
+      width:64px; height:36px;
+      pointer-events:auto; cursor:pointer; z-index:110;
+      animation:drift 18s linear infinite;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,.18));
     }
-    @keyframes bob{
-      from{ transform:translateY(0) }
-      to  { transform:translateY(-6px) }
+    /* move RIGHT -> LEFT */
+    @keyframes drift {
+      from { transform: translateX(110vw) translateY(0) rotate(0deg); }
+      to   { transform: translateX(-20vw) translateY(0) rotate(0deg); }
     }
-
-    .mini img{ width:100%; height:auto; user-select:none; -webkit-user-drag:none; display:block; }
-    .mini .mouth-overlay{
-      position:absolute; top:var(--mouth-top); left:var(--mouth-left);
-      width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%);
-      pointer-events:none; display:none; /* only for the “reader” */
-    }
-    #mouth{ transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0)); }
-
-    /* Spotlight reader pops above the crowd */
-    .reader{
-      z-index:4;
-      animation: pop 420ms cubic-bezier(.22,1,.36,1) forwards;
-    }
-    @keyframes pop{
-      0%   { transform: translateY(0) scale(1); }
-      70%  { transform: translateY(-46px) scale(1.12); }
-      100% { transform: translateY(-40px) scale(1.08); }
-    }
-    .sink{
-      animation: sink 420ms cubic-bezier(.22,1,.36,1) forwards;
-    }
-    @keyframes sink{
-      0%   { transform: translateY(-40px) scale(1.08); }
-      100% { transform: translateY(0) scale(1); }
+    /* gentle bob (composed via nested wrapper) */
+    .bob { animation:bob 3.6s ease-in-out infinite; }
+    @keyframes bob {
+      0%,100%{ transform: translateY(0); }
+      50%{ transform: translateY(-10px); }
     }
 
-    /* Bubble (auto-width like your tight version) */
-    .output-wrap{
-      position:absolute; left:50%; transform:translateX(-50%);
-      bottom:46vh; width:auto; max-width:90vw; text-align:center;
-      opacity:0; pointer-events:none; z-index:6; transition:opacity .35s;
-    }
-    .output-wrap.active{ opacity:1; }
+    /* plane SVG look */
+    .plane svg { width:100%; height:100%; }
+    .plane path { fill:#fff; stroke:#111; stroke-width:4; stroke-linejoin:round; }
 
-    .bubble{
-      display:inline-block; background:#fff; color:#111; border:6px solid #000; border-radius:28px;
-      padding:14px 18px; box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
-      max-width:86vw; position:relative;
+    /* falling clone */
+    .falling {
+      position: fixed; z-index:130; width:64px; height:36px;
+      pointer-events:none;
+      animation:fallspin 1.65s cubic-bezier(.22,1,.36,1) forwards;
+      filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
     }
-    .tail{
-      position:absolute; left:var(--tail-x); bottom:-2px; width:44px; height:28px; transform:translate(-50%, 100%);
+    @keyframes fallspin {
+      0% { transform: translate(var(--x,0px), var(--y,0px)) rotate(0deg) scale(1); }
+      60%{ transform: translate(calc(var(--tx,0px) * .9), calc(var(--ty,0px) * .9)) rotate(380deg) scale(1); }
+      100%{ transform: translate(var(--tx,0px), var(--ty,0px)) rotate(420deg) scale(.9); }
     }
 
-    .line{
+    /* ===== Crowd ===== */
+    .ground {
+      position:absolute; left:0; right:0; bottom:0; height:44vh; /* taller band */
+      display:block;
+    }
+    .crowd { position:absolute; left:50%; transform:translateX(-50%); bottom:5vh; width:min(1200px, 92vw); height:38vh; }
+    .layer { position:absolute; left:0; right:0; }
+    .layer.back  { bottom:24vh; }
+    .layer.mid   { bottom:12vh; }
+    .layer.front { bottom:0; }
+
+    /* little SVG chunklets (crowd) */
+    .chonk {
+      position:absolute;
+      width:64px; height:64px;  /* bigger than before */
+      transform: translate(-50%,-50%) scale(var(--s,1));
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,.22));
+      transition: transform .25s ease, opacity .25s ease;
+    }
+    .chonk svg { width:100%; height:100%; }
+    .head   { fill:#ffd9c4; stroke:#000; stroke-width:3; }
+    .shirt  { fill:var(--shirt,#ffd028); stroke:#000; stroke-width:3; }
+    .base   { fill:#f3f3f3; stroke:#000; stroke-width:3; }
+    .face   { fill:none; stroke:#000; stroke-width:5; stroke-linecap:round; }
+
+    /* ===== Reader that pops up ===== */
+    .reader {
+      position:absolute; z-index:140; left:0; top:0; width:110px; height:150px;
+      display:none; transform:translate(-50%,-55%) scale(.86);
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.45));
+    }
+    .reader.active { display:block; animation:pop .35s cubic-bezier(.22,1,.36,1) forwards; }
+    @keyframes pop {
+      0%{ transform:translate(-50%,-60%) scale(.7); opacity:0; }
+      100%{ transform:translate(-50%,-55%) scale(1); opacity:1; }
+    }
+    .reader img { width:100%; height:auto; user-select:none; -webkit-user-drag:none; }
+    .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; }
+    .mouth-overlay svg{width:100%;height:100%}
+    #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
+
+    /* ===== Bubble ===== */
+    .output-container{
+      position:fixed; left:50%; transform:translateX(-50%); top:8vmin;
+      width:auto; max-width:90vw; text-align:center;
+      z-index:150; opacity:0; transition:opacity .4s;
+      pointer-events:none;
+    }
+    .output-container.active{ opacity:1; }
+    .bubble-wrap{ position:relative; display:inline-block; }
+    .speech-bubble{
+      position:relative; background:#fff; color:#111;
+      border:6px solid #000; border-radius:32px;
+      padding:18px 26px 18px 22px; box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
+      display:inline-block; max-width:86vw;
+    }
+    .bubble-tail{
+      position:absolute; bottom:-2px; left:var(--tail-x);
+      transform:translate(-50%, 100%); width:44px; height:28px;
+      overflow:visible; pointer-events:none;
+    }
+    .output{
       font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase; font-weight:400;
-      font-size:clamp(20px, 2.4vw, 34px);
+      font-size:clamp(22px, 2.4vw, 36px);
       line-height:1.04; letter-spacing:-0.06em; word-spacing:-0.04em;
-      margin:0; white-space:pre-wrap; text-align:center;
+      margin:0; white-space:pre-wrap; text-shadow:none; text-align:center;
     }
-    .cursor{ display:inline-block; width:.5ch; height:1.05em; background:#111; vertical-align:text-bottom;
-             animation:blink 1s steps(1,end) infinite; border-radius:2px; }
+    .cursor{ display:inline-block; width:.5ch; height:1.05em; background:#111; vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px; }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
-    .typing .cursor{ animation:none }
+    .typing .cursor{animation:none}
+    .output .work-tag{
+      opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.62em;
+      letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:10px;
+    }
 
-    .tag{
-      display:block; margin-top:8px; font-size:.62em; color:#333;
-      letter-spacing:-0.06em; word-spacing:-0.04em; text-transform:uppercase;
+    @media (max-width:680px){
+      .chonk{ width:52px; height:52px; }
+      .reader{ width:96px; height:132px; }
     }
   </style>
 </head>
 <body>
-  <a href="index.html" class="mode-back">🏛️ Temple</a>
+  <a class="mode-switch" href="index.html">🏛 Temple</a>
 
-  <!-- Sky with planes -->
+  <!-- planes -->
   <div class="sky" id="sky"></div>
 
-  <!-- Crowd of chunklets -->
-  <div class="crowd" id="crowd">
-    <div class="row" data-depth="back"></div>
-    <div class="row" data-depth="mid"></div>
-    <div class="row" data-depth="front"></div>
+  <!-- ground & crowd -->
+  <div class="ground">
+    <div class="crowd" id="crowd">
+      <div class="layer back"></div>
+      <div class="layer mid"></div>
+      <div class="layer front"></div>
+    </div>
   </div>
 
-  <!-- Output bubble -->
-  <div class="output-wrap" id="outputWrap" aria-live="polite">
-    <div class="bubble">
-      <p class="line" id="line"><span id="typed"></span><span id="cursor" class="cursor"></span></p>
-      <svg class="tail" viewBox="0 0 44 28" aria-hidden="true">
+  <!-- reader pop-up (uses PNG) -->
+  <div class="reader" id="reader">
+    <img src="littleboytalk.png" alt="Reader" />
+    <div class="mouth-overlay">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/></svg>
+    </div>
+  </div>
+
+  <!-- bubble -->
+  <div class="output-container" id="outputContainer" aria-live="polite">
+    <div class="bubble-wrap">
+      <div class="speech-bubble" id="bubble">
+        <div class="output" id="output"><span id="typed"></span><span id="cursor" class="cursor"></span></div>
+      </div>
+      <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
   </div>
 
-  <audio id="tts"></audio>
+  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
   <script>
-    /* ====== Config ====== */
+    /* ===== Endpoint / fonts / helpers ===== */
     const ENDPOINT = getComputedStyle(document.documentElement).getPropertyValue('--endpoint').trim()
       || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
     const QUERY = '?style=canon&modern=0&accent=scottish';
-    const CHAR_MS = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'), 10) || 18;
+    const CHAR_MS = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 18;
 
-    const sky = document.getElementById('sky');
-    const crowd = document.getElementById('crowd');
-    const rows = crowd.querySelectorAll('.row');
-    const outputWrap = document.getElementById('outputWrap');
+    const outputContainer = document.getElementById('outputContainer');
+    const bubbleTail = document.getElementById('bubbleTail');
     const typed = document.getElementById('typed');
     const cursor = document.getElementById('cursor');
-    const tts = document.getElementById('tts');
 
-    let busy = false;
+    const reader = document.getElementById('reader');
+    const clickSnd = document.getElementById('clickSnd');
 
-    /* ====== Build crowd (60 minis, 3 rows) ====== */
-    function makeMini(xPct){
+    const sky = document.getElementById('sky');
+    const crowdEl = document.getElementById('crowd');
+
+    /* ===== build planes ===== */
+    function makePlane(delay=0, top='12vh', speed=18){
+      const wrap = document.createElement('div');
+      wrap.className = 'plane';
+      wrap.style.top = top;
+      wrap.style.animationDuration = speed + 's';
+      wrap.style.animationDelay = delay + 's';
+
+      const bob = document.createElement('div');
+      bob.className = 'bob';
+      bob.innerHTML = `
+        <svg viewBox="0 0 64 36" aria-hidden="true">
+          <path d="M6 18 L58 6 L38 30 L30 22 Z"/>
+          <path d="M32 16 L46 12" />
+        </svg>`;
+      wrap.appendChild(bob);
+
+      wrap.addEventListener('click', onPlaneClick);
+      sky.appendChild(wrap);
+    }
+
+    // a few planes staggered
+    makePlane(0.2,  '10vh', 16);
+    makePlane(4.2,  '8vh',  18);
+    makePlane(8.1,  '15vh', 20);
+
+    /* ===== crowd ===== */
+    const COLORS = ['#ffd028','#ff6a5e','#8fd14f','#6ecbff','#b588ff','#ff9ed1','#ffb86b','#69e0c1'];
+    const LAYERS = Array.from(crowdEl.querySelectorAll('.layer'));
+    const CROWD_COUNT = 60;
+
+    const crowd = [];
+    for(let i=0;i<CROWD_COUNT;i++){
+      const layer = (i%3); // scatter roughly equally
       const el = document.createElement('div');
-      el.className = 'mini';
-      el.style.left = xPct + '%';
-      el.style.setProperty('--bob', (3.4 + Math.random()*1.2) + 's');
+      el.className = 'chonk';
+      const shirt = COLORS[(Math.random()*COLORS.length)|0];
+      const s = 0.9 + Math.random()*0.3;
+      el.style.setProperty('--s', s.toFixed(2));
+      el.style.setProperty('--shirt', shirt);
+
+      // dense pack: three bands, jittered
+      const col = i % 20;
+      const row = (i / 20) | 0; // 0..2
+      const baseX = (col + 0.5) / 20; // 0..1
+      const jitterX = (Math.random()*0.06 - 0.03);
+      const jitterY = (Math.random()*0.06 - 0.03);
+      const x = baseX + jitterX + (row===1?0.015:row===2?-0.015:0);
+      const yN = row*0.34 + 0.16 + jitterY; // normalized in layer
+      el.dataset.x = x; // keep logical X for picking
+
+      // place within layer with jitter, keep tight
+      el.style.left = (x*100) + '%';
+      el.style.top  = (yN*100) + '%';
+
       el.innerHTML = `
-        <img src="littleboytalk.png" alt="" />
-        <div class="mouth-overlay">
-          <svg viewBox="0 0 100 100" aria-hidden="true">
-            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
-          </svg>
-        </div>`;
-      return el;
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="head" cx="50" cy="26" r="18"/>
+          <path class="face" d="M50 35 q-6 8 0 14" />
+          <ellipse class="shirt" cx="50" cy="58" rx="20" ry="18"/>
+          <ellipse class="base"  cx="50" cy="78" rx="18" ry="10"/>
+        </svg>
+      `;
+      LAYERS[layer].appendChild(el);
+      crowd.push(el);
     }
 
-    const counts = [18, 20, 22]; // back, mid, front (total 60)
-    rows.forEach((row, i) => {
-      const n = counts[i];
-      const xs = Array.from({length:n}, (_,k)=> (k+0.5)/n*100 + (Math.random()*3-1.5));
-      xs.forEach(x => row.appendChild(makeMini(Math.max(1, Math.min(99, x)))));
-    });
+    /* ===== bubble typing + placement ===== */
+    function placeBubbleOver(xPx, yPx){
+      // keep bubble above target by --bubble-gap
+      const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')) || 18;
+      const card = outputContainer.getBoundingClientRect();
+      const top = Math.max(8, Math.round(yPx - gap - card.height));
+      outputContainer.style.top = top + 'px';
 
-    function frontRowMinis(){
-      return Array.from(rows[2].querySelectorAll('.mini'));
+      // tail aim
+      const cardLeft = card.left;
+      const tailPx = xPx - cardLeft;
+      const tailPct = Math.max(8, Math.min(92, tailPx / card.width * 100));
+      outputContainer.style.setProperty('--tail-x', tailPct + '%');
     }
-
-    /* ====== Planes ====== */
-    function planeSVG(){
-      return `
-      <svg viewBox="0 0 72 48" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 24 L68 4 L56 22 L68 44 Z" fill="#fff" stroke="#111" stroke-width="3" />
-        <path d="M56 22 L34 26 L48 34 Z" fill="#f5f7ff" stroke="#111" stroke-width="3" />
-      </svg>`;
-    }
-
-    function spawnPlanes(){
-      for(let i=0;i<4;i++){
-        const p = document.createElement('div');
-        p.className = 'plane drift';
-        p.style.top = (8 + Math.random()*22) + '%';
-        p.style.setProperty('--speed', (16 + Math.random()*8) + 's');
-        p.style.setProperty('--ywave', (Math.random()<0.5?'-':'') + (8+Math.random()*14) + 'px');
-        p.innerHTML = planeSVG();
-        sky.appendChild(p);
-
-        p.addEventListener('click', async (e)=>{
-          if(busy) return;
-          busy = true;
-          p.classList.remove('drift');
-          // capture current transform offsets to start spiral from there
-          const rect = p.getBoundingClientRect();
-          const x = rect.left + rect.width/2;
-          const y = rect.top + rect.height/2;
-          const vw = window.innerWidth, vh = window.innerHeight;
-
-          p.style.setProperty('--x', '0px');
-          p.style.setProperty('--y', '0px');
-          p.classList.add('spiral');
-
-          // Where to “land” horizontally (0..1)
-          const xNorm = x / vw;
-
-          // choose nearest front-row mini by x distance
-          const minis = frontRowMinis();
-          let nearest = minis[0], best = Infinity;
-          minis.forEach(m=>{
-            const r = m.getBoundingClientRect();
-            const cx = r.left + r.width/2;
-            const d = Math.abs(cx - x);
-            if(d < best){ best = d; nearest = m; }
-          });
-
-          // after spiral, trigger reading
-          setTimeout(()=>{ readAt(nearest); p.remove(); }, 1600);
-        }, {once:true});
-      }
-    }
-
-    /* ====== Bubble placement ====== */
-    function placeBubble(anchorEl){
-      const a = anchorEl.getBoundingClientRect();
-      const wrapRect = outputWrap.getBoundingClientRect(); // may be 0 prior to active
-      const top = Math.max(8, a.top - 90); // aim above head
-      outputWrap.style.left = Math.round((a.left + a.width/2)) + 'px';
-      outputWrap.style.transform = 'translateX(-50%)';
-      outputWrap.style.bottom = (window.innerHeight - top) + 'px';
-
-      const bubble = outputWrap.querySelector('.bubble');
-      const tail = outputWrap.querySelector('.tail');
-      const bubbleRect = bubble.getBoundingClientRect();
-      const tailX = Math.max(8, Math.min(92, (a.left + a.width/2 - (bubbleRect.left)) / (bubbleRect.width) * 100));
-      bubble.style.setProperty('--tail-x', tailX + '%');
-    }
-
-    /* ====== Talking / TTS ====== */
-    function animateMouth(el, on){
-      const mouth = el.querySelector('#mouth');
-      if(!mouth) return;
-      if(on){
-        let i=0;
-        el._talkTimer = setInterval(()=>{
-          const seq=[0.8,1.6,2.3,1.2,0.4][i++%5];
-          mouth.style.transform = `scale(1, ${seq})`;
-        }, 110);
-      }else{
-        clearInterval(el._talkTimer); el._talkTimer=null;
-        mouth.style.transform = 'scale(1, var(--mouth-scale-0))';
-      }
-    }
-
     function typeOut(text, done){
-      typed.textContent=''; outputWrap.querySelector('.line').classList.add('typing');
+      typed.textContent='';
+      document.getElementById('output').classList.add('typing');
       (function loop(i=0){
         typed.textContent = text.slice(0,i);
-        if(i<text.length){ setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10)); }
-        else { outputWrap.querySelector('.line').classList.remove('typing'); done&&done(); }
+        if(i<text.length){
+          setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
+        }else{
+          document.getElementById('output').classList.remove('typing');
+          done && done();
+        }
       })();
     }
+    function showWork(work, author){
+      const old = document.querySelector('#output .work-tag'); if(old) old.remove();
+      if(!work && !author) return;
+      const span=document.createElement('span'); span.className='work-tag';
+      span.textContent='— '+[work,author].filter(Boolean).join(' · ');
+      document.getElementById('output').appendChild(span);
+    }
 
-    async function speakIfAny(b64, onEnd){
-      if(!b64){ onEnd(); return; }
+    /* ===== audio mouth ===== */
+    let audioCtx, analyser, timeData, currentSource, audioEl, mediaSource, tagPlaying=false, currentURL=null, iosInit=false;
+    const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
+    function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
+    function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0; timeData=new Float32Array(analyser.fftSize);} }
+    function attachAnalyserToBufferSource(src){ ensureAnalyser(); try{src.disconnect();}catch(_){ } src.connect(analyser); analyser.connect(audioCtx.destination); }
+    function attachAnalyserToMediaElement(){
+      ensureAnalyser();
+      if(isIOS && !iosInit){ initializeIOSAudio(); return; }
+      if(!audioEl){
+        audioEl=document.createElement('audio');
+        audioEl.style.position='absolute'; audioEl.style.left='-9999px';
+        audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
+        document.body.appendChild(audioEl);
+      }
+      if(!mediaSource && audioCtx && audioEl){
+        try{ mediaSource=audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); }
+        catch(e){ console.warn('createMediaElementSource failed', e); }
+      }
+    }
+    function initializeIOSAudio(){
+      if(iosInit) return;
       try{
-        tts.src = b64; tts.onended = onEnd; await tts.play();
-      }catch(e){ onEnd(); }
+        ensureCtx();
+        if(!audioEl){
+          audioEl=document.createElement('audio');
+          audioEl.style.position='absolute'; audioEl.style.left='-9999px';
+          audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
+        }
+        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+        audioEl.src=silent; audioEl.load();
+        audioEl.play().then(()=>{ audioEl.pause(); audioEl.currentTime=0;
+          if(!mediaSource && audioCtx){
+            try{ mediaSource=audioCtx.createMediaElementSource(audioEl); ensureAnalyser(); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); iosInit=true; }catch(e){}
+          }
+        }).catch(()=>{});
+      }catch(_){}
+    }
+    const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
+    const TH_UP=[0.030,0.060,0.100,0.160], HDEL=0.018, TH_DN=TH_UP.map(t=>Math.max(0,t-HDEL));
+    const FLOOR=0.010, CLOSE_MS=20;
+    let level=0, lastChange=0, rafId=null, animOn=false;
+    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; document.getElementById('mouth').style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
+    function rms(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++) s+=timeData[i]*timeData[i]; const r=Math.sqrt(s/timeData.length); return r<FLOOR?0:r; }
+    function startMouth(){ if(animOn) return; animOn=true; rafId=requestAnimationFrame(tick); }
+    function stopMouth(){ animOn=false; cancelAnimationFrame(rafId); setLevel(0); }
+    function tick(){
+      if(!animOn) return; rafId=requestAnimationFrame(tick);
+      const active=!!currentSource||tagPlaying, now=performance.now();
+      if(active && analyser){
+        const e=rms(); let t=level;
+        while(t<4 && e>=TH_UP[t]) t++;
+        while(t>0 && e<TH_DN[t-1]) t--;
+        if(t<level && (now-lastChange)<CLOSE_MS) t=level;
+        setLevel(t);
+      } else {
+        const p=((now/1000*15)|0)%5; setLevel([1,2,3,2,1][p]);
+      }
+    }
+    async function playAudio(b64,onEnd){
+      if(isIOS){
+        try{
+          ensureCtx(); if(!iosInit){ initializeIOSAudio(); await new Promise(r=>setTimeout(r,100)); }
+          attachAnalyserToMediaElement();
+          const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+          const blob=new Blob([bin], {type:'audio/mp3'});
+          if(currentURL){ URL.revokeObjectURL(currentURL); currentURL=null; }
+          currentURL=URL.createObjectURL(blob);
+          audioEl.src=currentURL; audioEl.load();
+          audioEl.onplay = ()=>{ setLevel(0); startMouth(); tagPlaying=true; };
+          audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentURL){ URL.revokeObjectURL(currentURL); currentURL=null; } onEnd&&onEnd(); };
+          const pp=audioEl.play(); if(pp!==undefined) await pp; return;
+        }catch(e){ /* fallback below */ }
+      }
+      try{
+        ensureCtx(); ensureAnalyser();
+        const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+        const buf=await audioCtx.decodeAudioData(bin.buffer);
+        currentSource=audioCtx.createBufferSource(); currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
+        attachAnalyserToBufferSource(currentSource);
+        setLevel(0); startMouth(); currentSource.start();
+        currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd&&onEnd(); };
+        return;
+      }catch(e){
+        // last resort: silent duration
+        startMouth(); setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, 3000);
+      }
     }
 
-    function sanitize(t){
-      t = (t||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');
-      return /[.?!]$/.test(t) ? t : t+'.';
+    /* ===== plane click → fall → pick reader → speak ===== */
+    function onPlaneClick(e){
+      try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
+      const plane = e.currentTarget;
+
+      // Freeze its drift at current spot by cloning to fixed coords
+      const r = plane.getBoundingClientRect();
+      const clone = plane.cloneNode(true);
+      clone.classList.remove('plane'); // drop drift
+      clone.classList.add('falling');
+      clone.style.left = r.left + 'px';
+      clone.style.top  = r.top  + 'px';
+      clone.style.setProperty('--x', '0px');
+      clone.style.setProperty('--y', '0px');
+
+      // landing target: directly above crowd center at same X
+      const crowdRect = crowdEl.getBoundingClientRect();
+      const targetX = 0; // we animate via translate, start at 0
+      const ty = (crowdRect.top + 8) - r.top; // fully to the crowd band
+      const tx = (r.left - r.left); // 0, we keep left fixed, translate handles path
+      clone.style.setProperty('--tx', ( (r.left) - r.left ) + 'px');
+      clone.style.setProperty('--ty', ty + 'px');
+
+      // actually, we want the plane to keep its current X, so no translateX delta
+      document.body.appendChild(clone);
+
+      // After fall completes, pick a nearby crowd member under that X
+      clone.addEventListener('animationend', ()=>{
+        const centerX = r.left + r.width/2;
+        triggerReaderAtX(centerX);
+        clone.remove();
+      }, {once:true});
     }
 
-    /* ====== Read sequence at a given mini ====== */
-    async function readAt(mini){
-      // elevate to “reader”
-      mini.classList.add('reader');
-      mini.querySelector('.mouth-overlay').style.display='block';
+    function triggerReaderAtX(xPx){
+      // find nearest crowd sprite by screen X
+      let best=null, bestDist=1e9, bestRect=null;
+      for(const el of crowd){
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width/2;
+        const d = Math.abs(cx - xPx);
+        if(d<bestDist){ best=el; bestDist=d; bestRect=rect; }
+      }
+      if(!best || !bestRect) return;
 
+      // pop the reader overlay at that spot (no walking)
+      reader.style.left = (bestRect.left + bestRect.width/2) + 'px';
+      reader.style.top  = (bestRect.top + bestRect.height/2) + 'px';
+      reader.classList.add('active');
+
+      // fetch a chunk and speak
+      speakAt(bestRect.left + bestRect.width/2, bestRect.top);
+    }
+
+    async function speakAt(xPx, yPx){
       try{
         const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
-        const text = sanitize(data.text);
-        const work = data.work || ''; const author = data.author || '';
+        const textRaw = (data.text||'').trim().replace(/!+$/,'');
+        const text = /[.?!]$/.test(textRaw) ? textRaw : textRaw + '.';
 
-        // prep bubble
-        outputWrap.classList.add('active');
-        placeBubble(mini);
-
-        // write
+        // show bubble above
+        outputContainer.classList.add('active');
+        placeBubbleOver(xPx, yPx);
         typeOut(text, ()=>{
-          // add attribution
-          const old = outputWrap.querySelector('.tag'); if(old) old.remove();
-          const tag = document.createElement('span');
-          tag.className='tag'; tag.textContent = '— ' + [work,author].filter(Boolean).join(' · ');
-          outputWrap.querySelector('.bubble').appendChild(tag);
+          showWork(data.work||null, data.author||null);
         });
 
-        // talk
-        animateMouth(mini, true);
-        const approx = Math.min(7, Math.max(2.2, text.length/16));
-        let ended = false;
-        const endBoth = ()=>{
-          if(ended) return; ended=true;
-          animateMouth(mini,false);
-          setTimeout(()=>{
-            outputWrap.classList.remove('active');
-            mini.classList.remove('reader');
-            mini.classList.add('sink');
-            setTimeout(()=>{ mini.classList.remove('sink'); busy=false; }, 450);
-          }, 800);
-        };
-
         if(data.audioBase64){
-          speakIfAny(data.audioBase64, endBoth);
-        }else{
-          setTimeout(endBoth, (approx+0.2)*1000);
+          await playAudio(data.audioBase64, ()=>{
+            // sink back down after a beat
+            setTimeout(()=>{ reader.classList.remove('active'); outputContainer.classList.remove('active'); }, 650);
+          });
+        } else {
+          // silent fallback timing
+          const approx=Math.min(7, Math.max(2.2, text.length/16));
+          setTimeout(()=>{ reader.classList.remove('active'); outputContainer.classList.remove('active'); }, (approx+0.4)*1000);
         }
-
       }catch(e){
         typed.textContent = 'A shy packet tripped. Try again.';
-        setTimeout(()=>{ mini.classList.remove('reader'); busy=false; }, 1200);
+        setTimeout(()=>{ reader.classList.remove('active'); outputContainer.classList.remove('active'); }, 1200);
       }
     }
 
-    /* ====== Boot ====== */
-    spawnPlanes();
-    window.addEventListener('resize', ()=>{
-      if(outputWrap.classList.contains('active')){
-        const minis = frontRowMinis();
-        placeBubble(minis[0]); // just keep tail reasonable on resize
-      }
+    // Keep bubble tail aligned as text wraps
+    const ro = new ResizeObserver(()=>{
+      const r = reader.getBoundingClientRect();
+      if(reader.classList.contains('active')) placeBubbleOver(r.left + r.width/2, r.top);
+    });
+    ro.observe(outputContainer);
+
+    // Optional keyboard: Shift+T to go back to Temple
+    window.addEventListener('keydown', (e)=>{
+      if(e.shiftKey && (e.key==='t' || e.key==='T')) location.href='index.html';
     });
   </script>
 </body>
