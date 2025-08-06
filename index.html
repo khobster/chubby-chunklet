@@ -9,9 +9,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: keep Rubik for UI/HUD; use Rampart One for the bubble text -->
+  <!-- Fonts: keep Rubik for UI/HUD; use Luckiest Guy for the bubble text -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Rampart+One&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Luckiest+Guy&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -114,7 +114,7 @@
       background:#fff;
       border:6px solid #000;
       border-radius:38px;
-      padding:26px 40px 26px 32px; /* room for the emoji chip */
+      padding:26px 40px 26px 32px; /* room for the emoji */
       color:#111;
       box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
     }
@@ -128,25 +128,20 @@
       overflow:visible; pointer-events:none;
     }
 
-    /* Tiny emoji freeze toggle (chip, fully inside the white bubble) */
+    /* Freeze toggle emoji — NO ring/chip, sits inside bubble */
     .freeze-emoji{
       position:absolute;
       top:8px; right:10px;
-      width:28px; height:28px;
-      display:none;
-      align-items:center; justify-content:center;
-      font-size:16px;
-      background:#fff;
-      border:2px solid #000;
-      border-radius:50%;
-      box-shadow:0 2px 0 #000, 0 6px 14px rgba(0,0,0,.25);
+      display:none; /* only show when bubble shows */
+      font-size:18px; line-height:1;
+      background:transparent; border:none; border-radius:0; box-shadow:none;
       cursor:pointer; user-select:none;
     }
-    .output-container.active .freeze-emoji{ display:flex; pointer-events:auto; }
+    .output-container.active .freeze-emoji{ display:block; pointer-events:auto; }
 
-    /* Speech text — Rampart One + ultra-tight tracking */
+    /* Speech text — Luckiest Guy + ultra-tight tracking */
     .output{
-      font-family:'Rampart One', Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family:'Luckiest Guy', Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
       font-weight:400;
       font-size:clamp(20px, 2.5vw, 34px);
@@ -166,16 +161,13 @@
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
     .typing .cursor{animation:none}
 
+    /* Attribution — match tracking to phrase */
     .output .work-tag{
-      opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.62em; letter-spacing:.02em; color:#333;
-      display:block; margin-top:10px; text-shadow:none;
+      opacity:.95; text-transform:uppercase;
+      margin-left:.6em; font-size:.62em;
+      letter-spacing:-0.085em; word-spacing:-0.03em;
+      color:#333; display:block; margin-top:10px; text-shadow:none;
     }
-
-    /* Per-letter colors (blue, red, yellow, green loop) */
-    .output .c0{ color:#1f4fff; }  /* blue */
-    .output .c1{ color:#e53935; }  /* red  */
-    .output .c2{ color:#ffb300; }  /* yellow (darker for contrast) */
-    .output .c3{ color:#2e7d32; }  /* green */
 
     /* ===== Dramatic entrance (shorter distance + slower) ===== */
     @keyframes emergePop {
@@ -257,7 +249,7 @@
         <div class="output" id="output">
           <span id="typed"></span><span id="cursor" class="cursor"></span>
         </div>
-        <!-- artsy/cute freeze toggle emoji -->
+        <!-- simple emoji freeze toggle (no ring) -->
         <div id="freezeEmoji" class="freeze-emoji" title="Freeze">❄️</div>
       </div>
       <!-- SVG rounded tail -->
@@ -393,26 +385,15 @@
 
     const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
-    /* Per-letter color typing */
+    /* Simple typing (no color spans) */
     function typeOut(text, done){
       typed.textContent='';
       output.classList.add('typing');
-      let i = 0, colorIdx = 0;
-      (function loop(){
-        if(i < text.length){
-          const ch = text[i];
-          if(/\s/.test(ch)){
-            typed.appendChild(document.createTextNode(ch));
-          }else{
-            const span = document.createElement('span');
-            span.textContent = ch;
-            span.className = 'c' + (colorIdx % 4); // c0 blue, c1 red, c2 yellow, c3 green
-            typed.appendChild(span);
-            colorIdx++;
-          }
-          i++;
-          placeBubble();
-          delay(CHAR_MS + ((i%7)?0:Math.random()*10), loop);
+      (function loop(i=0){
+        typed.textContent = text.slice(0,i);
+        placeBubble(); // keep bubble clear of Chunklet as text wraps
+        if(i<text.length){
+          setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
         }else{
           output.classList.remove('typing');
           placeBubble();
@@ -582,11 +563,7 @@
       freezeEmoji.textContent = frozen ? '💫' : '❄️';  // ❄️ click to freeze, 💫 to resume
       freezeEmoji.setAttribute('title', frozen ? 'Unfreeze' : 'Freeze');
       if(frozen){ clearTimers(); } // pin everything exactly as-is
-      else { // resume normal flow
-        if(doorOpen && outputContainer.classList.contains('active')){
-          scheduleAutoClose();
-        }
-      }
+      else { if(doorOpen && outputContainer.classList.contains('active')) scheduleAutoClose(); }
     }
     freezeEmoji.addEventListener('click', (e)=>{ e.stopPropagation(); setFrozen(!frozen); });
 
