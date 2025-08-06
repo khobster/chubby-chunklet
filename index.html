@@ -9,9 +9,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: Rubik for UI/HUD; Emilys Candy for the bubble text -->
+  <!-- Fonts: Rubik for UI/HUD; Boogaloo for the bubble text -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <style>
     :root{
@@ -139,14 +139,14 @@
     }
     .output-container.active .freeze-emoji{ display:block; pointer-events:auto; }
 
-    /* Speech text — Emilys Candy + slightly relaxed tight tracking */
+    /* Speech text — Boogaloo + slightly relaxed tight tracking */
     .output{
-      font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family:"Boogaloo", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
       font-weight:400;
       font-size:clamp(22px, 2.5vw, 36px);
-      line-height:1.08;
-      letter-spacing:-0.060em;      /* was -0.095em — a bit wider now */
+      line-height:1.06;
+      letter-spacing:-0.035em;      /* a little wider than before */
       word-spacing:-0.02em;
       color:#111;
       text-align:center;
@@ -165,7 +165,7 @@
     .output .work-tag{
       opacity:.95; text-transform:uppercase;
       margin-left:.6em; font-size:.62em;
-      letter-spacing:-0.060em;      /* match main tracking */
+      letter-spacing:-0.035em;      /* match main tracking */
       word-spacing:-0.02em;
       color:#333; display:block; margin-top:10px; text-shadow:none;
     }
@@ -201,7 +201,7 @@
 
     @media(max-width:600px){
       .output-container{ width:92%; }
-      .output{ font-size:clamp(18px, 4vw, 28px); letter-spacing:-0.06em; line-height:1.1; }
+      .output{ font-size:clamp(18px, 4vw, 28px); letter-spacing:-0.035em; line-height:1.1; }
       .speech-bubble{ border-radius:30px; padding:20px 28px 20px 22px; }
       .freeze-emoji{ top:6px; right:8px; }
     }
@@ -668,13 +668,6 @@ C=toggle  M=switch target  R=reset saved`;
         if(e.key==='ArrowRight') { document.documentElement.style.setProperty('--mouth-left',(left+ pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
       }
     });
-
-    function onReadyToPosition(){
-      positionDoorAndChunklet();
-      delay(50, positionDoorAndChunklet);
-      delay(250, positionDoorAndChunklet);
-    }
-    if(bgImg.complete) onReadyToPosition(); else bgImg.addEventListener('load', onReadyToPosition);
 
     positionDoorAndChunklet();
   </script>
