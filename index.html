@@ -1,515 +1,365 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>chubby chunklet</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8" />
+<title>chubby chunklet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Icons -->
-  <link rel="icon" type="image/png" href="favicon.png" />
-  <link rel="apple-touch-icon" href="favicon.png" />
+<!-- Icons -->
+<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
+<!-- Fonts: Rubik for UI/HUD; Emilys Candy for the bubble text -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
 
-  <style>
-    :root{
-      /* Backend */
-      --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+<style>
+:root{
+  /* Backend */
+  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Chunklet sprite / mouth */
-      --figure-scale:1.15;
-      --mouth-top:39%;
-      --mouth-left:49%;
-      --mouth-w:20px;
-      --mouth-h:20px;
-      --mouth-scale-0:.05;
+  /* Chunklet sprite / mouth */
+  --figure-scale:1.15;
+  --mouth-top:39%;
+  --mouth-left:49%;
+  --mouth-w:20px;
+  --mouth-h:20px;
+  --mouth-scale-0:.05;
 
-      /* Typing */
-      --char-ms:18;
+  /* Typing */
+  --char-ms:18;
 
-      /* Door anchors (normalized, calibrated) */
-      --door-x: 0.472;
-      --door-y: 0.579;
-      --door-w: 0.099;
-      --door-h: 0.248;
+  /* === NEW door anchors (normalised) === */
+  --door-x: 0.558;  /* centred */
+  --door-y: 0.579;
+  --door-w: 0.125;  /* matches pixel frame */
+  --door-h: 0.248;
 
-      /* Bubble layout */
-      --output-top-fallback: 8vmin;
-      --bubble-gap: 18px;
-      --tail-x: 50%;
-    }
+  /* Bubble layout */
+  --output-top-fallback: 8vmin;
+  --bubble-gap: 18px;
+  --tail-x: 50%;
+}
 
-    *{box-sizing:border-box}
-    html,body{
-      margin:0;padding:0;
-      font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background:#000;color:#fff;-webkit-font-smoothing:antialiased;
-      overflow:hidden;height:100%;width:100%;
-    }
+*{box-sizing:border-box}
+html,body{
+  margin:0;padding:0;
+  font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background:#000;color:#fff;-webkit-font-smoothing:antialiased;
+  overflow:hidden;height:100%;width:100%;
+}
 
-    /* Scene */
-    .scene-container{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#4a7ba7;}
-    .scene-bg{width:100%;height:100%;position:relative;display:flex;align-items:center;justify-content:center;perspective:900px;}
-    .scene-bg img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none;}
+.scene-container{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#4a7ba7;}
+.scene-bg{width:100%;height:100%;position:relative;display:flex;align-items:center;justify-content:center;perspective:900px;}
+.scene-bg img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none}
 
-    /* Door */
-    .door-container{
-      position:absolute;left:50%;top:52%;width:140px;height:180px;
-      transform:translate(-50%,-50%);cursor:pointer;z-index:50;
-    }
-    .door-left,.door-right{
-      position:absolute;width:50%;height:100%;
-      background:#3d2418;border:3px solid #2d1810;
-      transition:transform .8s cubic-bezier(.68,-.55,.265,1.55);
-      box-shadow:inset 0 0 20px rgba(0,0,0,.4),0 0 10px rgba(0,0,0,.8);
-      backface-visibility:hidden;transform-style:preserve-3d;
-    }
-    .door-left{left:0;transform-origin:left center;border-right:2px solid #1a0e08;}
-    .door-right{right:0;transform-origin:right center;border-left:2px solid #1a0e08;}
-    .door-panel{position:absolute;background:#2d1810;border:2px solid #1a0e08;
-      box-shadow:inset 2px 2px 4px rgba(0,0,0,.4),inset -1px -1px 2px rgba(61,36,24,.3);}
-    .door-left .panel-top,.door-right .panel-top{width:65%;height:22%;top:15%;}
-    .door-left .panel-mid,.door-right .panel-mid{width:65%;height:22%;top:41%;}
-    .door-left .panel-bottom,.door-right .panel-bottom{width:65%;height:22%;top:67%;}
-    .door-left .panel-top,.door-left .panel-mid,.door-left .panel-bottom{left:17.5%;}
-    .door-right .panel-top,.door-right .panel-mid,.door-right .panel-bottom{right:17.5%;}
-    .door-open .door-left{transform:rotateY(85deg);}
-    .door-open .door-right{transform:rotateY(-85deg);}
+/* Door */
+.door-container{
+  position:absolute;left:50%;top:52%;width:140px;height:180px;
+  transform:translate(-50%,-50%);cursor:pointer;z-index:50;
+}
+.door-left,.door-right{
+  position:absolute;width:50%;height:100%;
+  background:#3d2418;border:3px solid #2d1810;
+  transition:transform .8s cubic-bezier(.68,-.55,.265,1.55);
+  box-shadow:inset 0 0 20px rgba(0,0,0,.4),0 0 10px rgba(0,0,0,.8);
+  backface-visibility:hidden;transform-style:preserve-3d;
+}
+.door-left{left:0;transform-origin:left center;border-right:2px solid #1a0e08;}
+.door-right{right:0;transform-origin:right center;border-left:2px solid #1a0e08;}
+.door-panel{position:absolute;background:#2d1810;border:2px solid #1a0e08;
+  box-shadow:inset 2px 2px 4px rgba(0,0,0,.4),inset -1px -1px 2px rgba(61,36,24,.3);}
+.door-left .panel-top,.door-right .panel-top{width:65%;height:22%;top:15%;}
+.door-left .panel-mid,.door-right .panel-mid{width:65%;height:22%;top:41%;}
+.door-left .panel-bottom,.door-right .panel-bottom{width:65%;height:22%;top:67%;}
+.door-left .panel-top,.door-left .panel-mid,.door-left .panel-bottom{left:17.5%;}
+.door-right .panel-top,.door-right .panel-mid,.door-right .panel-bottom{right:17.5%;}
+.door-open .door-left{transform:rotateY(85deg);}
+.door-open .door-right{transform:rotateY(-85deg);}
 
-    /* Chunklet */
-    .chunklet-container{position:absolute;transform:translate(-50%,-30px);opacity:0;transition:opacity .3s;z-index:60;pointer-events:none;}
-    .chunklet-container.active{opacity:1;}
-    .chunklet-wrap{position:relative;width:calc(100px*var(--figure-scale));height:calc(130px*var(--figure-scale));display:flex;align-items:flex-end;justify-content:center;}
-    .chunklet-img{width:calc(90px*var(--figure-scale));max-width:100%;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 8px 16px rgba(0,0,0,.6));image-rendering:-webkit-optimize-contrast;}
+/* Chunklet */
+.chunklet-container{position:absolute;transform:translate(-50%,-30px);opacity:0;transition:opacity .3s;z-index:60;pointer-events:none;}
+.chunklet-container.active{opacity:1;}
+.chunklet-wrap{position:relative;width:calc(100px*var(--figure-scale));height:calc(130px*var(--figure-scale));display:flex;align-items:flex-end;justify-content:center;}
+.chunklet-img{width:calc(90px*var(--figure-scale));max-width:100%;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 8px 16px rgba(0,0,0,.6));image-rendering:-webkit-optimize-contrast;}
 
-    /* Ground shadow */
-    .ground-shadow{position:absolute;left:50%;bottom:-2px;width:88px;height:18px;transform:translateX(-50%) scale(.6);
-      background:radial-gradient(ellipse at center,rgba(0,0,0,.45)0%,rgba(0,0,0,.25)40%,rgba(0,0,0,0)70%);
-      filter:blur(2px);opacity:0;pointer-events:none;}
+/* Ground shadow */
+.ground-shadow{position:absolute;left:50%;bottom:-2px;width:88px;height:18px;transform:translateX(-50%) scale(.6);
+  background:radial-gradient(ellipse at center,rgba(0,0,0,.45) 0%,rgba(0,0,0,.25) 40%,rgba(0,0,0,0) 70%);
+  filter:blur(2px);opacity:0;pointer-events:none;}
 
-    /* Mouth overlay */
-    .mouth-overlay{position:absolute;top:var(--mouth-top);left:var(--mouth-left);width:var(--mouth-w);height:var(--mouth-h);
-      transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;pointer-events:none;}
-    .mouth-overlay svg{width:100%;height:100%}
-    #mouth{transform-origin:50% 50%;transform:scale(1,var(--mouth-scale-0));}
+/* Mouth overlay */
+.mouth-overlay{position:absolute;top:var(--mouth-top);left:var(--mouth-left);width:var(--mouth-w);height:var(--mouth-h);transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.mouth-overlay svg{width:100%;height:100%}
+#mouth{transform-origin:50% 50%;transform:scale(1,var(--mouth-scale-0))}
 
-    /* ===== Speech bubble ===== */
-    .output-container{
-      position:fixed;left:50%;transform:translateX(-50%);
-      width:auto;max-width:90vw;
-      z-index:40;opacity:0;transition:opacity .5s;
-      pointer-events:none;top:var(--output-top-fallback);
-      text-align:center;
-    }
-    .output-container.active{opacity:1;}
+/* ===== Speech bubble ===== */
+.output-container{
+  position:fixed;left:50%;transform:translateX(-50%);
+  width:auto;max-width:90vw;z-index:40;opacity:0;transition:opacity .5s;
+  pointer-events:none;top:var(--output-top-fallback);text-align:center;
+}
+.output-container.active{opacity:1;}
+.bubble-wrap{position:relative;display:inline-block;}
+.speech-bubble{
+  position:relative;background:#fff;border:6px solid #000;border-radius:32px;
+  padding:18px 26px 18px 22px;color:#111;
+  box-shadow:0 6px 0 #000,0 14px 30px rgba(0,0,0,.35);display:inline-block;max-width:86vw;
+}
+/* tail */
+.bubble-tail{position:absolute;bottom:-2px;left:var(--tail-x);transform:translate(-50%,100%);width:44px;height:28px;pointer-events:none;overflow:visible;}
+/* hide old snowflake toggle entirely */
+.freeze-emoji{display:none!important}
 
-    .bubble-wrap{position:relative;display:inline-block;}
-    .speech-bubble{
-      position:relative;background:#fff;border:6px solid #000;border-radius:32px;
-      padding:18px 26px 18px 22px;box-shadow:0 6px 0 #000,0 14px 30px rgba(0,0,0,.35);
-      display:inline-block;max-width:86vw;min-width:min(80vw,280px);
-    }
-    @media(max-width:600px){.speech-bubble{min-width:90vw;}}
+/* Text */
+.output{
+  font-family:"Emilys Candy",Rubik,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  text-transform:uppercase;font-weight:400;font-size:clamp(22px,2.4vw,36px);
+  line-height:1.04;letter-spacing:-.06em;word-spacing:-.04em;color:#111;
+  margin:0;white-space:pre-wrap;text-shadow:none;text-align:center;
+}
+.cursor{display:inline-block;width:.5ch;height:1.05em;background:#111;vertical-align:text-bottom;animation:blink 1s steps(1,end) infinite;border-radius:2px;}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+.typing .cursor{animation:none}
+/* attribution */
+.output .work-tag{
+  opacity:.95;text-transform:uppercase;margin-left:.6em;font-size:.72em;
+  letter-spacing:-.06em;word-spacing:-.04em;color:#333;display:block;margin-top:10px;text-shadow:none;
+}
+@media(max-width:600px){.output .work-tag{font-size:.85em;}}
 
-    .bubble-tail{
-      position:absolute;bottom:-2px;left:var(--tail-x);transform:translate(-50%,100%);
-      width:44px;height:28px;overflow:visible;pointer-events:none;
-    }
+/* ===== Animations (unchanged) ===== */
+@keyframes emergePop{0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg);opacity:0;filter:brightness(.85);}40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg);opacity:1;}60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);}100%{transform:translate(-50%,-12px) scale(1) rotate(0deg);}}
+@keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0) rotate(-3deg)}20%{transform:translate(-50%,10px) rotate(3deg)}30%{transform:translate(-50%,20px) rotate(-3deg)}40%{transform:translate(-50%,30px) rotate(3deg)}55%{transform:translate(-50%,45px) rotate(-2deg)}70%{transform:translate(-50%,58px) rotate(2deg)}85%{transform:translate(-50%,66px) rotate(-1deg) scale(1.02,.98)}100%{transform:translate(-50%,70px) rotate(0deg) scale(1)}}
+@keyframes shadowEmerge{0%{opacity:0;transform:translateX(-50%) scale(.4);}60%{opacity:.55;transform:translateX(-50%) scale(.75);}100%{opacity:.65;transform:translateX(-50%) scale(.85);}}
+@keyframes shadowWaddle{0%{opacity:.65;transform:translateX(-50%) scale(.85);}25%{opacity:.70;transform:translateX(-50%) scale(.95);}50%{opacity:.60;transform:translateX(-50%) scale(.88);}75%{opacity:.72;transform:translateX(-50%) scale(1);}100%{opacity:.68;transform:translateX(-50%) scale(1.05);}}
+.chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards;}
+.chunklet-container.waddle{animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards;}
+.chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards;}
+.chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
 
-    /* Freeze emoji hidden */
-    .freeze-emoji{display:none!important}
+@media(max-width:600px){
+  .output-container{max-width:94vw;}
+  .speech-bubble{border-radius:28px;padding:14px 18px 14px 16px;}
+  .output{font-size:clamp(18px,4.1vw,28px);line-height:1.07;}
+}
 
-    /* Speech text */
-    .output{
-      font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      text-transform:uppercase;font-weight:400;
-      font-size:clamp(22px,2.4vw,36px);line-height:1.04;
-      letter-spacing:-0.06em;word-spacing:-0.04em;color:#111;
-      margin:0;white-space:pre-wrap;text-shadow:none;text-align:center;
-    }
-    .cursor{display:inline-block;width:.5ch;height:1.05em;background:#111;vertical-align:text-bottom;
-      animation:blink 1s steps(1,end) infinite;border-radius:2px;}
-    @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
-    .typing .cursor{animation:none}
-
-    .output .work-tag{
-      opacity:.95;text-transform:uppercase;font-size:.62em;letter-spacing:-0.06em;word-spacing:-0.04em;
-      color:#333;display:block;margin-top:10px;text-shadow:none;
-    }
-    @media(max-width:600px){.output .work-tag{font-size:.75em}}
-
-    /* ===== Animations ===== */
-    @keyframes emergePop{0%{transform:translate(-50%,-60px)scale(.86,.92)rotate(-3deg);opacity:0;filter:brightness(.85);}
-      40%{transform:translate(-50%,-28px)scale(1.06,.94)rotate(-2deg);opacity:1;}
-      60%{transform:translate(-50%,-18px)scale(.96,1.04)rotate(2deg);}
-      100%{transform:translate(-50%,-12px)scale(1)rotate(0deg);}}
-    @keyframes waddleDown{0%{transform:translate(-50%,-12px);}
-      10%{transform:translate(-50%,0px)rotate(-3deg);}
-      20%{transform:translate(-50%,10px)rotate(3deg);}
-      30%{transform:translate(-50%,20px)rotate(-3deg);}
-      40%{transform:translate(-50%,30px)rotate(3deg);}
-      55%{transform:translate(-50%,45px)rotate(-2deg);}
-      70%{transform:translate(-50%,58px)rotate(2deg);}
-      85%{transform:translate(-50%,66px)rotate(-1deg)scale(1.02,.98);}
-      100%{transform:translate(-50%,70px)scale(1);}}
-    @keyframes shadowEmerge{0%{opacity:0;transform:translateX(-50%)scale(.4);}
-      60%{opacity:.55;transform:translateX(-50%)scale(.75);}
-      100%{opacity:.65;transform:translateX(-50%)scale(.85);}}
-    @keyframes shadowWaddle{0%{opacity:.65;transform:translateX(-50%)scale(.85);}
-      25%{opacity:.70;transform:translateX(-50%)scale(.95);}
-      50%{opacity:.60;transform:translateX(-50%)scale(.88);}
-      75%{opacity:.72;transform:translateX(-50%)scale(1);}
-      100%{opacity:.68;transform:translateX(-50%)scale(1.05);}}
-    .chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards;}
-    .chunklet-container.waddle{animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards;}
-    .chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards;}
-    .chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
-
-    /* Calibration HUD */
-    .cal-hud{position:fixed;left:8px;bottom:8px;font:12px/1.3 Rubik,ui-monospace,Menlo,Consolas,monospace;
-      background:rgba(0,0,0,.6);color:#0ff;padding:8px 10px;border:1px solid rgba(0,255,255,.35);
-      border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;white-space:pre;z-index:100;}
-    .cal-hud.on{opacity:1;}
-  </style>
+/* Calibration HUD (unchanged) */
+.cal-hud{position:fixed;left:8px;bottom:8px;font:12px/1.3 Rubik,ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.6);color:#0ff;padding:8px 10px;border:1px solid rgba(0,255,255,.35);border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;white-space:pre;z-index:100;}
+.cal-hud.on{opacity:1;}
+</style>
 </head>
+
 <body>
-  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
+<audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-  <div class="scene-container">
-    <div class="scene-bg">
-      <img src="skullbones.png" alt="Scene background" />
+<!-- Scene -->
+<div class="scene-container">
+  <div class="scene-bg">
+    <img src="skullbones.png" alt="Scene background"/>
 
-      <!-- Door -->
-      <div class="door-container" id="doorTrigger" aria-label="Open the door" role="button" tabindex="0">
-        <div class="door-left">
-          <div class="door-panel panel-top"></div>
-          <div class="door-panel panel-mid"></div>
-          <div class="door-panel panel-bottom"></div>
-        </div>
-        <div class="door-right">
-          <div class="door-panel panel-top"></div>
-          <div class="door-panel panel-mid"></div>
-          <div class="door-panel panel-bottom"></div>
-        </div>
+    <!-- Door trigger -->
+    <div class="door-container" id="doorTrigger" role="button" tabindex="0" aria-label="Open the door">
+      <div class="door-left">
+        <div class="door-panel panel-top"></div>
+        <div class="door-panel panel-mid"></div>
+        <div class="door-panel panel-bottom"></div>
       </div>
+      <div class="door-right">
+        <div class="door-panel panel-top"></div>
+        <div class="door-panel panel-mid"></div>
+        <div class="door-panel panel-bottom"></div>
+      </div>
+    </div>
 
-      <!-- Chunklet -->
-      <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
-        <div class="chunklet-wrap">
-          <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
-          <div class="mouth-overlay">
-            <svg viewBox="0 0 100 100" aria-hidden="true">
-              <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
-            </svg>
-          </div>
-          <div class="ground-shadow"></div>
+    <!-- Chunklet -->
+    <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
+      <div class="chunklet-wrap">
+        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img"/>
+        <div class="mouth-overlay">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+          </svg>
         </div>
+        <div class="ground-shadow"></div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Speech bubble -->
-  <div class="output-container" id="outputContainer" aria-live="polite">
-    <div class="bubble-wrap">
-      <div class="speech-bubble" id="bubble">
-        <div class="output" id="output">
-          <span id="typed"></span><span id="cursor" class="cursor"></span>
-        </div>
-        <div id="freezeEmoji" class="freeze-emoji" title="Freeze">❄️</div>
+<!-- Bubble -->
+<div class="output-container" id="outputContainer" aria-live="polite">
+  <div class="bubble-wrap">
+    <div class="speech-bubble">
+      <div class="output" id="output">
+        <span id="typed"></span><span id="cursor" class="cursor"></span>
       </div>
-      <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
     </div>
+    <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <path d="M4,2 C14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
   </div>
+</div>
 
-  <div class="cal-hud" id="calHud"></div>
+<!-- Calibration HUD -->
+<div class="cal-hud" id="calHud"></div>
 
-  <script>
-    /* ===== CONFIG & Timings ===== */
-    const css = getComputedStyle(document.documentElement);
-    const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
-      'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-    const QUERY    = '?style=canon&modern=0&accent=scottish';
-    const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
+<script>
+/* ===== CONFIG ===== */
+const css = getComputedStyle(document.documentElement);
+const ENDPOINT = (css.getPropertyValue('--endpoint')||'').trim()||
+  'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+const QUERY   = '?style=canon&modern=0&accent=scottish';
+const CHAR_MS = parseInt(css.getPropertyValue('--char-ms'),10)||20;
+const DOOR_SWING_MS=800,EMERGE_MS=700,WADDLE_MS=2400;
 
-    /* Center door on tall-narrow screens */
-    if (window.innerWidth < 500 || window.innerHeight > window.innerWidth) {
-      document.documentElement.style.setProperty('--door-x','0.50');
-    }
+/* DOM cache */
+const doorTrigger=document.getElementById('doorTrigger');
+const chunkletContainer=document.getElementById('chunkletContainer');
+const outputContainer=document.getElementById('outputContainer');
+const bubbleTail=document.getElementById('bubbleTail');
+const typed=document.getElementById('typed');
+const cursor=document.getElementById('cursor');
+const mouth=document.getElementById('mouth');
+const clickSnd=document.getElementById('clickSnd');
+const bgImg=document.querySelector('.scene-bg img');
+const host=document.querySelector('.scene-bg');
+const isIOS=/iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-    const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
+let busy=false,doorOpen=false;
+let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData,raf,animating=false;
 
-    /* DOM refs */
-    const doorTrigger       = document.getElementById('doorTrigger');
-    const chunkletContainer = document.getElementById('chunkletContainer');
-    const outputContainer   = document.getElementById('outputContainer');
-    const bubbleTail        = document.getElementById('bubbleTail');
-    const typed             = document.getElementById('typed');
-    const cursor            = document.getElementById('cursor');
-    const mouth             = document.getElementById('mouth');
-    const output            = document.getElementById('output');
-    const clickSnd          = document.getElementById('clickSnd');
-    const freezeEmoji       = document.getElementById('freezeEmoji');
-    const bgImg   = document.querySelector('.scene-bg img');
-    const host    = document.querySelector('.scene-bg');
-    const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
+/* ===== Simple scheduler ===== */
+const timers=new Set();
+function delay(ms,fn){const id=setTimeout(()=>{timers.delete(id);fn&&fn();},ms);timers.add(id);return id;}
+function clearTimers(){for(const id of timers)clearTimeout(id);timers.clear();}
 
-    let busy=false, doorOpen=false, frozen=false;
-    let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-    let raf,animating=false,tagPlaying=false;
-    let currentObjectURL=null, iosAudioInitialized=false;
+/* ===== Mouth animation helpers (unchanged) ===== */
+const SY=[.07,.55,1.10,1.70,2.30],SX=[1,1.01,1.02,1.02,1.03];
+const THRESH_UP=[.03,.06,.1,.16],HYST=.018,THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST)),GATE=.01,GRACE=20;
+let level=0,lastChange=0;
+function ensureCtx(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}
+function ensureAnalyser(){ensureCtx();if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=256;analyser.smoothingTimeConstant=0;timeData=new Float32Array(analyser.fftSize);}}
+function attachSrcToAnalyser(src){ensureAnalyser();try{src.disconnect()}catch(_){}src.connect(analyser);analyser.connect(audioCtx.destination);}
+function rms(){if(!analyser)return 0;analyser.getFloatTimeDomainData(timeData);let s=0;for(let v of timeData)s+=v*v;let r=Math.sqrt(s/timeData.length);return r<GATE?0:r;}
+function setLevel(n){n=Math.max(0,Math.min(4,n|0));if(n===level)return;level=n;mouth.style.transform=`scale(${SX[n]},${SY[n]})`;lastChange=performance.now();}
+function startMouth(){if(animating)return;animating=true;raf=requestAnimationFrame(tick);}
+function stopMouth(){animating=false;cancelAnimationFrame(raf);setLevel(0);}
+function tick(){
+  if(!animating)return;raf=requestAnimationFrame(tick);
+  const active=!!currentSource,now=performance.now();
+  if(active&&analyser){const e=rms();let t=level;while(t<4&&e>=THRESH_UP[t])t++;while(t>0&&e<THRESH_DOWN[t-1])t--;if(t<level&&(now-lastChange)<GRACE)t=level;setLevel(t);}
+}
 
-    /* ===== micro scheduler ===== */
-    const timers = new Set();
-    const delay = (ms, fn) => {
-      const id=setTimeout(()=>{timers.delete(id);fn&&fn();},ms);timers.add(id);return id;
-    };
-    const clearTimers = () => {for(const id of timers)clearTimeout(id);timers.clear();};
+/* ===== Bubble placement ===== */
+function placeBubble(){
+  const card=outputContainer.getBoundingClientRect(),guy=chunkletContainer.getBoundingClientRect();
+  if(!(card.width&&guy.width))return;
+  const gap=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap'));
+  const desiredBottom=Math.max(8,guy.top-gap),newTop=Math.max(8,Math.round(desiredBottom-card.height));
+  outputContainer.style.top=newTop+'px';
+  const tailPx=(guy.left+guy.width/2)-card.left,tailPct=Math.max(8,Math.min(92,tailPx/card.width*100));
+  outputContainer.style.setProperty('--tail-x',tailPct+'%');
+}
+new ResizeObserver(placeBubble).observe(outputContainer);
 
-    /* ===== mouth & audio ===== */
-    const SY=[.07,.55,1.10,1.70,2.30], SX=[1,1.01,1.02,1.02,1.03];
-    const THRESH_UP=[.03,.06,.1,.16], HYST=.018, THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST));
-    const GATE=.01, CLOSE_GRACE_MS=20;
-    let level=0,lastChange=0;
-    function ensureCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}
-    function ensureAnalyser(){ensureCtx();if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=256;analyser.smoothingTimeConstant=0;timeData=new Float32Array(analyser.fftSize);}}
-    function attachAnalyserToBufferSource(src){ensureAnalyser();try{src.disconnect();}catch{}src.connect(analyser);analyser.connect(audioCtx.destination);}
-    function attachAnalyserToMediaElement(){
-      ensureAnalyser();
-      if(isIOS&&!iosAudioInitialized){initializeIOSAudio();return;}
-      if(!audioEl){
-        audioEl=document.createElement('audio');audioEl.style.position='absolute';audioEl.style.left='-9999px';
-        audioEl.setAttribute('playsinline','');audioEl.setAttribute('webkit-playsinline','');document.body.appendChild(audioEl);
-      }
-      if(!mediaSource&&audioCtx&&audioEl){try{mediaSource=audioCtx.createMediaElementSource(audioEl);mediaSource.connect(analyser);analyser.connect(audioCtx.destination);}catch{}}
-    }
-    const rmsLevel=()=>{if(!analyser)return 0;analyser.getFloatTimeDomainData(timeData);let s=0;for(const v of timeData)s+=v*v;const r=Math.sqrt(s/timeData.length);return r<GATE?0:r;};
-    function setLevel(n){n=Math.max(0,Math.min(4,n|0));if(n===level)return;level=n;mouth.style.transform=`scale(${SX[level]},${SY[level]})`;lastChange=performance.now();}
-    const setClosed = ()=>setLevel(0);
-    function startMouth(){if(animating)return;animating=true;raf=requestAnimationFrame(tick);}
-    function stopMouth(){animating=false;cancelAnimationFrame(raf);setClosed();}
-    function tick(){
-      if(!animating)return;raf=requestAnimationFrame(tick);
-      const active=!!currentSource||tagPlaying,now=performance.now();
-      if(active){
-        if(analyser&&(currentSource||(tagPlaying&&mediaSource))){
-          const e=rmsLevel();let target=level;
-          while(target<4&&e>=THRESH_UP[target])target++;
-          while(target>0&&e<THRESH_DOWN[target-1])target--;
-          if(target<level&&(now-lastChange)<CLOSE_GRACE_MS)target=level;
-          setLevel(target);
-        }else{
-          const phase=((now/1000*15)|0)%5;setLevel([1,2,3,2,1][phase]);
-        }
-        return;
-      }
-      const phase=((now/1000*13)|0)%4,rand=Math.random();
-      setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
-    }
+/* ===== Door positioning ===== */
+const DOOR={get x(){return parseFloat(css.getPropertyValue('--door-x'))},
+            get y(){return parseFloat(css.getPropertyValue('--door-y'))},
+            get w(){return parseFloat(css.getPropertyValue('--door-w'))},
+            get h(){return parseFloat(css.getPropertyValue('--door-h'))}};
+function positionDoor(){
+  const hostR=host.getBoundingClientRect(),nw=bgImg.naturalWidth,nh=bgImg.naturalHeight;
+  const s=nw&&nh?Math.max(hostR.width/nw,hostR.height/nh):1,dispW=(nw||hostR.width)*s,dispH=(nh||hostR.height)*s;
+  const offX=(hostR.width-dispW)/2,offY=(hostR.height-dispH)/2;
+  const cx=hostR.left+offX+dispW*DOOR.x,cy=hostR.top+offY+dispH*DOOR.y,dw=dispW*DOOR.w,dh=dispH*DOOR.h;
+  Object.assign(doorTrigger.style,{left:cx-hostR.left+'px',top:cy-hostR.top+'px',width:dw+'px',height:dh+'px'});
+  const exitY=cy+dh*.35;
+  Object.assign(chunkletContainer.style,{left:cx-hostR.left+'px',top:exitY-hostR.top+'px'});
+  placeBubble();
+}
+function onBGReady(){positionDoor();setTimeout(positionDoor,50);setTimeout(positionDoor,250);}
+bgImg.complete?onBGReady():bgImg.addEventListener('load',onBGReady);
+window.addEventListener('resize',positionDoor);
+window.addEventListener('orientationchange',positionDoor);
 
-    function initializeIOSAudio(){
-      if(iosAudioInitialized)return;
-      try{
-        ensureCtx();
-        if(!audioEl){
-          audioEl=document.createElement('audio');audioEl.style.position='absolute';audioEl.style.left='-9999px';
-          audioEl.setAttribute('playsinline','');audioEl.setAttribute('webkit-playsinline','');document.body.appendChild(audioEl);
-        }
-        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4...
-        '; /* shortened silent mp3 base64 for brevity */
-        audioEl.src=silent;audioEl.load();
-        const p=audioEl.play();if(p!==undefined){p.then(()=>{audioEl.pause();audioEl.currentTime=0;
-          if(!mediaSource&&audioCtx){try{mediaSource=audioCtx.createMediaElementSource(audioEl);ensureAnalyser();
-            mediaSource.connect(analyser);analyser.connect(audioCtx.destination);iosAudioInitialized=true;}catch{}}}).catch(()=>{});}
-      }catch{}
-    }
-    function unlockAudioOnce(){
-      try{ensureCtx();if(isIOS){initializeIOSAudio();}else{const b=audioCtx.createBuffer(1,1,22050);
-        const s=audioCtx.createBufferSource();s.buffer=b;s.connect(audioCtx.destination);s.start(0);}}catch{}
-      document.removeEventListener('touchstart',unlockAudioOnce);
-      document.removeEventListener('click',unlockAudioOnce);
-    }
-    document.addEventListener('touchstart',unlockAudioOnce,{once:true,passive:true});
-    document.addEventListener('click',unlockAudioOnce,{once:true});
+/* ===== Typing ===== */
+function typeOut(text,done){
+  typed.textContent='';document.getElementById('output').classList.add('typing');
+  (function loop(i=0){
+    typed.textContent=text.slice(0,i);placeBubble();
+    if(i<text.length)setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));
+    else{document.getElementById('output').classList.remove('typing');placeBubble();done&&done();}
+  })();
+}
 
-    /* ===== Typing helpers ===== */
-    const sanitize = t=>{t=(t||'').trim().replace(/!+$/,'').replace(/\s+/g,' ');return /[.?!]$/.test(t)?t:t+'.';};
-    function typeOut(text,done){
-      typed.textContent='';output.classList.add('typing');
-      (function loop(i=0){
-        typed.textContent=text.slice(0,i);placeBubble();
-        if(i<text.length){setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));}
-        else{output.classList.remove('typing');placeBubble();done&&done();}
-      })();
-    }
+/* ===== Fetch + speak ===== */
+async function speak(text,audioB64,onEnd){
+  if(audioB64){
+    try{
+      ensureCtx();ensureAnalyser();
+      const bin=Uint8Array.from(atob(audioB64.split(',')[1]),c=>c.charCodeAt(0));
+      const buf=await audioCtx.decodeAudioData(bin.buffer);
+      currentSource=audioCtx.createBufferSource();currentSource.buffer=buf;currentSource.playbackRate.value=1.08;
+      attachSrcToAnalyser(currentSource);startMouth();currentSource.start();
+      currentSource.onended=()=>{currentSource=null;stopMouth();onEnd&&onEnd();};
+      return;
+    }catch(e){console.warn('decode fail',e);}
+  }
+  /* silent fallback */
+  const approx=Math.min(7,Math.max(2.2,text.length/16));
+  startMouth();delay((approx+.2)*1000,()=>{stopMouth();onEnd&&onEnd();});
+}
 
-    /* ===== Layout calculations ===== */
-    const DOOR={get x(){return+css.getPropertyValue('--door-x')||.5;},
-                get y(){return+css.getPropertyValue('--door-y')||.55;},
-                get w(){return+css.getPropertyValue('--door-w')||.1;},
-                get h(){return+css.getPropertyValue('--door-h')||.25;}};
-
-    function positionDoorAndChunklet(){
-      const hostRect=host.getBoundingClientRect(),nw=bgImg.naturalWidth,nh=bgImg.naturalHeight;
-      const scale=(nw&&nh)?Math.max(hostRect.width/nw,hostRect.height/nh):1;
-      const w=(nw||hostRect.width)*scale,h=(nh||hostRect.height)*scale;
-      const offX=(hostRect.width-w)/2,offY=(hostRect.height-h)/2;
-      const cx=hostRect.left+offX+w*DOOR.x,cy=hostRect.top+offY+h*DOOR.y;
-      const dw=w*DOOR.w,dh=h*DOOR.h;
-      Object.assign(doorTrigger.style,{left:(cx-hostRect.left)+'px',top:(cy-hostRect.top)+'px',width:dw+'px',height:dh+'px'});
-      const exitY=cy+dh*.35;
-      Object.assign(chunkletContainer.style,{left:(cx-hostRect.left)+'px',top:(exitY-hostRect.top)+'px',transform:'translate(-50%,-30px)'});
-      placeBubble();
-    }
-
-    function placeBubble(){
-      const card=outputContainer.getBoundingClientRect(),guy=chunkletContainer.getBoundingClientRect();
-      if(!(card.width&&guy.width))return;
-      const desiredBottom=Math.max(8,guy.top-parseFloat(css.getPropertyValue('--bubble-gap')));
-      outputContainer.style.top=Math.max(8,Math.round(desiredBottom-card.height))+'px';
-      const tailPct=Math.max(8,Math.min(92,(guy.left+guy.width/2-card.left)/card.width*100));
-      outputContainer.style.setProperty('--tail-x',tailPct+'%');
-    }
-    new ResizeObserver(placeBubble).observe(outputContainer);
-
-    function onReady(){positionDoorAndChunklet();setTimeout(positionDoorAndChunklet,50);setTimeout(positionDoorAndChunklet,250);}
-    if(bgImg.complete)onReady();else bgImg.addEventListener('load',onReady);
-    window.addEventListener('resize',positionDoorAndChunklet);
-    window.addEventListener('orientationchange',positionDoorAndChunklet);
-
-    /* ===== Door choreography ===== */
-    function openDoor(){
-      if(doorOpen)return;positionDoorAndChunklet();doorOpen=true;doorTrigger.classList.add('door-open');
-      delay(DOOR_SWING_MS,()=>{
-        chunkletContainer.classList.add('active','emerge');
-        delay(EMERGE_MS,()=>{
-          chunkletContainer.classList.replace('emerge','waddle');
-          delay(WADDLE_MS,()=>{
-            outputContainer.classList.add('active');placeBubble();
-          });
-        });
-      });
-    }
-    function closeDoor(){
-      if(!doorOpen)return;doorOpen=false;
-      chunkletContainer.classList.remove('active','emerge','waddle');outputContainer.classList.remove('active');
-      delay(500,()=>{doorTrigger.classList.remove('door-open');busy=false;});
-    }
-
-    /* ===== Audio playback ===== */
-    async function playAudio(b64,onEnd){
-      if(isIOS){
-        try{
-          ensureCtx();if(!iosAudioInitialized){initializeIOSAudio();await new Promise(r=>setTimeout(r,100));}
-          attachAnalyserToMediaElement();
-          const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
-          if(currentObjectURL)URL.revokeObjectURL(currentObjectURL);
-          currentObjectURL=URL.createObjectURL(new Blob([bin],{type:'audio/mp3'}));
-          if(!audioEl){audioEl=document.createElement('audio');audioEl.hidden=true;document.body.appendChild(audioEl);}
-          audioEl.src=currentObjectURL;audioEl.load();
-          audioEl.onplay=()=>{setClosed();startMouth();tagPlaying=true;};
-          audioEl.onended=()=>{tagPlaying=false;stopMouth();URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;onEnd&&onEnd();};
-          await audioEl.play();return;
-        }catch{}
-      }
-      try{
-        ensureCtx();ensureAnalyser();
-        const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0)),buf=await audioCtx.decodeAudioData(bin.buffer);
-        currentSource=audioCtx.createBufferSource();currentSource.buffer=buf;currentSource.playbackRate.value=1.08;
-        attachAnalyserToBufferSource(currentSource);setClosed();startMouth();currentSource.start();
-        currentSource.onended=()=>{currentSource=null;stopMouth();onEnd&&onEnd();};return;
-      }catch{}
-      onEnd&&onEnd();
-    }
-
-    /* ===== Main summon ===== */
-    async function summon(){
-      if(busy)return;
-      try{clickSnd.currentTime=0;clickSnd.play();}catch{}
-      busy=true;frozen=false;stopAudio();clearTimers();
-      typed.textContent='';const old=document.querySelector('#output .work-tag');if(old)old.remove();
-      openDoor();
-      try{
-        await new Promise(r=>delay(DOOR_SWING_MS+EMERGE_MS+WADDLE_MS,r));
-        const res=await fetch(ENDPOINT+QUERY,{cache:'no-store'});if(!res.ok)throw'HTTP '+res.status;
-        const data=await res.json(),work=data.work||'',author=data.author||'',text=sanitize(data.text);
-        typeOut(text,async()=>{
-          const finish=()=>{if(work||author){const s=document.createElement('span');s.className='work-tag';
-            s.textContent='— '+[work,author].filter(Boolean).join(' · ');output.appendChild(s);}placeBubble();delay(3000,closeDoor);};
-          if(data.audioBase64)await playAudio(data.audioBase64,finish);else{startMouth();delay(Math.min(7,Math.max(2.2,text.length/16))*1000,()=>{stopMouth();finish();});}
-        });
-      }catch(e){console.error(e);typeOut('A shy packet tripped. Try again.');delay(2000,closeDoor);}
-    }
-
-    const stopAudio=()=>{
-      if(currentSource){try{currentSource.stop();}catch{}currentSource=null;}
-      if(audioEl){try{audioEl.pause();audioEl.currentTime=0;}catch{}}
-      if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;}
-      tagPlaying=false;stopMouth();
-    };
-
-    doorTrigger.addEventListener('click',summon);
-    doorTrigger.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();summon();}});
-
-    /* ===== Calibration HUD ===== */
-    const calHud=document.getElementById('calHud');let calOn=false,calTarget='door';const STORAGE_KEY='cc_vars';
-    const getVar=n=>+getComputedStyle(document.documentElement).getPropertyValue(n)||0;
-    function setVar(n,v){document.documentElement.style.setProperty(n,String(v));persistVars();positionDoorAndChunklet();updateHud();}
-    function persistVars(){
-      const d={door_x:getVar('--door-x'),door_y:getVar('--door-y'),door_w:getVar('--door-w'),door_h:getVar('--door-h'),
-        mouth_top:css.getPropertyValue('--mouth-top'),mouth_left:css.getPropertyValue('--mouth-left')};
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
-    }
-    function loadVars(){
-      try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
-        if(d.door_x)document.documentElement.style.setProperty('--door-x',d.door_x);
-        if(d.door_y)document.documentElement.style.setProperty('--door-y',d.door_y);
-        if(d.door_w)document.documentElement.style.setProperty('--door-w',d.door_w);
-        if(d.door_h)document.documentElement.style.setProperty('--door-h',d.door_h);
-        if(d.mouth_top)document.documentElement.style.setProperty('--mouth-top',d.mouth_top);
-        if(d.mouth_left)document.documentElement.style.setProperty('--mouth-left',d.mouth_left);}catch{}
-    }
-    function updateHud(){
-      if(!calOn)return;
-      calHud.textContent=`CALIBRATION (${calTarget.toUpperCase()}) — Shift=fine
-Door x:${getVar('--door-x').toFixed(3)} y:${getVar('--door-y').toFixed(3)} w:${getVar('--door-w').toFixed(3)} h:${getVar('--door-h').toFixed(3)}
-Mouth top:${css.getPropertyValue('--mouth-top').trim()} left:${css.getPropertyValue('--mouth-left').trim()}
-C=toggle  M=switch target  R=reset`;
-    }
-    function toggleCal(){calOn=!calOn;calHud.classList.toggle('on',calOn);updateHud();}
-    function resetSaved(){localStorage.removeItem(STORAGE_KEY);location.reload();}
-    loadVars();
-    window.addEventListener('keydown',e=>{
-      if(e.key==='c'||e.key==='C'){toggleCal();return;}
-      if(!calOn)return;
-      const fine=e.shiftKey,step=fine?.001:.003,pct=fine?.5:1;
-      if(e.key==='m'||e.key==='M'){calTarget=calTarget==='door'?'mouth':'door';updateHud();return;}
-      if(e.key==='r'||e.key==='R'){resetSaved();return;}
-      if(calTarget==='door'){
-        if(e.key==='ArrowLeft') setVar('--door-x',getVar('--door-x')-step);
-        if(e.key==='ArrowRight')setVar('--door-x',getVar('--door-x')+step);
-        if(e.key==='ArrowUp')   setVar('--door-y',getVar('--door-y')-step);
-        if(e.key==='ArrowDown') setVar('--door-y',getVar('--door-y')+step);
-        if(e.key==='[')         setVar('--door-w',Math.max(.01,getVar('--door-w')-step));
-        if(e.key===']')         setVar('--door-w',getVar('--door-w')+step);
-        if(e.key==='{')         setVar('--door-h',Math.max(.01,getVar('--door-h')-step));
-        if(e.key==='}')         setVar('--door-h',getVar('--door-h')+step);
-      }else{
-        const top=parseFloat(css.getPropertyValue('--mouth-top')),left=parseFloat(css.getPropertyValue('--mouth-left'));
-        if(e.key==='ArrowUp')   {document.documentElement.style.setProperty('--mouth-top',(top-pct)+'%');persistVars();}
-        if(e.key==='ArrowDown') {document.documentElement.style.setProperty('--mouth-top',(top+pct)+'%');persistVars();}
-        if(e.key==='ArrowLeft') {document.documentElement.style.setProperty('--mouth-left',(left-pct)+'%');persistVars();}
-        if(e.key==='ArrowRight'){document.documentElement.style.setProperty('--mouth-left',(left+pct)+'%');persistVars();}
-        positionDoorAndChunklet();updateHud();
-      }
+/* ===== Door choreography ===== */
+function openDoor(){
+  if(doorOpen)return;doorOpen=true;doorTrigger.classList.add('door-open');
+  delay(DOOR_SWING_MS,()=>{
+    chunkletContainer.classList.add('active','emerge');
+    delay(EMERGE_MS,()=>{
+      chunkletContainer.classList.remove('emerge');chunkletContainer.classList.add('waddle');
+      delay(WADDLE_MS,()=>{outputContainer.classList.add('active');placeBubble();});
     });
+  });
+}
+function closeDoor(){
+  if(!doorOpen)return;doorOpen=false;
+  chunkletContainer.classList.remove('active','emerge','waddle');
+  outputContainer.classList.remove('active');
+  delay(500,()=>{doorTrigger.classList.remove('door-open');busy=false;});
+}
 
-    /* Initial layout */
-    positionDoorAndChunklet();
-    if(bgImg.complete)placeBubble();else bgImg.addEventListener('load',placeBubble);
-  </script>
+/* ===== Core summon ===== */
+async function summon(){
+  if(busy)return;
+  try{clickSnd.currentTime=0;clickSnd.play()}catch(_){}
+  busy=true;typed.textContent='';
+  document.querySelector('#output .work-tag')?.remove();
+  openDoor();
+  await new Promise(r=>delay(DOOR_SWING_MS+EMERGE_MS+WADDLE_MS,r));
+  try{
+    const res=await fetch(ENDPOINT+QUERY,{cache:'no-store'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json(),text=(data.text||'').trim().replace(/!+$/,'');
+    typeOut(text.match(/[.?!]$/)?text:text+'.',()=>speak(text,data.audioBase64,()=>{
+      if(data.work||data.author){
+        const tag=document.createElement('span');tag.className='work-tag';
+        tag.textContent='— '+[data.work,data.author].filter(Boolean).join(' · ');
+        document.getElementById('output').appendChild(tag);placeBubble();
+      }
+      delay(3000,closeDoor);
+    }));
+  }catch(e){
+    console.error(e);typeOut('A shy packet tripped. Try again.');
+    delay(2000,closeDoor);
+  }
+}
+doorTrigger.addEventListener('click',summon);
+doorTrigger.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();summon();}});
+
+/* ===== Boot ===== */
+positionDoor();
+if(bgImg.complete)placeBubble();else bgImg.addEventListener('load',placeBubble);
+</script>
 </body>
 </html>
