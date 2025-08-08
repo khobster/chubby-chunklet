@@ -1,281 +1,596 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>chubby chunklet</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <title>chubby chunklet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<!-- Icons -->
-<link rel="icon" href="favicon.png">
-<link rel="apple-touch-icon" href="favicon.png">
+  <!-- Icons -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
 
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
 
-<style>
-:root{
-  /* Backend */
-  --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+  <style>
+    :root{
+      /* Backend */
+      --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-  /* Door anchors (verified) */
-  --door-x: 0.472;
-  --door-y: 0.579;
-  --door-w: 0.099;
-  --door-h: 0.248;
+      /* Chunklet sprite / mouth (calibrated) */
+      --figure-scale:1.15;
+      --mouth-top:39%;
+      --mouth-left:49%;
+      --mouth-w:20px;
+      --mouth-h:20px;
+      --mouth-scale-0:.05;
 
-  /* Chunklet + mouth */
-  --figure-scale:1.15;
-  --mouth-top:39%;  --mouth-left:49%;
-  --mouth-w:20px;   --mouth-h:20px;   --mouth-scale-0:.05;
+      /* Typing */
+      --char-ms:18;
 
-  /* Typing */
-  --char-ms:18;
+      /* Door anchors (normalized, calibrated) */
+      --door-x: 0.472;
+      --door-y: 0.579;
+      --door-w: 0.099;
+      --door-h: 0.248;
 
-  /* Bubble */
-  --output-top-fallback: calc(env(safe-area-inset-top, 0px) + 8vmin);
-  --bubble-gap:18px;
-  --tail-x:50%;
-}
+      /* Bubble layout */
+      --output-top-fallback: 8vmin;
+      --bubble-gap: 18px;
+      --tail-x: 50%;
+    }
 
-*{box-sizing:border-box}
-html,body{
-  margin:0;height:100%;width:100%;overflow:hidden;
-  background:#000;color:#fff;
-  font-family:Rubik,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;
-}
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;padding:0;
+      font-family:Rubik,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:#000;color:#fff;-webkit-font-smoothing:antialiased;
+      overflow:hidden;height:100%;width:100%;
+    }
 
-/* ===== Scene ===== */
-.scene-container{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-.scene-bg{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;perspective:900px}
-.scene-bg img{width:100%;height:100%;object-fit:cover;object-position:center;user-select:none;-webkit-user-drag:none}
+    /* ===== Scene ===== */
+    .scene-container{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#4a7ba7;}
+    .scene-bg{width:100%;height:100%;position:relative;display:flex;align-items:center;justify-content:center;perspective:900px;}
+    .scene-bg img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none;}
 
-/* ===== Door ===== */
-.door-container{position:absolute;left:50%;top:52%;width:140px;height:180px;transform:translate(-50%,-50%);cursor:pointer;z-index:50}
-.door-left,.door-right{position:absolute;width:50%;height:100%;background:#3d2418;border:3px solid #2d1810;
-  transition:transform .8s cubic-bezier(.68,-.55,.265,1.55);box-shadow:inset 0 0 20px rgba(0,0,0,.4),0 0 10px rgba(0,0,0,.8);
-  backface-visibility:hidden;transform-style:preserve-3d}
-.door-left{left:0;transform-origin:left center;border-right:2px solid #1a0e08}
-.door-right{right:0;transform-origin:right center;border-left:2px solid #1a0e08}
-.door-panel{position:absolute;background:#2d1810;border:2px solid #1a0e08;
-  box-shadow:inset 2px 2px 4px rgba(0,0,0,.4),inset -1px -1px 2px rgba(61,36,24,.3)}
-.door-left .panel-top,.door-right .panel-top,
-.door-left .panel-mid,.door-right .panel-mid,
-.door-left .panel-bottom,.door-right .panel-bottom{width:65%;height:22%}
-.door-left .panel-top{top:15%;left:17.5%}.door-left .panel-mid{top:41%;left:17.5%}.door-left .panel-bottom{top:67%;left:17.5%}
-.door-right .panel-top{top:15%;right:17.5%}.door-right .panel-mid{top:41%;right:17.5%}.door-right .panel-bottom{top:67%;right:17.5%}
-.door-open .door-left{transform:rotateY(85deg)} .door-open .door-right{transform:rotateY(-85deg)}
+    /* ===== Door ===== */
+    .door-container{
+      position:absolute;left:50%;top:52%;width:140px;height:180px;
+      transform:translate(-50%,-50%);cursor:pointer;z-index:50;
+    }
+    .door-left,.door-right{
+      position:absolute;width:50%;height:100%;
+      background:#3d2418;border:3px solid #2d1810;
+      transition:transform .8s cubic-bezier(.68,-0.55,.265,1.55);
+      box-shadow:inset 0 0 20px rgba(0,0,0,.4),0 0 10px rgba(0,0,0,.8);
+      backface-visibility:hidden;transform-style:preserve-3d;
+    }
+    .door-left{left:0;transform-origin:left center;border-right:2px solid #1a0e08;}
+    .door-right{right:0;transform-origin:right center;border-left:2px solid #1a0e08;}
+    .door-panel{position:absolute;background:#2d1810;border:2px solid #1a0e08;
+      box-shadow:inset 2px 2px 4px rgba(0,0,0,.4),inset -1px -1px 2px rgba(61,36,24,.3);}
+    .door-left .panel-top,.door-right .panel-top{width:65%;height:22%;top:15%;}
+    .door-left .panel-mid,.door-right .panel-mid{width:65%;height:22%;top:41%;}
+    .door-left .panel-bottom,.door-right .panel-bottom{width:65%;height:22%;top:67%;}
+    .door-left .panel-top,.door-left .panel-mid,.door-left .panel-bottom{left:17.5%;}
+    .door-right .panel-top,.door-right .panel-mid,.door-right .panel-bottom{right:17.5%;}
+    .door-open .door-left{transform:rotateY(85deg);}
+    .door-open .door-right{transform:rotateY(-85deg);}
 
-/* ===== Chunklet ===== */
-.chunklet-container{position:absolute;transform:translate(-50%,-30px);opacity:0;transition:opacity .3s;z-index:60;pointer-events:none}
-.chunklet-container.active{opacity:1}
-.chunklet-wrap{position:relative;width:calc(100px*var(--figure-scale));height:calc(130px*var(--figure-scale));display:flex;align-items:flex-end;justify-content:center}
-.chunklet-img{width:calc(90px*var(--figure-scale));filter:drop-shadow(0 8px 16px rgba(0,0,0,.6))}
-.ground-shadow{position:absolute;left:50%;bottom:-2px;width:88px;height:18px;transform:translateX(-50%) scale(.6);
-  background:radial-gradient(ellipse at center,rgba(0,0,0,.45)0%,rgba(0,0,0,.25)40%,rgba(0,0,0,0)70%);filter:blur(2px);opacity:0}
-.mouth-overlay{position:absolute;top:var(--mouth-top);left:var(--mouth-left);width:var(--mouth-w);height:var(--mouth-h);transform:translate(-50%,-50%)}
-#mouth{transform-origin:50% 50%;transform:scale(1,var(--mouth-scale-0))}
+    /* ===== Chunklet ===== */
+    .chunklet-container{
+      position:absolute;transform:translate(-50%,-30px);
+      opacity:0;transition:opacity .3s;z-index:60;pointer-events:none;
+    }
+    .chunklet-container.active{opacity:1;}
+    .chunklet-wrap{position:relative;width:calc(100px*var(--figure-scale));height:calc(130px*var(--figure-scale));display:flex;align-items:flex-end;justify-content:center;}
+    .chunklet-img{width:calc(90px*var(--figure-scale));max-width:100%;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 8px 16px rgba(0,0,0,.6));image-rendering:-webkit-optimize-contrast;}
+    .ground-shadow{position:absolute;left:50%;bottom:-2px;width:88px;height:18px;transform:translateX(-50%) scale(.6);
+      background:radial-gradient(ellipse at center,rgba(0,0,0,.45) 0%,rgba(0,0,0,.25) 40%,rgba(0,0,0,0) 70%);filter:blur(2px);opacity:0;pointer-events:none;}
 
-/* ===== Bubble ===== */
-.output-container{position:fixed;left:50%;transform:translateX(-50%);width:auto;max-width:90vw;
-  opacity:0;transition:opacity .5s;pointer-events:none;top:var(--output-top-fallback);text-align:center;z-index:40}
-.output-container.active{opacity:1}
-.bubble-wrap{position:relative;display:inline-block}
-.speech-bubble{background:#fff;border:6px solid #000;border-radius:32px;padding:18px 26px 18px 22px;
-  box-shadow:0 6px 0 #000,0 14px 30px rgba(0,0,0,.35);color:#111;max-width:86vw}
-.bubble-tail{position:absolute;bottom:-2px;left:var(--tail-x);transform:translate(-50%,100%);width:44px;height:28px;pointer-events:none}
-.output{font-family:"Emilys Candy",Rubik,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-  text-transform:uppercase;font-weight:400;font-size:clamp(22px,2.4vw,36px);line-height:1.04;
-  letter-spacing:-.06em;word-spacing:-.04em;margin:0;white-space:pre-wrap;color:#111}
-.cursor{display:inline-block;width:.5ch;height:1.05em;background:#111;vertical-align:text-bottom;border-radius:2px;
-  animation:blink 1s steps(1,end) infinite}@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
-.output .work-tag{display:block;margin-top:10px;font-size:.72em;letter-spacing:-.06em;word-spacing:-.04em;color:#333;opacity:.95}
-@media(max-width:600px){
-  .output{font-size:clamp(18px,4.1vw,28px)}
-  .output .work-tag{font-size:.85em}
-  .speech-bubble{border-radius:28px;padding:14px 18px 14px 16px}
-  .output-container{max-width:94vw}
-}
+    .mouth-overlay{position:absolute;top:var(--mouth-top);left:var(--mouth-left);width:var(--mouth-w);height:var(--mouth-h);transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;pointer-events:none;}
+    .mouth-overlay svg{width:100%;height:100%}
+    #mouth{transform-origin:50% 50%;transform:scale(1,var(--mouth-scale-0))}
 
-/* ===== Animations ===== */
-@keyframes emergePop{0%{transform:translate(-50%,-60px)scale(.86,.92)rotate(-3deg);opacity:0;filter:brightness(.85)}
- 40%{transform:translate(-50%,-28px)scale(1.06,.94)rotate(-2deg);opacity:1}
- 60%{transform:translate(-50%,-18px)scale(.96,1.04)rotate(2deg)}100%{transform:translate(-50%,-12px)}}
-@keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0)rotate(-3deg)}
- 20%{transform:translate(-50%,10px)rotate(3deg)}30%{transform:translate(-50%,20px)rotate(-3deg)}
- 40%{transform:translate(-50%,30px)rotate(3deg)}55%{transform:translate(-50%,45px)rotate(-2deg)}
- 70%{transform:translate(-50%,58px)rotate(2deg)}85%{transform:translate(-50%,66px)rotate(-1deg)scale(1.02,.98)}
- 100%{transform:translate(-50%,70px)}}
-@keyframes shadowEmerge{0%{opacity:0;transform:translateX(-50%)scale(.4)}
- 60%{opacity:.55;transform:translateX(-50%)scale(.75)}100%{opacity:.65;transform:translateX(-50%)scale(.85)}}
-@keyframes shadowWaddle{0%{opacity:.65;transform:translateX(-50%)scale(.85)}
- 25%{opacity:.7;transform:translateX(-50%)scale(.95)}50%{opacity:.6;transform:translateX(-50%)scale(.88)}
- 75%{opacity:.72;transform:translateX(-50%)scale(1)}100%{opacity:.68;transform:translateX(-50%)scale(1.05)}}
-.chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards}
-.chunklet-container.waddle{animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards}
-.chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards}
-.chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards}
-</style>
+    /* ===== Speech bubble ===== */
+    .output-container{position:fixed;left:50%;transform:translateX(-50%);width:76%;max-width:860px;min-width:280px;z-index:40;pointer-events:none;opacity:0;transition:opacity .5s;top:var(--output-top-fallback);}
+    .output-container.active{opacity:1;}
+
+    .bubble-wrap{position:relative;}
+
+    /* anticipation micro-bubble */
+    .pre-bubble{
+      position:absolute;left:50%;top:0;transform:translate(-50%,-80%);
+      width:38px;height:38px;border:4px solid #000;border-radius:50%;
+      background:#fff;display:flex;align-items:center;justify-content:center;
+      opacity:0;scale:.5;transition:opacity .25s,scale .25s cubic-bezier(.22,1,.36,1);
+    }
+    .pre-bubble .dot{width:6px;height:6px;margin:0 2px;border-radius:50%;background:#111;animation:dot 1s infinite ease-in-out;}
+    .pre-bubble .dot:nth-child(2){animation-delay:.15s}
+    .pre-bubble .dot:nth-child(3){animation-delay:.3s}
+    @keyframes dot{0%,80%,100%{transform:scale(1)}40%{transform:scale(.25)}}
+
+    .speech-bubble{background:#fff;border:6px solid #000;border-radius:38px;padding:26px 32px;color:#111;
+      box-shadow:0 6px 0 #000,0 14px 30px rgba(0,0,0,.35);}
+    .bubble-tail{position:absolute;bottom:-2px;left:var(--tail-x);transform:translate(-50%,100%);width:44px;height:28px;overflow:visible;pointer-events:none;}
+
+    .output{font-family:Rubik,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;text-transform:uppercase;font-weight:500;
+      font-size:clamp(20px,2.6vw,34px);line-height:1.18;letter-spacing:.015em;color:#111;text-align:center;margin:0;white-space:pre-wrap;}
+    .cursor{display:inline-block;width:.65ch;height:1.05em;background:#111;vertical-align:text-bottom;animation:blink 1s steps(1,end) infinite;border-radius:2px;}
+    @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+    .typing .cursor{animation:none}
+
+    .output .work-tag{opacity:.95;text-transform:uppercase;margin-left:.6em;font-size:.62em;letter-spacing:.06em;color:#333;display:block;margin-top:10px;}
+
+    /* ===== Animations ===== */
+    @keyframes emergePop{0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg);opacity:0;filter:brightness(.85);}40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg);opacity:1;}60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);}100%{transform:translate(-50%,-12px) scale(1) rotate(0deg);}}
+    @keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0) rotate(-3deg)}20%{transform:translate(-50%,10px) rotate(3deg)}30%{transform:translate(-50%,20px) rotate(-3deg)}40%{transform:translate(-50%,30px) rotate(3deg)}55%{transform:translate(-50%,45px) rotate(-2deg)}70%{transform:translate(-50%,58px) rotate(2deg)}85%{transform:translate(-50%,66px) rotate(-1deg) scale(1.02,.98)}100%{transform:translate(-50%,70px)}}
+    @keyframes shadowEmerge{0%{opacity:0;transform:translateX(-50%) scale(.4)}60%{opacity:.55;transform:translateX(-50%) scale(.75)}100%{opacity:.65;transform:translateX(-50%) scale(.85)}}
+    @keyframes shadowWaddle{0%{opacity:.65;transform:translateX(-50%) scale(.85)}25%{opacity:.70;transform:translateX(-50%) scale(.95)}50%{opacity:.60;transform:translateX(-50%) scale(.88)}75%{opacity:.72;transform:translateX(-50%) scale(1)}100%{opacity:.68;transform:translateX(-50%) scale(1.05)}}
+    .chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards;}
+    .chunklet-container.waddle{animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards;}
+    .chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards;}
+    .chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
+
+    /* Calibration HUD */
+    .cal-hud{position:fixed;left:8px;bottom:8px;font:12px/1.3 Rubik,ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.6);color:#0ff;padding:8px 10px;border:1px solid rgba(0,255,255,.35);border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;white-space:pre;z-index:100;}
+    .cal-hud.on{opacity:1;}
+
+    @media(max-width:600px){
+      .output-container{width:92%;}
+      .output{font-size:clamp(16px,4vw,24px);}
+      .speech-bubble{border-radius:30px;padding:20px 22px;}
+    }
+  </style>
 </head>
-
 <body>
-<!-- click sfx -->
-<audio id="clickSnd" src="click.mp3" preload="auto"></audio>
+  <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
-<div class="scene-container">
-  <div class="scene-bg">
-    <img src="skullbones.png" alt="Temple scenery">
+  <div class="scene-container">
+    <div class="scene-bg">
+      <img src="skullbones.png" alt="Scene background" />
 
-    <!-- Door -->
-    <div class="door-container" id="doorTrigger" tabindex="0" role="button" aria-label="Open the door">
-      <div class="door-left">
-        <div class="door-panel panel-top"></div>
-        <div class="door-panel panel-mid"></div>
-        <div class="door-panel panel-bottom"></div>
-      </div>
-      <div class="door-right">
-        <div class="door-panel panel-top"></div>
-        <div class="door-panel panel-mid"></div>
-        <div class="door-panel panel-bottom"></div>
-      </div>
-    </div>
-
-    <!-- Chunklet -->
-    <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
-      <div class="chunklet-wrap">
-        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img">
-        <div class="mouth-overlay">
-          <svg viewBox="0 0 100 100" aria-hidden="true"><ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/></svg>
+      <!-- Door -->
+      <div class="door-container" id="doorTrigger" role="button" tabindex="0" aria-label="Open the door">
+        <div class="door-left">
+          <div class="door-panel panel-top"></div>
+          <div class="door-panel panel-mid"></div>
+          <div class="door-panel panel-bottom"></div>
         </div>
-        <div class="ground-shadow"></div>
+        <div class="door-right">
+          <div class="door-panel panel-top"></div>
+          <div class="door-panel panel-mid"></div>
+          <div class="door-panel panel-bottom"></div>
+        </div>
+      </div>
+
+      <!-- Chunklet -->
+      <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
+        <div class="chunklet-wrap">
+          <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
+          <div class="mouth-overlay">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
+            </svg>
+          </div>
+          <div class="ground-shadow"></div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Bubble -->
-<div class="output-container" id="outputContainer" aria-live="polite">
-  <div class="bubble-wrap">
-    <div class="speech-bubble"><div class="output" id="output"><span id="typed"></span><span id="cursor" class="cursor"></span></div></div>
-    <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <path d="M4,2 C14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+  <!-- Speech bubble output -->
+  <div class="output-container" id="outputContainer" aria-live="polite">
+    <div class="bubble-wrap">
+      <!-- anticipation micro-bubble -->
+      <div id="preBubble" class="pre-bubble" aria-hidden="true">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+
+      <div class="speech-bubble" id="bubble">
+        <div class="output" id="output">
+          <span id="typed"></span><span id="cursor" class="cursor"></span>
+        </div>
+      </div>
+      <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <path d="M4,2 C14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
   </div>
-</div>
 
-<script>
-/* ===== CONFIG ===== */
-const css=getComputedStyle(document.documentElement);
-const ENDPOINT=(css.getPropertyValue('--endpoint')||'').trim()||'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-const QUERY='?style=canon&modern=0&accent=scottish';
-const CHAR_MS=parseInt(css.getPropertyValue('--char-ms'),10)||20;
+  <!-- Calibration HUD -->
+  <div class="cal-hud" id="calHud"></div>
 
-/* ===== DOM ===== */
-const host=document.querySelector('.scene-bg'),bgImg=document.querySelector('.scene-bg img');
-const door=document.getElementById('doorTrigger'),guy=document.getElementById('chunkletContainer');
-const outWrap=document.getElementById('outputContainer'),typed=document.getElementById('typed'),cursor=document.getElementById('cursor');
-const mouth=document.getElementById('mouth'),click=document.getElementById('clickSnd');
+  <script>
+    /* ===== CONFIG & Timings ===== */
+    const css = getComputedStyle(document.documentElement);
+    const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
+      'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+    const QUERY    = '?style=canon&modern=0&accent=scottish';
+    const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
-/* ===== Door anchors ===== */
-function DOOR(){return{
-  x:parseFloat(css.getPropertyValue('--door-x'))||.5,
-  y:parseFloat(css.getPropertyValue('--door-y'))||.55,
-  w:parseFloat(css.getPropertyValue('--door-w'))||.1,
-  h:parseFloat(css.getPropertyValue('--door-h'))||.25};}
+    const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
 
-function position(){
-  const r=host.getBoundingClientRect(),nw=bgImg.naturalWidth,nh=bgImg.naturalHeight;
-  const s=nw&&nh?Math.max(r.width/nw,r.height/nh):1,dispW=(nw||r.width)*s,dispH=(nh||r.height)*s;
-  const offX=(r.width-dispW)/2,offY=(r.height-dispH)/2,d=DOOR();
-  const cx=r.left+offX+dispW*d.x,cy=r.top+offY+dispH*d.y,dw=dispW*d.w,dh=dispH*d.h;
-  Object.assign(door.style,{left:cx-r.left+'px',top:cy-r.top+'px',width:dw+'px',height:dh+'px'});
-  Object.assign(guy.style,{left:cx-r.left+'px',top:cy+dh*.35-r.top+'px'});
-  placeBubble();
-}
-function placeBubble(){
-  const card=outWrap.getBoundingClientRect(),g=guy.getBoundingClientRect();
-  if(!(card.width&&g.width))return;
-  const gap=parseFloat(css.getPropertyValue('--bubble-gap')),safe=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top,0px)'));
-  outWrap.style.top=Math.max(8+safe,g.top-gap-card.height)+'px';
-  const tailPct=Math.max(8,Math.min(92,((g.left+g.width/2)-card.left)/card.width*100));
-  outWrap.style.setProperty('--tail-x',tailPct+'%');
-}
-if(bgImg.complete)ready();else bgImg.addEventListener('load',ready);
-function ready(){position();setTimeout(position,50);setTimeout(position,250);}
-window.addEventListener('resize',position);window.addEventListener('orientationchange',position);
-new ResizeObserver(()=>placeBubble()).observe(outWrap);
+    /* ===== DOM shortcuts ===== */
+    const doorTrigger       = document.getElementById('doorTrigger');
+    const chunkletContainer = document.getElementById('chunkletContainer');
+    const outputContainer   = document.getElementById('outputContainer');
+    const bubble            = document.getElementById('bubble');
+    const preBubble         = document.getElementById('preBubble');
+    const bubbleTail        = document.getElementById('bubbleTail');
+    const typed             = document.getElementById('typed');
+    const cursor            = document.getElementById('cursor');
+    const mouth             = document.getElementById('mouth');
+    const output            = document.getElementById('output');
+    const clickSnd          = document.getElementById('clickSnd');
+    const bgImg             = document.querySelector('.scene-bg img');
+    const host              = document.querySelector('.scene-bg');
+    const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-/* ===== Typing ===== */
-function typeOut(txt,done){
-  typed.textContent='';cursor.style.display='inline-block';
-  (function loop(i=0){
-    typed.textContent=txt.slice(0,i);placeBubble();
-    if(i<txt.length)setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));
-    else{cursor.style.display='none';placeBubble();done&&done();}
-  })();
-}
+    /* ===== State ===== */
+    let busy=false, doorOpen=false;
+    let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
+    let raf,animating=false,tagPlaying=false;
+    let currentObjectURL=null, iosAudioInitialized=false;
 
-/* ===== Mouth anim ===== */
-const SY=[.07,.55,1.1,1.7,2.3],SX=[1,1.01,1.02,1.02,1.03],THU=[.03,.06,.1,.16],THD=THU.map(t=>t-.018);
-let audioCtx,analyser,timeBuf,src,raf,level=0,last=0;
-function ensureCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();}
-function ensureAnalyser(){ensureCtx();if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=256;timeBuf=new Float32Array(analyser.fftSize);}}
-function setL(n){n=Math.max(0,Math.min(4,n));if(n===level)return;level=n;mouth.style.transform=`scale(${SX[n]},${SY[n]})`;last=performance.now();}
-function startMouth(){if(raf)return;raf=requestAnimationFrame(step);}
-function stopMouth(){cancelAnimationFrame(raf);raf=null;setL(0);}
-function step(){
-  raf=requestAnimationFrame(step);
-  if(src){
-    analyser.getFloatTimeDomainData(timeBuf);let s=0;for(const v of timeBuf)s+=v*v;const v=Math.sqrt(s/timeBuf.length);
-    let t=level;while(t<4&&v>=THU[t])t++;while(t>0&&v<THD[t-1])t--;if(t<level&&(performance.now()-last)<20)t=level;setL(t);
-  }else{const p=((performance.now()/1000*13)|0)%4,r=Math.random();setL(p===0?0:p===1?(r<.7?1:2):p===2?(r<.6?2:3):(r<.5?3:4));}
-}
+    /* ===== micro scheduler: kill stale timeouts ===== */
+    const timers=new Set();
+    function delay(ms,fn){const id=setTimeout(()=>{timers.delete(id);fn&&fn();},ms);timers.add(id);return id;}
+    function clearTimers(){for(const id of timers)clearTimeout(id);timers.clear();}
 
-/* ===== Audio ===== */
-async function speak(b64,done){
-  try{
-    ensureAnalyser();
-    const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0)),buf=await audioCtx.decodeAudioData(bin.buffer);
-    src=audioCtx.createBufferSource();src.buffer=buf;src.connect(analyser);analyser.connect(audioCtx.destination);
-    src.start();startMouth();src.onended=()=>{src=null;stopMouth();done();};
-  }catch(e){console.warn(e);done();}
-}
+    /* ===== mouth anim bands ===== */
+    const SY=[0.07,0.55,1.10,1.70,2.30],SX=[1.00,1.01,1.02,1.02,1.03];
+    const THRESH_UP=[0.030,0.060,0.100,0.160],HYST_DELTA=0.018;
+    const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
+    const GATE_FLOOR=0.010,CLOSE_GRACE_MS=20;
+    let level=0,lastChange=0;
 
-/* ===== Door choreography ===== */
-let open=false,busy=false;
-function openDoor(){
-  if(open)return;open=true;door.classList.add('door-open');
-  setTimeout(()=>{guy.classList.add('active','emerge');
-    setTimeout(()=>{guy.classList.remove('emerge');guy.classList.add('waddle');
-      setTimeout(()=>{outWrap.classList.add('active');placeBubble();},2400);
-    },700);
-  },800);
-}
-function closeDoor(){if(!open)return;open=false;guy.classList.remove('active','waddle');outWrap.classList.remove('active');
-  setTimeout(()=>{door.classList.remove('door-open');busy=false;},500);}
+    function ensureCtx(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}
+    function ensureAnalyser(){ensureCtx();if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=256;analyser.smoothingTimeConstant=0.0;timeData=new Float32Array(analyser.fftSize);}}
+    function attachAnalyserToBufferSource(src){ensureAnalyser();try{src.disconnect();}catch(_){ }src.connect(analyser);analyser.connect(audioCtx.destination);}
+    function attachAnalyserToMediaElement(){
+      ensureAnalyser();
+      if(isIOS&&!iosAudioInitialized){initializeIOSAudio();return;}
+      if(!audioEl){
+        audioEl=document.createElement('audio');
+        audioEl.style.position='absolute';audioEl.style.left='-9999px';
+        audioEl.setAttribute('playsinline','');audioEl.setAttribute('webkit-playsinline','');
+        document.body.appendChild(audioEl);
+      }
+      if(!mediaSource&&audioCtx&&audioEl){
+        try{mediaSource=audioCtx.createMediaElementSource(audioEl);mediaSource.connect(analyser);analyser.connect(audioCtx.destination);}
+        catch(e){console.warn('createMediaElementSource failed',e);}
+      }
+    }
+    function rmsLevel(){if(!analyser||!timeData)return 0;analyser.getFloatTimeDomainData(timeData);let s=0;for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]}let r=Math.sqrt(s/timeData.length);return r<GATE_FLOOR?0:r;}
+    function setLevel(n){n=Math.max(0,Math.min(4,n|0));if(n===level)return;level=n;mouth.style.transform=`scale(${SX[level]},${SY[level]})`;lastChange=performance.now();}
+    function setClosed(){setLevel(0);}
+    function startMouth(){if(animating)return;animating=true;raf=requestAnimationFrame(tick);}
+    function stopMouth(){animating=false;cancelAnimationFrame(raf);setClosed();}
+    function tick(){
+      if(!animating)return;raf=requestAnimationFrame(tick);
+      const active=!!currentSource||tagPlaying,now=performance.now();
+      if(active){
+        if(analyser&&(currentSource||(tagPlaying&&mediaSource))){
+          const e=rmsLevel();
+          if(isIOS&&e===0&&tagPlaying){const t=(now/1000);const phase=((t*15)|0)%5;setLevel([1,2,3,2,1][phase]);return;}
+          let target=level;
+          while(target<4&&e>=THRESH_UP[target])target++;
+          while(target>0&&e<THRESH_DOWN[target-1])target--;
+          if(target<level&&(now-lastChange)<CLOSE_GRACE_MS)target=level;
+          setLevel(target);
+        }else{const t=(now/1000);const phase=((t*15)|0)%5;setLevel([1,2,3,2,1][phase]);}
+        return;
+      }
+      const t=(now/1000);const phase=((t*13)|0)%4;const rand=Math.random();
+      setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
+    }
 
-/* ===== Main loop ===== */
-async function summon(){
-  if(busy)return;busy=true;try{click.currentTime=0;click.play();}catch(_){}
-  openDoor();typed.textContent='';document.querySelectorAll('.work-tag').forEach(n=>n.remove());
+    function initializeIOSAudio(){
+      if(iosAudioInitialized)return;
+      try{
+        ensureCtx();
+        if(!audioEl){
+          audioEl=document.createElement('audio');
+          audioEl.style.position='absolute';audioEl.style.left='-9999px';
+          audioEl.setAttribute('playsinline','');audioEl.setAttribute('webkit-playsinline','');
+          document.body.appendChild(audioEl);
+        }
+        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+        audioEl.src=silent;audioEl.load();
+        const p=audioEl.play();
+        if(p!==undefined){
+          p.then(()=>{audioEl.pause();audioEl.currentTime=0;
+            if(!mediaSource&&audioCtx){
+              try{mediaSource=audioCtx.createMediaElementSource(audioEl);ensureAnalyser();mediaSource.connect(analyser);analyser.connect(audioCtx.destination);iosAudioInitialized=true;}
+              catch(e){console.warn('iOS audio init partial success, no analyser:',e);}
+            }
+          }).catch(e=>console.warn('iOS audio init failed',e));
+        }
+      }catch(e){console.warn('iOS audio initialization error:',e);}
+    }
+    function unlockAudioOnce(){
+      try{
+        ensureCtx();
+        if(isIOS){initializeIOSAudio();}
+        else{const buf=audioCtx.createBuffer(1,1,22050);const src=audioCtx.createBufferSource();src.buffer=buf;src.connect(audioCtx.destination);src.start(0);}
+      }catch(_){}
+      document.removeEventListener('touchstart',unlockAudioOnce);
+      document.removeEventListener('click',unlockAudioOnce);
+    }
+    document.addEventListener('touchstart',unlockAudioOnce,{once:true,passive:true});
+    document.addEventListener('click',unlockAudioOnce,{once:true});
 
-  try{
-    await new Promise(r=>setTimeout(r,800+700+2400));
-    const j=await fetch(ENDPOINT+QUERY,{cache:'no-store'}).then(r=>r.json());
-    const txt=/[.?!]$/.test(j.text.trim())?j.text.trim():j.text.trim()+'.';
-    typeOut(txt,()=>{const done=()=>{
-        if(j.work||j.author){const sp=document.createElement('span');sp.className='work-tag';sp.textContent='— '+[j.work,j.author].filter(Boolean).join(' · ');
-          document.getElementById('output').appendChild(sp);placeBubble();}
-        setTimeout(closeDoor,3000);
+    /* ===== Bubble helpers ===== */
+    function resetPreBubble(){preBubble.style.opacity='0';preBubble.style.scale='.5';}
+    function startPreBubble(){cursor.style.display='none';resetPreBubble();preBubble.style.opacity='1';preBubble.style.scale='1';}
+    function morphPreBubble(done){
+      preBubble.style.transition='scale .28s ease, opacity .18s ease';
+      preBubble.style.scale='1.15';
+      setTimeout(()=>{preBubble.style.opacity='0';setTimeout(()=>{done&&done();},200);},280);
+    }
+
+    /* ===== Door/chunklet positioning ===== */
+    const DOOR={
+      get x(){return parseFloat(css.getPropertyValue('--door-x'))||.5;},
+      get y(){return parseFloat(css.getPropertyValue('--door-y'))||.55;},
+      get w(){return parseFloat(css.getPropertyValue('--door-w'))||.10;},
+      get h(){return parseFloat(css.getPropertyValue('--door-h'))||.25;}
     };
-      if(j.audioBase64)speak(j.audioBase64,done);else{startMouth();setTimeout(()=>{stopMouth();done();},Math.max(2200,txt.length*120));}
+    function positionDoorAndChunklet(){
+      const hostRect=host.getBoundingClientRect();
+      const natW=bgImg.naturalWidth, natH=bgImg.naturalHeight;
+      const scale=(natW&&natH)?Math.max(hostRect.width/natW,hostRect.height/natH):1;
+      const dispW=(natW||hostRect.width)*scale;
+      const dispH=(natH||hostRect.height)*scale;
+      const offsetX=(hostRect.width-dispW)/2, offsetY=(hostRect.height-dispH)/2;
+
+      const cx=hostRect.left+offsetX+dispW*DOOR.x;
+      const cy=hostRect.top +offsetY+dispH*DOOR.y;
+      const dw=dispW*DOOR.w, dh=dispH*DOOR.h;
+
+      Object.assign(doorTrigger.style,{left:(cx-hostRect.left)+'px',top:(cy-hostRect.top)+'px',width:dw+'px',height:dh+'px'});
+      const exitY=cy+dh*0.35;
+      Object.assign(chunkletContainer.style,{left:(cx-hostRect.left)+'px',top:(exitY-hostRect.top)+'px',transform:'translate(-50%,-30px)'});
+      placeBubble();
+    }
+
+    function placeBubble(){
+      const cardRect=outputContainer.getBoundingClientRect();
+      const guyRect =chunkletContainer.getBoundingClientRect();
+      if(!(cardRect.width&&guyRect.width))return;
+      const desiredBottom=Math.max(8,guyRect.top-parseFloat(css.getPropertyValue('--bubble-gap')));
+      const newTop=Math.max(8,Math.round(desiredBottom-cardRect.height));
+      outputContainer.style.top=newTop+'px';
+
+      const cardLeft=cardRect.left;
+      const tailPx=(guyRect.left+guyRect.width/2)-cardLeft;
+      const tailPct=Math.max(8,Math.min(92,tailPx/cardRect.width*100));
+      outputContainer.style.setProperty('--tail-x',tailPct+'%');
+    }
+    new ResizeObserver(()=>placeBubble()).observe(outputContainer);
+
+    /* ===== Typing helper ===== */
+    function typeOut(text,done){
+      typed.textContent='';
+      output.classList.add('typing');
+      (function loop(i=0){
+        typed.textContent=text.slice(0,i);
+        placeBubble();
+        if(i<text.length){
+          setTimeout(()=>loop(i+1),CHAR_MS+((i%7)?0:Math.random()*10));
+        }else{
+          output.classList.remove('typing');
+          placeBubble();
+          done&&done();
+        }
+      })();
+    }
+
+    function stopAudio(){
+      if(currentSource){try{currentSource.stop();}catch(_){ }try{currentSource.disconnect();}catch(_){ }currentSource=null;}
+      if(audioEl){try{audioEl.pause();audioEl.currentTime=0;}catch(_){ }}
+      if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;}
+      tagPlaying=false;
+    }
+
+    function showWork(work,author){
+      const old=document.querySelector('#output .work-tag');if(old)old.remove();
+      if(!work&&!author)return;
+      const span=document.createElement('span');span.className='work-tag';
+      span.textContent='— '+[work,author].filter(Boolean).join(' · ');
+      output.appendChild(span);
+    }
+
+    /* ===== Door choreography ===== */
+    function openDoor(){
+      if(doorOpen)return;
+      positionDoorAndChunklet();
+      doorOpen=true;doorTrigger.classList.add('door-open');
+      setTimeout(()=>{
+        chunkletContainer.classList.add('active','emerge');
+        setTimeout(()=>{
+          chunkletContainer.classList.remove('emerge');
+          chunkletContainer.classList.add('waddle');
+          setTimeout(()=>{
+            outputContainer.classList.add('active');
+            startPreBubble();
+            placeBubble();
+          },WADDLE_MS);
+        },EMERGE_MS);
+      },DOOR_SWING_MS);
+    }
+    function closeDoor(){
+      if(!doorOpen)return;doorOpen=false;
+      chunkletContainer.classList.remove('active','emerge','waddle');
+      outputContainer.classList.remove('active');
+      resetPreBubble();
+      setTimeout(()=>{doorTrigger.classList.remove('door-open');busy=false;},500);
+    }
+
+    /* ===== TTS playback ===== */
+    async function playAudio(b64,onEnd){
+      if(isIOS){
+        try{
+          ensureCtx();
+          if(!iosAudioInitialized){initializeIOSAudio();await new Promise(r=>setTimeout(r,100));}
+          attachAnalyserToMediaElement();
+          const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
+          const blob=new Blob([bin],{type:'audio/mp3'});
+          if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;}
+          currentObjectURL=URL.createObjectURL(blob);
+          if(!audioEl){
+            audioEl=document.createElement('audio');
+            audioEl.style.position='absolute';audioEl.style.left='-9999px';
+            audioEl.setAttribute('playsinline','');audioEl.setAttribute('webkit-playsinline','');
+            document.body.appendChild(audioEl);
+          }
+          audioEl.src=currentObjectURL;audioEl.load();
+          audioEl.onplay=()=>{setClosed();startMouth();tagPlaying=true;};
+          audioEl.onended=()=>{tagPlaying=false;stopMouth();if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;}onEnd&&onEnd();};
+          const pp=audioEl.play();if(pp!==undefined)await pp;return;
+        }catch(err){
+          console.error('iOS audio playback failed',err);
+          startMouth();setTimeout(()=>{stopMouth();onEnd&&onEnd();},3000);return;
+        }
+      }
+      try{
+        ensureCtx();ensureAnalyser();
+        const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
+        const buf=await audioCtx.decodeAudioData(bin.buffer);
+        currentSource=audioCtx.createBufferSource();currentSource.buffer=buf;currentSource.playbackRate.value=1.08;
+        attachAnalyserToBufferSource(currentSource);
+        setClosed();startMouth();currentSource.start();
+        currentSource.onended=()=>{currentSource=null;stopMouth();onEnd&&onEnd();};
+        return;
+      }catch(e){console.warn('WebAudio decode failed',e);}
+      try{
+        ensureCtx();ensureAnalyser();attachAnalyserToMediaElement();
+        const bin=Uint8Array.from(atob(b64.split(',')[1]),c=>c.charCodeAt(0));
+        const blob=new Blob([bin],{type:'audio/mp3'});
+        if(!audioEl){audioEl=document.createElement('audio');audioEl.hidden=true;document.body.appendChild(audioEl);}
+        if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;}
+        currentObjectURL=URL.createObjectURL(blob);audioEl.src=currentObjectURL;
+        audioEl.onplay=()=>{setClosed();startMouth();tagPlaying=true;};
+        audioEl.onended=()=>{tagPlaying=false;stopMouth();if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;}onEnd&&onEnd();};
+        await audioEl.play();
+      }catch(err){
+        console.error('Plain <audio> failed',err);
+        startMouth();setTimeout(()=>{stopMouth();onEnd&&onEnd();},3000);
+      }
+    }
+
+    /* ===== Main summon ===== */
+    async function summon(){
+      if(busy)return;
+      try{clickSnd.currentTime=0;clickSnd.play();}catch(_){}
+      busy=true;stopAudio();openDoor();
+
+      typed.textContent='';const oldTag=document.querySelector('#output .work-tag');if(oldTag)oldTag.remove();
+
+      try{
+        await new Promise(r=>setTimeout(r,DOOR_SWING_MS+EMERGE_MS+WADDLE_MS));
+        const res=await fetch(ENDPOINT+QUERY,{cache:'no-store'});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const data=await res.json();
+        const work=data.work||null,author=data.author||null;
+        const text=((data.text||'').trim().replace(/!+$/,'')||'')+( /[.?!]$/.test(data.text||'')?'':'.');
+
+        morphPreBubble(()=>{
+          cursor.style.display='inline-block';
+          typeOut(text,()=>{
+            showWork(work,author);
+            placeBubble();
+            setTimeout(()=>closeDoor(),3000);
+          });
+
+          if(data.audioBase64){playAudio(data.audioBase64);}
+          else{startMouth();setTimeout(stopMouth,Math.min(7,Math.max(2.2,text.length/16))*1000);}
+        });
+
+      }catch(e){
+        console.error(e);
+        morphPreBubble(()=>typeOut('A shy packet tripped. Try again.',()=>setTimeout(closeDoor,2000)));
+      }
+    }
+
+    doorTrigger.addEventListener('click',summon);
+    doorTrigger.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();summon();}});
+
+    /* ===== Boot ===== */
+    function onReady(){
+      positionDoorAndChunklet();
+      setTimeout(positionDoorAndChunklet,50);
+      setTimeout(positionDoorAndChunklet,250);
+    }
+    if(bgImg.complete)onReady();else bgImg.addEventListener('load',onReady);
+    window.addEventListener('resize',positionDoorAndChunklet);
+    window.addEventListener('orientationchange',positionDoorAndChunklet);
+
+    /* ===== Calibration HUD ===== */
+    const calHud=document.getElementById('calHud');let calOn=false,calTarget='door';const STORAGE_KEY='cc_vars';
+    function getVar(name,fallback){const v=parseFloat(css.getPropertyValue(name));return isNaN(v)?(fallback??0):v;}
+    function setVar(name,value){document.documentElement.style.setProperty(name,String(value));persistVars();positionDoorAndChunklet();updateHud();}
+    function persistVars(){
+      const data={door_x:getVar('--door-x'),door_y:getVar('--door-y'),door_w:getVar('--door-w'),door_h:getVar('--door-h'),
+        mouth_top:css.getPropertyValue('--mouth-top'),
+        mouth_left:css.getPropertyValue('--mouth-left')};
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+    }
+    function loadVars(){
+      try{
+        const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return;
+        const d=JSON.parse(raw);
+        if(d.door_x)document.documentElement.style.setProperty('--door-x',d.door_x);
+        if(d.door_y)document.documentElement.style.setProperty('--door-y',d.door_y);
+        if(d.door_w)document.documentElement.style.setProperty('--door-w',d.door_w);
+        if(d.door_h)document.documentElement.style.setProperty('--door-h',d.door_h);
+        if(d.mouth_top)document.documentElement.style.setProperty('--mouth-top',d.mouth_top);
+        if(d.mouth_left)document.documentElement.style.setProperty('--mouth-left',d.mouth_left);
+      }catch(_){}
+    }
+    function updateHud(){
+      if(!calOn)return;
+      const door={x:getVar('--door-x').toFixed(3),y:getVar('--door-y').toFixed(3),w:getVar('--door-w').toFixed(3),h:getVar('--door-h').toFixed(3)};
+      const mTop=css.getPropertyValue('--mouth-top').trim();
+      const mLeft=css.getPropertyValue('--mouth-left').trim();
+      calHud.textContent=
+`CALIBRATION (${calTarget.toUpperCase()})  —  Shift = fine
+Door  x:${door.x}  y:${door.y}  w:${door.w}  h:${door.h}
+Mouth top:${mTop}  left:${mLeft}
+C=toggle  M=switch target  R=reset saved`;
+    }
+    function toggleCal(){calOn=!calOn;calHud.classList.toggle('on',calOn);updateHud();}
+    function resetSaved(){localStorage.removeItem(STORAGE_KEY);location.reload();}
+    loadVars();
+    window.addEventListener('keydown',e=>{
+      if(e.key==='c'||e.key==='C'){toggleCal();return;}
+      if(!calOn)return;
+      const fine=e.shiftKey,step=fine?0.001:0.003,pct=fine?0.5:1;
+      if(e.key==='m'||e.key==='M'){calTarget=calTarget==='door'?'mouth':'door';updateHud();return;}
+      if(e.key==='r'||e.key==='R'){resetSaved();return;}
+      if(calTarget==='door'){
+        if(e.key==='ArrowLeft')setVar('--door-x',getVar('--door-x')-step);
+        if(e.key==='ArrowRight')setVar('--door-x',getVar('--door-x')+step);
+        if(e.key==='ArrowUp')setVar('--door-y',getVar('--door-y')-step);
+        if(e.key==='ArrowDown')setVar('--door-y',getVar('--door-y')+step);
+        if(e.key==='[')setVar('--door-w',Math.max(0.01,getVar('--door-w')-step));
+        if(e.key===']')setVar('--door-w',getVar('--door-w')+step);
+        if(e.key==='{')setVar('--door-h',Math.max(0.01,getVar('--door-h')-step));
+        if(e.key==='}')setVar('--door-h',getVar('--door-h')+step);
+      }else{
+        const top=parseFloat(css.getPropertyValue('--mouth-top'));
+        const left=parseFloat(css.getPropertyValue('--mouth-left'));
+        if(e.key==='ArrowUp'){document.documentElement.style.setProperty('--mouth-top',(top-pct)+'%');persistVars();positionDoorAndChunklet();updateHud();}
+        if(e.key==='ArrowDown'){document.documentElement.style.setProperty('--mouth-top',(top+pct)+'%');persistVars();positionDoorAndChunklet();updateHud();}
+        if(e.key==='ArrowLeft'){document.documentElement.style.setProperty('--mouth-left',(left-pct)+'%');persistVars();positionDoorAndChunklet();updateHud();}
+        if(e.key==='ArrowRight'){document.documentElement.style.setProperty('--mouth-left',(left+pct)+'%');persistVars();positionDoorAndChunklet();updateHud();}
+      }
     });
-  }catch(e){console.error(e);typeOut('A shy packet tripped. Try again.',()=>setTimeout(closeDoor,2000));}
-}
-door.addEventListener('click',summon);
-door.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();summon();}});
-position();
-</script>
+
+    /* initial layout */
+    positionDoorAndChunklet();
+  </script>
 </body>
 </html>
