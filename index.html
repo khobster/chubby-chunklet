@@ -25,10 +25,10 @@
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Eyes — smaller, lower, farther apart */
+      /* Eyes — lower & farther apart */
       --eye-top:30.2%;
-      --eye-left:46.4%;
-      --eye-right:52.1%;
+      --eye-left:45.2%;
+      --eye-right:53.3%;
       --eye-size:5.2px;
 
       /* Typing */
@@ -60,21 +60,13 @@
       display:flex; align-items:center; justify-content:center;
       background:#000;
       transition:opacity .6s ease;
+      cursor:pointer;
     }
     .intro.hidden{ opacity:0; pointer-events:none; }
     .intro-bg{
       position:absolute; inset:0; width:100%; height:100%;
-      object-fit:cover; user-select:none; -webkit-user-drag:none;
-      filter:brightness(.96);
-    }
-    .intro-btn{
-      position:relative; z-index:2;
-      appearance:none; border:none; cursor:pointer;
-      background:#ffd24d; color:#111;
-      border:5px solid #000; border-radius:14px;
-      box-shadow:0 6px 0 #000, inset 0 -3px 0 rgba(0,0,0,.15);
-      font:800 18px/1 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      letter-spacing:.08em; padding:16px 22px;
+      object-fit:contain;              /* not zoomed in */
+      user-select:none; -webkit-user-drag:none;
     }
 
     .scene-container{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#4a7ba7; }
@@ -291,17 +283,16 @@
       .ctx-text{ font-size:14px; }
       .ctx-badge{ font-size:11px; }
       .ctx-meta{ font-size:10px; }
-      .intro-btn{ font-size:16px; padding:14px 18px; }
     }
   </style>
 </head>
 <body>
   <!-- Intro audio -->
-  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto"></audio>
+  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto" playsinline></audio>
 
-  <div class="intro" id="introOverlay" role="dialog" aria-label="Intro">
+  <!-- Tap anywhere to start -->
+  <div class="intro" id="introOverlay" role="dialog" aria-label="Intro (tap anywhere to start)">
     <img class="intro-bg" src="introscreen.png" alt="">
-    <button class="intro-btn" id="startBtn">TAP TO START</button>
   </div>
 
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
@@ -382,7 +373,6 @@
 
     /* ===== Elements ===== */
     const introOverlay      = document.getElementById('introOverlay');
-    const startBtn          = document.getElementById('startBtn');
     const introTheme        = document.getElementById('introTheme');
 
     const doorTrigger       = document.getElementById('doorTrigger');
@@ -463,18 +453,60 @@
       if(iosAudioInitialized) return;
       try{
         ensureCtx();
-        if(!audioEl){
-          audioEl=document.createElement('audio');
-          audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-          audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
-        }
-        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-        audioEl.src=silent; audioEl.load();
-        const p=audioEl.play();
-        if(p!==undefined){ p.then(()=>{ audioEl.pause(); audioEl.currentTime=0; iosAudioInitialized=true; }).catch(()=>{}); }
+        iosAudioInitialized=true;
       }catch(_){}
     }
 
+    /* ===== Intro behavior ===== */
+    function tryPlayIntro(){
+      try{
+        introTheme.loop = true;
+        introTheme.currentTime = 0;
+        introTheme.volume = 1;
+        const p = introTheme.play();
+        if(p && typeof p.then === 'function'){
+          p.catch(()=>{ /* autoplay blocked; will start on first tap */ });
+        }
+      }catch(_){}
+    }
+    // attempt to autoplay as soon as possible
+    if (document.readyState === 'complete' || document.readyState === 'interactive') tryPlayIntro();
+    else document.addEventListener('DOMContentLoaded', tryPlayIntro);
+
+    function startApp(){
+      // fade theme out then pause
+      const dur = 900;
+      const v0 = introTheme.volume || 1;
+      const t0 = performance.now();
+      function fade(){
+        const t = performance.now() - t0;
+        const v = Math.max(0, v0 * (1 - t/dur));
+        introTheme.volume = v;
+        if(t < dur) requestAnimationFrame(fade);
+        else { try{ introTheme.pause(); }catch(_){}
+          introTheme.currentTime = 0; introTheme.volume = 1;
+        }
+      }
+      requestAnimationFrame(fade);
+
+      // hide overlay
+      requestAnimationFrame(()=>introOverlay.classList.add('hidden'));
+    }
+
+    // tap anywhere to start
+    ['click','touchstart'].forEach(ev=>{
+      introOverlay.addEventListener(ev, ()=>{
+        // if autoplay was blocked, kick the theme so user hears a bit immediately, then fade out
+        if (introTheme.paused){
+          try{ introTheme.currentTime = 0; introTheme.volume = 1; introTheme.play().catch(()=>{}); }catch(_){}
+          setTimeout(startApp, 300);   // let it chirp briefly
+        } else {
+          startApp();
+        }
+      }, {once:true, passive:true});
+    });
+
+    /* ===== Unlock audio one-time (for mouth/tts) ===== */
     function unlockAudioOnce(){
       try{
         ensureCtx();
@@ -486,31 +518,6 @@
     }
     document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
     document.addEventListener('click', unlockAudioOnce, {once:true});
-
-    /* ===== Intro flow ===== */
-    function startApp(){
-      // play theme briefly then fade & hide overlay
-      try{
-        introTheme.currentTime = 0;
-        introTheme.volume = 0.85;
-        introTheme.play().catch(()=>{});
-      }catch(_){}
-      requestAnimationFrame(()=>introOverlay.classList.add('hidden'));
-      // fade out and stop after ~2.5s
-      const t0 = performance.now();
-      function fade(){
-        const t = (performance.now() - t0);
-        if (t > 2400){
-          try{ introTheme.pause(); }catch(_){}
-          return;
-        }
-        const v = Math.max(0, 0.85 * (1 - t/1800));
-        if(!isNaN(v)) introTheme.volume = v;
-        requestAnimationFrame(fade);
-      }
-      requestAnimationFrame(fade);
-    }
-    startBtn.addEventListener('click', startApp);
 
     /* ===== Layout (door + bubble + context) ===== */
     const DOOR={
@@ -627,7 +634,7 @@
     async function fetchLineWithRetry(){
       const urls = [
         ENDPOINT + QUERY,                             // full (tts+context)
-        ENDPOINT + '?style=canon&modern=0&context=1'  // no accent hint, keep context!
+        ENDPOINT + '?style=canon&modern=0&context=1'  // no accent hint, keep context
       ];
       let lastErr;
       for(let i=0;i<urls.length;i++){
