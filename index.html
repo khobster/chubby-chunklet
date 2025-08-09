@@ -25,7 +25,7 @@
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Eyes — lower & farther apart */
+      /* Eyes — lower & farther apart (tweak as needed) */
       --eye-top:30.2%;
       --eye-left:45.2%;
       --eye-right:53.3%;
@@ -97,16 +97,6 @@
     .door-right .panel-bottom{width:65%; height:22%; top:67%; right:17.5%;}
     .door-open .door-left{ transform:rotateY(85deg); }
     .door-open .door-right{ transform:rotateY(-85deg); }
-
-    /* Retry chip (appears on 502) */
-    .retry-badge{
-      position:absolute; top:-14px; left:50%; transform:translate(-50%,-100%);
-      background:#ffd24d; color:#111; border:4px solid #000; border-radius:10px;
-      font:700 12px/1 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      letter-spacing:.06em; padding:8px 10px; box-shadow:0 4px 0 #000;
-      display:none; z-index:55;
-    }
-    .retry-badge.on{ display:block; }
 
     /* Chunklet */
     .chunklet-container{
@@ -288,7 +278,7 @@
 </head>
 <body>
   <!-- Intro audio -->
-  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto" playsinline></audio>
+  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto" playsinline autoplay></audio>
 
   <!-- Tap anywhere to start -->
   <div class="intro" id="introOverlay" role="dialog" aria-label="Intro (tap anywhere to start)">
@@ -313,8 +303,6 @@
           <div class="door-panel panel-mid"></div>
           <div class="door-panel panel-bottom"></div>
         </div>
-
-        <div class="retry-badge" id="retryBadge">TAP TO TRY AGAIN</div>
       </div>
 
       <!-- Chunklet -->
@@ -376,7 +364,6 @@
     const introTheme        = document.getElementById('introTheme');
 
     const doorTrigger       = document.getElementById('doorTrigger');
-    const retryBadge        = document.getElementById('retryBadge');
     const chunkletContainer = document.getElementById('chunkletContainer');
     const outputContainer   = document.getElementById('outputContainer');
     const bubble            = document.getElementById('bubble');
@@ -449,32 +436,36 @@
       setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
     }
 
-    function initializeIOSAudio(){
-      if(iosAudioInitialized) return;
-      try{
-        ensureCtx();
-        iosAudioInitialized=true;
-      }catch(_){}
-    }
+    function initializeIOSAudio(){ if(iosAudioInitialized) return; try{ ensureCtx(); iosAudioInitialized=true; }catch(_){} }
 
-    /* ===== Intro behavior ===== */
+    /* ===== Intro behavior (autoplay robust) ===== */
     function tryPlayIntro(){
       try{
         introTheme.loop = true;
-        introTheme.currentTime = 0;
-        introTheme.volume = 1;
-        const p = introTheme.play();
-        if(p && typeof p.then === 'function'){
-          p.catch(()=>{ /* autoplay blocked; will start on first tap */ });
-        }
+        // Priming trick: try unmuted; if blocked, start muted then unmute on first user action.
+        const start = async () => {
+          try{
+            introTheme.muted = false;
+            await introTheme.play();
+          }catch(_){
+            try{
+              introTheme.muted = true;
+              await introTheme.play(); // silent loop until gesture
+            }catch(__){}
+          }
+        };
+        start();
       }catch(_){}
     }
-    // attempt to autoplay as soon as possible
+
+    // Kick attempts on load & visibility changes (desktop will start; mobile may wait for gesture)
     if (document.readyState === 'complete' || document.readyState === 'interactive') tryPlayIntro();
     else document.addEventListener('DOMContentLoaded', tryPlayIntro);
+    document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && introTheme.paused) tryPlayIntro(); });
 
     function startApp(){
-      // fade theme out then pause
+      // unmute & fade out theme, then stop
+      if (introTheme.muted) { try{ introTheme.muted = false; }catch(_){} }
       const dur = 900;
       const v0 = introTheme.volume || 1;
       const t0 = performance.now();
@@ -488,21 +479,17 @@
         }
       }
       requestAnimationFrame(fade);
-
-      // hide overlay
       requestAnimationFrame(()=>introOverlay.classList.add('hidden'));
     }
 
     // tap anywhere to start
-    ['click','touchstart'].forEach(ev=>{
+    ['click','touchstart','pointerdown','keydown'].forEach(ev=>{
       introOverlay.addEventListener(ev, ()=>{
-        // if autoplay was blocked, kick the theme so user hears a bit immediately, then fade out
-        if (introTheme.paused){
-          try{ introTheme.currentTime = 0; introTheme.volume = 1; introTheme.play().catch(()=>{}); }catch(_){}
-          setTimeout(startApp, 300);   // let it chirp briefly
-        } else {
-          startApp();
+        // If it was silently looping, make it audible right away
+        if (!introOverlay.classList.contains('hidden') && !introTheme.paused && introTheme.muted){
+          try{ introTheme.muted = false; }catch(_){}
         }
+        startApp();
       }, {once:true, passive:true});
     });
 
@@ -526,6 +513,9 @@
       get w(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-w'))||0.10; },
       get h(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-h'))||0.25; }
     };
+
+    const host = document.querySelector('.scene-bg');
+    const bgImg = host.querySelector('img');
 
     function positionDoorAndChunklet(){
       const hostRect=host.getBoundingClientRect();
@@ -595,7 +585,6 @@
     function openDoor(){
       if(doorOpen) return;
       clearTimers();
-      retryBadge.classList.remove('on');
       positionDoorAndChunklet();
       doorOpen=true; doorTrigger.classList.add('door-open');
 
@@ -672,7 +661,6 @@
 
       try{
         const data = await fetchLineWithRetry();
-        retryBadge.classList.remove('on');
 
         const text = (data.text||'').trim();
         const context = (data.context||'') || '';
@@ -718,7 +706,6 @@
 
       }catch(e){
         console.error(e);
-        retryBadge.classList.add('on');
         outputContainer.classList.add('active');
         typeOut('A shy packet tripped. Tap the door to try again.');
         delay(2500, ()=>closeDoor());
