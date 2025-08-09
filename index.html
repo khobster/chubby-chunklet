@@ -25,10 +25,10 @@
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Eyes — lower & farther apart (tweak as needed) */
-      --eye-top:30.2%;
-      --eye-left:45.2%;
-      --eye-right:53.3%;
+      /* Eyes — lower & farther apart */
+      --eye-top:31.2%;
+      --eye-left:44.6%;
+      --eye-right:54.4%;
       --eye-size:5.2px;
 
       /* Typing */
@@ -65,7 +65,7 @@
     .intro.hidden{ opacity:0; pointer-events:none; }
     .intro-bg{
       position:absolute; inset:0; width:100%; height:100%;
-      object-fit:contain;              /* not zoomed in */
+      object-fit:contain;      /* not zoomed */
       user-select:none; -webkit-user-drag:none;
     }
 
@@ -278,7 +278,7 @@
 </head>
 <body>
   <!-- Intro audio -->
-  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto" playsinline autoplay></audio>
+  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto" playsinline autoplay loop></audio>
 
   <!-- Tap anywhere to start -->
   <div class="intro" id="introOverlay" role="dialog" aria-label="Intro (tap anywhere to start)">
@@ -377,9 +377,9 @@
     const ctxText = document.getElementById('ctxText');
     const ctxMeta = document.getElementById('ctxMeta');
 
-    const bgImg   = document.querySelector('.scene-bg img');
-    const host    = document.querySelector('.scene-bg');
-    const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
+    const host  = document.querySelector('.scene-bg');
+    const bgImg = document.querySelector('.scene-bg img');
+    const isIOS = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
     let busy=false, doorOpen=false;
     const timers = new Set();
@@ -398,73 +398,35 @@
     function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
     function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
     function attachAnalyserToBufferSource(src){ ensureAnalyser(); try{src.disconnect();}catch(_){ } src.connect(analyser); analyser.connect(audioCtx.destination); }
-    function attachAnalyserToMediaElement(){
-      ensureAnalyser();
-      if(isIOS && !iosAudioInitialized){ initializeIOSAudio(); return; }
-      if(!audioEl){
-        audioEl=document.createElement('audio');
-        audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-        audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
-        document.body.appendChild(audioEl);
-      }
-      if(!mediaSource && audioCtx && audioEl){
-        try{ mediaSource=audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); }
-        catch(e){ console.warn('createMediaElementSource failed', e); }
-      }
-    }
-    function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
-    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
-    function setClosed(){ setLevel(0); }
-    function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
-    function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
-    function tick(){
-      if(!animating) return; raf=requestAnimationFrame(tick);
-      const active=!!currentSource||tagPlaying, now=performance.now();
-      if(active){
-        if(analyser && (currentSource || (tagPlaying && mediaSource))){
-          const e=rmsLevel();
-          if(isIOS && e===0 && tagPlaying){ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); return; }
-          let target=level;
-          while(target<4 && e>=THRESH_UP[target]) target++;
-          while(target>0 && e<THRESH_DOWN[target-1]) target--;
-          if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
-          setLevel(target);
-        }else{ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); }
-        return;
-      }
-      const t=(now/1000); const phase=((t*13)|0)%4; const rand=Math.random();
-      setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
-    }
 
     function initializeIOSAudio(){ if(iosAudioInitialized) return; try{ ensureCtx(); iosAudioInitialized=true; }catch(_){} }
 
-    /* ===== Intro behavior (autoplay robust) ===== */
-    function tryPlayIntro(){
+    /* ===== Intro behavior (robust autoplay) ===== */
+    function primeIntro(){
       try{
         introTheme.loop = true;
-        // Priming trick: try unmuted; if blocked, start muted then unmute on first user action.
-        const start = async () => {
+        (async ()=>{
           try{
             introTheme.muted = false;
-            await introTheme.play();
+            await introTheme.play();         // desktop should succeed
           }catch(_){
             try{
-              introTheme.muted = true;
-              await introTheme.play(); // silent loop until gesture
+              introTheme.muted = true;       // mobile: start silent
+              await introTheme.play();
             }catch(__){}
           }
-        };
-        start();
+        })();
       }catch(_){}
     }
+    if (document.readyState === 'complete' || document.readyState === 'interactive') primeIntro();
+    else document.addEventListener('DOMContentLoaded', primeIntro);
 
-    // Kick attempts on load & visibility changes (desktop will start; mobile may wait for gesture)
-    if (document.readyState === 'complete' || document.readyState === 'interactive') tryPlayIntro();
-    else document.addEventListener('DOMContentLoaded', tryPlayIntro);
-    document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && introTheme.paused) tryPlayIntro(); });
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState==='visible' && introTheme.paused) primeIntro();
+    });
 
     function startApp(){
-      // unmute & fade out theme, then stop
+      // if it was silent, make it audible for the fade then stop
       if (introTheme.muted) { try{ introTheme.muted = false; }catch(_){} }
       const dur = 900;
       const v0 = introTheme.volume || 1;
@@ -482,29 +444,17 @@
       requestAnimationFrame(()=>introOverlay.classList.add('hidden'));
     }
 
-    // tap anywhere to start
-    ['click','touchstart','pointerdown','keydown'].forEach(ev=>{
-      introOverlay.addEventListener(ev, ()=>{
-        // If it was silently looping, make it audible right away
+    ['pointerdown','click','touchstart','keydown'].forEach(ev=>{
+      introOverlay.addEventListener(ev, (e)=>{
+        if(e.type==='keydown' && !['Enter',' '].includes(e.key)) return;
+        // unlock for TTS/mouth right away
+        try{ ensureCtx(); }catch(_){}
         if (!introOverlay.classList.contains('hidden') && !introTheme.paused && introTheme.muted){
           try{ introTheme.muted = false; }catch(_){}
         }
         startApp();
       }, {once:true, passive:true});
     });
-
-    /* ===== Unlock audio one-time (for mouth/tts) ===== */
-    function unlockAudioOnce(){
-      try{
-        ensureCtx();
-        if(isIOS){ initializeIOSAudio(); }
-        else { const b=audioCtx.createBuffer(1,1,22050); const s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0); }
-      }catch(_){}
-      document.removeEventListener('touchstart', unlockAudioOnce);
-      document.removeEventListener('click', unlockAudioOnce);
-    }
-    document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
-    document.addEventListener('click', unlockAudioOnce, {once:true});
 
     /* ===== Layout (door + bubble + context) ===== */
     const DOOR={
@@ -513,9 +463,6 @@
       get w(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-w'))||0.10; },
       get h(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-h'))||0.25; }
     };
-
-    const host = document.querySelector('.scene-bg');
-    const bgImg = host.querySelector('img');
 
     function positionDoorAndChunklet(){
       const hostRect=host.getBoundingClientRect();
@@ -581,7 +528,30 @@
     window.addEventListener('resize', positionDoorAndChunklet);
     window.addEventListener('orientationchange', positionDoorAndChunklet);
 
-    /* ===== Door flow ===== */
+    /* ===== Mouth anim (minimal passive if no audio) ===== */
+    function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
+    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
+    function setClosed(){ setLevel(0); }
+    function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
+    function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
+    function tick(){
+      if(!animating) return; raf=requestAnimationFrame(tick);
+      const now=performance.now();
+      const active=!!currentSource;
+      if(active && analyser){
+        const e=rmsLevel();
+        let target=level;
+        while(target<4 && e>=THRESH_UP[target]) target++;
+        while(target>0 && e<THRESH_DOWN[target-1]) target--;
+        if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
+        setLevel(target);
+      }else{
+        const phase=((now/1000*13)|0)%4; const rand=Math.random();
+        setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
+      }
+    }
+
+    /* ===== Flow ===== */
     function openDoor(){
       if(doorOpen) return;
       clearTimers();
@@ -623,7 +593,7 @@
     async function fetchLineWithRetry(){
       const urls = [
         ENDPOINT + QUERY,                             // full (tts+context)
-        ENDPOINT + '?style=canon&modern=0&context=1'  // no accent hint, keep context
+        ENDPOINT + '?style=canon&modern=0&context=1'  // fallback (still with context)
       ];
       let lastErr;
       for(let i=0;i<urls.length;i++){
