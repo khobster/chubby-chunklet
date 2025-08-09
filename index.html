@@ -14,28 +14,27 @@
 
   <style>
     :root{
+      /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Sprite calibration */
+      /* Chunklet sprite / mouth (calibrated) */
       --figure-scale:1.15;
-
-      /* Mouth */
       --mouth-top:39%;
       --mouth-left:49%;
       --mouth-w:20px;
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Eyes — smaller like the good iteration */
-      --eye-top:27.7%;
-      --eye-left:47.6%;
-      --eye-right:50.8%;
-      --eye-size:5.2px; /* ← tweak here if you want a hair bigger/smaller */
+      /* Eyes — back to small + better spacing */
+      --eye-top:29.0%;
+      --eye-left:47.1%;
+      --eye-right:51.3%;
+      --eye-size:5.2px;
 
       /* Typing */
       --char-ms:18;
 
-      /* Door anchors */
+      /* Door anchors (normalized, calibrated) */
       --door-x: 0.472;
       --door-y: 0.579;
       --door-w: 0.099;
@@ -84,6 +83,16 @@
     .door-open .door-left{ transform:rotateY(85deg); }
     .door-open .door-right{ transform:rotateY(-85deg); }
 
+    /* Retry chip (appears on 502) */
+    .retry-badge{
+      position:absolute; top:-14px; left:50%; transform:translate(-50%,-100%);
+      background:#ffd24d; color:#111; border:4px solid #000; border-radius:10px;
+      font:700 12px/1 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      letter-spacing:.06em; padding:8px 10px; box-shadow:0 4px 0 #000;
+      display:none; z-index:55;
+    }
+    .retry-badge.on{ display:block; }
+
     /* Chunklet */
     .chunklet-container{
       position:absolute; transform:translate(-50%, -30px);
@@ -104,7 +113,7 @@
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-    /* Eyes overlay (smaller + blink) */
+    /* Eyes overlay */
     .eyes-overlay{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; }
     .eye{
       position:absolute;
@@ -206,7 +215,7 @@
     .chunklet-container.emerge .ground-shadow { animation:shadowEmerge .7s ease-out forwards; }
     .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 2.4s ease-out forwards; }
 
-    /* ===== Context board (British-Open minimal; DM Sans) ===== */
+    /* ===== Context board (British Open minimal) ===== */
     .context-card{
       position:fixed;
       left:50%; transform:translateX(-50%);
@@ -281,20 +290,19 @@
           <div class="door-panel panel-mid"></div>
           <div class="door-panel panel-bottom"></div>
         </div>
+
+        <div class="retry-badge" id="retryBadge">TAP TO TRY AGAIN</div>
       </div>
 
       <!-- Chunklet -->
       <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
         <div class="chunklet-wrap">
-          <!-- littleboytalk.png should not have eyes baked in -->
           <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
-          <!-- Mouth overlay -->
           <div class="mouth-overlay">
             <svg viewBox="0 0 100 100" aria-hidden="true">
               <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
             </svg>
           </div>
-          <!-- Eyes overlay -->
           <div class="eyes-overlay">
             <span class="eye left"></span>
             <span class="eye right"></span>
@@ -328,9 +336,8 @@
     </div>
   </div>
 
-  <!-- SINGLE SCRIPT (no duplicate globals) -->
   <script>
-    /* -------- Config -------- */
+    /* ===== CONFIG ===== */
     const ENDPOINT = (getComputedStyle(document.documentElement).getPropertyValue('--endpoint') || '').trim();
     const QUERY    = '?style=canon&modern=0&accent=scottish&context=1';
 
@@ -339,8 +346,9 @@
     const CONTEXT_AFTER_MS = 900;
     const LINGER_AFTER_CONTEXT_MS = 12000;
 
-    /* -------- Elements -------- */
+    /* ===== Elements ===== */
     const doorTrigger       = document.getElementById('doorTrigger');
+    const retryBadge        = document.getElementById('retryBadge');
     const chunkletContainer = document.getElementById('chunkletContainer');
     const outputContainer   = document.getElementById('outputContainer');
     const bubble            = document.getElementById('bubble');
@@ -363,7 +371,7 @@
     const delay = (ms, fn) => { const id=setTimeout(()=>{timers.delete(id); fn&&fn();}, ms); timers.add(id); return id; };
     const clearTimers = ()=>{ for(const id of timers) clearTimeout(id); timers.clear(); };
 
-    /* -------- Mouth / Audio (single instance) -------- */
+    /* ===== Audio / Mouth ===== */
     let audioCtx, analyser, timeData, currentSource=null, audioEl=null, mediaSource=null, raf, animating=false, tagPlaying=false, iosAudioInitialized=false;
 
     const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
@@ -422,7 +430,6 @@
           audioEl.style.position='absolute'; audioEl.style.left='-9999px';
           audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
         }
-        // tiny silent mp3 to unlock
         const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
         audioEl.src=silent; audioEl.load();
         const p=audioEl.play();
@@ -437,7 +444,7 @@
     document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
     document.addEventListener('click', unlockAudioOnce, {once:true});
 
-    /* -------- Layout -------- */
+    /* ===== Layout (door + bubble + context) ===== */
     const DOOR={
       get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
       get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -509,10 +516,11 @@
     window.addEventListener('resize', positionDoorAndChunklet);
     window.addEventListener('orientationchange', positionDoorAndChunklet);
 
-    /* -------- Door + flow -------- */
+    /* ===== Door flow ===== */
     function openDoor(){
       if(doorOpen) return;
       clearTimers();
+      retryBadge.classList.remove('on');
       positionDoorAndChunklet();
       doorOpen=true; doorTrigger.classList.add('door-open');
 
@@ -548,10 +556,24 @@
       })();
     }
 
-    async function fetchLine(){
-      const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      return res.json();
+    async function fetchLineWithRetry(){
+      const urls = [
+        ENDPOINT + QUERY,                             // full (tts+context)
+        ENDPOINT + '?style=canon&modern=0&context=1', // no accent hint
+        ENDPOINT + '?style=canon&modern=0&context=0'  // last resort: no context
+      ];
+      let lastErr;
+      for(let i=0;i<urls.length;i++){
+        try{
+          const res = await fetch(urls[i], { cache:'no-store' });
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          return await res.json();
+        }catch(e){
+          lastErr = e;
+          await new Promise(r=>setTimeout(r, 300 + Math.random()*400));
+        }
+      }
+      throw lastErr || new Error('Network error');
     }
 
     function showWorkMeta(work, author){
@@ -575,7 +597,9 @@
       await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
 
       try{
-        const data = await fetchLine();
+        const data = await fetchLineWithRetry();
+        retryBadge.classList.remove('on');
+
         const text = (data.text||'').trim();
         const context = (data.context||'') || '';
         const meta = [data.work, data.author].filter(Boolean).join(' · ');
@@ -620,9 +644,10 @@
 
       }catch(e){
         console.error(e);
+        retryBadge.classList.add('on');
         outputContainer.classList.add('active');
         typeOut('A shy packet tripped. Tap the door to try again.');
-        setTimeout(()=>closeDoor(), 2000);
+        setTimeout(()=>closeDoor(), 2500);
       }
     }
 
