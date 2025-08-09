@@ -18,18 +18,13 @@
       /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Figure / mouth (calibrated for Chunklet) */
+      /* Chunklet sprite / mouth (calibrated) */
       --figure-scale:1.15;
       --mouth-top:39%;
       --mouth-left:49%;
       --mouth-w:20px;
       --mouth-h:20px;
       --mouth-scale-0:.05;
-
-      /* Head-pop characters (per-char overridden in JS) */
-      --hinge: 55%;          /* split line for head flap */
-      --blink-top: 34%;      /* top of eyelid bar */
-      --blink-h: 14%;        /* eyelid bar height */
 
       /* Typing */
       --char-ms:18;
@@ -83,32 +78,18 @@
     .door-open .door-left{ transform:rotateY(85deg); }
     .door-open .door-right{ transform:rotateY(-85deg); }
 
-    /* Character container */
+    /* Chunklet */
     .chunklet-container{
       position:absolute; transform:translate(-50%, -30px);
       opacity:0; transition:opacity 0.28s ease; z-index:60; pointer-events:none;
     }
     .chunklet-container.active{ opacity:1; }
     .chunklet-wrap{ position:relative; width:calc(100px*var(--figure-scale)); height:calc(130px*var(--figure-scale)); display:flex; align-items:flex-end; justify-content:center; }
-    .sprite-img, .head-top, .head-bottom{
+    .chunklet-img{
       width:calc(90px*var(--figure-scale));
       max-width:100%; user-select:none; -webkit-user-drag:none;
       filter:drop-shadow(0 8px 16px rgba(0,0,0,.6));
       image-rendering:-webkit-optimize-contrast;
-      position:absolute; left:50%; transform:translateX(-50%);
-      bottom:0;
-    }
-    /* Head-pop split pieces */
-    .head-top, .head-bottom{ display:none; }
-    .is-headpop .head-top, .is-headpop .head-bottom{ display:block; }
-    .is-headpop .sprite-img{ display:none; }
-
-    .head-top{
-      clip-path: inset(0 0 calc(100% - var(--hinge)) 0);
-      transform-origin: 50% calc(var(--hinge));
-    }
-    .head-bottom{
-      clip-path: inset(var(--hinge) 0 0 0);
     }
 
     /* Ground shadow */
@@ -118,30 +99,12 @@
       filter:blur(2px); opacity:0; pointer-events:none;
     }
 
-    /* Mouth overlay (Chunklet only) */
+    /* Mouth overlay */
     .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; }
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
-    .is-headpop .mouth-overlay{ display:none; }
 
-    /* Eyelid blink (simple bar that scales) */
-    .blink-lids{
-      position:absolute; left:50%; transform:translateX(-50%) scaleY(0);
-      width:calc(64px*var(--figure-scale)); height:calc(64px*var(--figure-scale));
-      top:0; pointer-events:none; filter:drop-shadow(0 0 0 rgba(0,0,0,0));
-      /* use a gradient so it works across faces */
-      background: linear-gradient(to bottom, rgba(0,0,0,.85), rgba(0,0,0,.65));
-      border-radius:14px;
-      /* placed via variables */
-      clip-path: inset(var(--blink-top) 0 calc(100% - var(--blink-top) - var(--blink-h)) 0 round 10px);
-      transform-origin: top center;
-      transition: transform .08s ease-out;
-      opacity:.95;
-      mix-blend-mode: multiply;
-    }
-    .blink-on .blink-lids{ transform:translateX(-50%) scaleY(1); transition: transform .06s ease-in; }
-
-    /* ===== Speech bubble (Peanuts-style) ===== */
+    /* ===== Speech bubble ===== */
     .output-container{
       position:fixed; left:50%; transform:translateX(-50%);
       width:auto; max-width:90vw;
@@ -150,7 +113,6 @@
       text-align:center;
     }
     .output-container.active{ opacity:1; }
-
     .bubble-wrap{ position:relative; display:inline-block; }
     .speech-bubble{
       position:relative;
@@ -164,15 +126,11 @@
       max-width:86vw;
     }
     .bubble-tail{
-      position:absolute;
-      bottom:-2px;
-      left:var(--tail-x);
-      transform:translate(-50%, 100%);
-      width:44px; height:28px;
-      overflow:visible; pointer-events:none;
+      position:absolute; bottom:-2px; left:var(--tail-x);
+      transform:translate(-50%, 100%); width:44px; height:28px; pointer-events:none;
     }
 
-    /* Speech text — Emilys Candy + tight tracking */
+    /* Speech text — Emilys Candy */
     .output{
       font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
@@ -182,10 +140,7 @@
       letter-spacing:-0.06em;
       word-spacing:-0.04em;
       color:#111;
-      margin:0;
-      white-space:pre-wrap;
-      text-shadow:none;
-      text-align:center;
+      margin:0; white-space:pre-wrap; text-align:center;
     }
     .cursor{
       display:inline-block; width:.5ch; height:1.05em; background:#111;
@@ -196,8 +151,7 @@
 
     .output .work-tag{
       opacity:.95; text-transform:uppercase;
-      margin-left:.6em; font-size:.70em;          /* slightly larger attribution */
-      letter-spacing:-0.04em;
+      margin-left:.6em; font-size:.70em; letter-spacing:-0.04em;
       color:#333; display:block; margin-top:10px; text-shadow:none;
     }
 
@@ -226,7 +180,7 @@
     @keyframes shadowEmerge { 0%{opacity:0; transform:translateX(-50%) scale(0.4);} 60%{opacity:.55; transform:translateX(-50%) scale(0.75);} 100%{opacity:.65; transform:translateX(-50%) scale(0.85);} }
     @keyframes shadowWaddle { 0%{opacity:.65; transform:translateX(-50%) scale(0.85);} 25%{opacity:.70; transform:translateX(-50%) scale(0.95);} 50%{opacity:.60; transform:translateX(-50%) scale(0.88);} 75%{opacity:.72; transform:translateX(-50%) scale(1.00);} 100%{opacity:.68; transform:translateX(-50%) scale(1.05);} }
 
-    /* Pre-speech inhale/exhale */
+    /* Pre-speech inhale/exhale (subtle) */
     @keyframes inhale {
       0% { transform:translate(-50%,-12px) scale(1,1); }
       45% { transform:translate(-50%,-12px) scale(1.02, .97); }
@@ -234,19 +188,7 @@
     }
     .pre-inhale .chunklet-wrap{ animation:inhale .9s ease-in-out 1; }
 
-    /* Tiny toolbar for quick character switching (dev/test) */
-    .charbar{
-      position:fixed; left:12px; top:12px; z-index:120; display:flex; gap:8px;
-    }
-    .charbar button{
-      background:#fff; color:#111; border:3px solid #000; border-radius:999px; padding:8px 12px;
-      font: 600 13px/1 Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      box-shadow:0 4px 0 #000, 0 10px 22px rgba(0,0,0,.25);
-      cursor:pointer;
-    }
-    .charbar button.active{ background:#111; color:#fff; }
-
-    /* Calibration HUD (still available; local-only) */
+    /* Calibration HUD (local only) */
     .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
     .cal-hud.on{ opacity:1; }
 
@@ -254,18 +196,10 @@
       .output-container{ max-width:94vw; }
       .speech-bubble{ border-radius:28px; padding:14px 18px 14px 16px; }
       .output{ font-size:clamp(18px, 4.1vw, 28px); letter-spacing:-0.06em; line-height:1.07; }
-      .charbar{ left:8px; top:8px; }
     }
   </style>
 </head>
 <body>
-  <!-- Simple dev/test character switcher -->
-  <div class="charbar" id="charbar" aria-label="Choose character">
-    <button data-char="chunklet" class="active" title="Chunklet">Chunklet</button>
-    <button data-char="keaton" title="Keaton">Keaton</button>
-    <button data-char="gleason" title="Gleason">Gleason</button>
-  </div>
-
   <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
   <div class="scene-container">
@@ -286,22 +220,15 @@
         </div>
       </div>
 
-      <!-- Character -->
+      <!-- Chunklet -->
       <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
         <div class="chunklet-wrap">
-          <!-- default single-sprite -->
-          <img src="littleboytalk.png" alt="Chubby Chunklet" class="sprite-img" id="spriteSingle" />
-          <!-- split images for head-pop mode -->
-          <img src="" alt="" class="head-top" id="spriteHeadTop" />
-          <img src="" alt="" class="head-bottom" id="spriteHeadBottom" />
-          <!-- mouth overlay (Chunklet only) -->
-          <div class="mouth-overlay" id="mouthOverlay">
+          <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
+          <div class="mouth-overlay">
             <svg viewBox="0 0 100 100" aria-hidden="true">
               <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
             </svg>
           </div>
-          <!-- blink overlay -->
-          <div class="blink-lids" id="blinkLids"></div>
           <div class="ground-shadow"></div>
         </div>
       </div>
@@ -335,70 +262,30 @@
     const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
     const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
-    const BUBBLE_STAY_MS = 10000; // how long the bubble lingers after speech ends
+    const BUBBLE_STAY_MS = 10000; // bubble lingers after speech ends
 
-    const charMeta = {
-      chunklet: {
-        mode: 'mouth',
-        sprite: 'littleboytalk.png',
-        figureScale: 1.15,
-        mouthTop: '39%', mouthLeft:'49%',
-        blinkTop: '32%', blinkH:'16%'
-      },
-      keaton: {
-        mode: 'headpop',
-        sprite: 'keaton.png',
-        figureScale: 1.20,
-        hinge: '54%',
-        blinkTop: '33%', blinkH:'14%'
-      },
-      gleason: {
-        mode: 'headpop',
-        sprite: 'gleason.png',
-        figureScale: 1.18,
-        hinge: '56%',
-        blinkTop: '40%', blinkH:'15%'
-      }
-    };
-
-    /* ===== Element refs ===== */
+    /* ===== Refs ===== */
     const doorTrigger       = document.getElementById('doorTrigger');
     const chunkletContainer = document.getElementById('chunkletContainer');
-    const chunkletWrap      = chunkletContainer.querySelector('.chunklet-wrap');
     const outputContainer   = document.getElementById('outputContainer');
     const bubble            = document.getElementById('bubble');
     const bubbleTail        = document.getElementById('bubbleTail');
     const typed             = document.getElementById('typed');
     const cursor            = document.getElementById('cursor');
     const mouth             = document.getElementById('mouth');
-    const mouthOverlay      = document.getElementById('mouthOverlay');
     const output            = document.getElementById('output');
     const clickSnd          = document.getElementById('clickSnd');
-    const blinkLids         = document.getElementById('blinkLids');
-
-    const spriteSingle      = document.getElementById('spriteSingle');
-    const spriteHeadTop     = document.getElementById('spriteHeadTop');
-    const spriteHeadBottom  = document.getElementById('spriteHeadBottom');
 
     const bgImg   = document.querySelector('.scene-bg img');
     const host    = document.querySelector('.scene-bg');
-
     const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-    let busy=false, doorOpen=false, currentChar='chunklet';
+    let busy=false, doorOpen=false, lingerTimer=null;
     let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-    let raf,animating=false,tagPlaying=false, blinkTimer=null, lingerTimer=null;
+    let raf,animating=false,tagPlaying=false;
     let currentObjectURL=null, iosAudioInitialized=false;
 
-    /* ===== micro scheduler for cleanup ===== */
-    const timers = new Set();
-    function delay(ms, fn){
-      const id = setTimeout(()=>{ timers.delete(id); fn && fn(); }, ms);
-      timers.add(id); return id;
-    }
-    function clearTimers(){ for(const id of timers) clearTimeout(id); timers.clear(); }
-
-    /* ===== audio → level bands ===== */
+    /* ===== mouth anim bands ===== */
     const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
     const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
     const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
@@ -423,20 +310,8 @@
       }
     }
     function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
-    function setLevel(n){
-      n=Math.max(0,Math.min(4,n|0));
-      if(n===level) return;
-      level=n; lastChange=performance.now();
-      if(currentChar==='chunklet'){
-        mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`;
-      }else{
-        // drive head flap angle
-        const deg = [0, 4, 8, 12, 16][level];
-        spriteHeadTop.style.transform = `translateX(-50%) rotate(${deg}deg)`;
-      }
-    }
-    function setClosed(){ if(currentChar==='chunklet'){ mouth.style.transform=`scale(${SX[0]}, ${SY[0]})`; } else { spriteHeadTop.style.transform=`translateX(-50%) rotate(0deg)`; } }
-
+    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
+    function setClosed(){ setLevel(0); }
     function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
     function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
     function tick(){
@@ -445,20 +320,15 @@
       if(active){
         if(analyser && (currentSource || (tagPlaying && mediaSource))){
           const e=rmsLevel();
-          if(isIOS && e===0 && tagPlaying){
-            const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); return;
-          }
+          if(isIOS && e===0 && tagPlaying){ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); return; }
           let target=level;
           while(target<4 && e>=THRESH_UP[target]) target++;
           while(target>0 && e<THRESH_DOWN[target-1]) target--;
           if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
           setLevel(target);
-        }else{
-          const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); // fallback
-        }
+        }else{ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); }
         return;
       }
-      // idle random mouth/head twitch
       const t=(now/1000); const phase=((t*13)|0)%4; const rand=Math.random();
       setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
     }
@@ -472,7 +342,6 @@
           audioEl.style.position='absolute'; audioEl.style.left='-9999px';
           audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
         }
-        // 1-sample silent mp3 to unlock
         const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
         audioEl.src=silent; audioEl.load();
         const p=audioEl.play();
@@ -480,7 +349,7 @@
           p.then(()=>{ audioEl.pause(); audioEl.currentTime=0;
             if(!mediaSource && audioCtx){
               try{ mediaSource=audioCtx.createMediaElementSource(audioEl); ensureAnalyser(); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); iosAudioInitialized=true; }
-              catch(e){ console.warn('iOS audio init partial (no analyser):', e); }
+              catch(e){ console.warn('iOS audio init partial success, no analyser:', e); }
             }
           }).catch(e=>console.warn('iOS audio init failed',e));
         }
@@ -503,10 +372,11 @@
     function typeOut(text, done){
       typed.textContent='';
       output.classList.add('typing');
-      outputContainer.classList.add('active'); // bubble appears only now
+      // Bubble appears only when typing starts
+      outputContainer.classList.add('active');
       (function loop(i=0){
         typed.textContent = text.slice(0,i);
-        placeBubble(); // keep bubble clear of Chunklet as text wraps
+        placeBubble();
         if(i<text.length){
           setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
         }else{
@@ -532,7 +402,7 @@
       document.getElementById('output').appendChild(span);
     }
 
-    /* Door / chunklet normalized positioning */
+    /* Door/chunklet normalized positioning */
     const DOOR={
       get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
       get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -600,11 +470,7 @@
         setTimeout(()=>{
           chunkletContainer.classList.remove('emerge');
           chunkletContainer.classList.add('waddle');
-          // pre-speech blink once mid-inhale
-          delay(380, ()=>blinkOnce());
-          setTimeout(()=>{
-            chunkletContainer.classList.remove('pre-inhale');
-          }, 900);
+          setTimeout(()=>{ chunkletContainer.classList.remove('pre-inhale'); }, 900);
         }, EMERGE_MS);
       }, DOOR_SWING_MS);
     }
@@ -612,7 +478,6 @@
       if(!doorOpen) return; doorOpen=false;
       chunkletContainer.classList.remove('active','emerge','waddle');
       outputContainer.classList.remove('active');
-      stopBlinkLoop();
       setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
     }
 
@@ -633,14 +498,13 @@
             audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
           }
           audioEl.src=currentObjectURL; audioEl.load();
-          audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; startBlinkLoop(); };
-          audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); stopBlinkLoop(); onEnd&&onEnd(); };
+          audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
+          audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); onEnd&&onEnd(); };
           const pp=audioEl.play(); if(pp!==undefined) await pp; return;
         }catch(err){
           console.error('iOS audio playback failed', err);
-          startMouth(); startBlinkLoop();
-          const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
-          setTimeout(()=>{ stopMouth(); stopBlinkLoop(); onEnd&&onEnd(); }, (approx+0.2)*1000); return;
+          startMouth(); const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
+          setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000); return;
         }
       }
       try{
@@ -649,8 +513,8 @@
         const buf=await audioCtx.decodeAudioData(bin.buffer);
         currentSource=audioCtx.createBufferSource(); currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
         attachAnalyserToBufferSource(currentSource);
-        setClosed(); startMouth(); startBlinkLoop(); currentSource.start();
-        currentSource.onended=()=>{ currentSource=null; stopMouth(); stopBlinkLoop(); onEnd&&onEnd(); };
+        setClosed(); startMouth(); currentSource.start();
+        currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd&&onEnd(); };
         return;
       }catch(e){
         console.warn('WebAudio decode failed', e);
@@ -662,82 +526,22 @@
         if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
         if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
         currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
-        audioEl.onplay = ()=>{ setClosed(); startMouth(); startBlinkLoop(); tagPlaying=true; };
-        audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); stopBlinkLoop(); onEnd&&onEnd(); };
+        audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
+        audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); onEnd&&onEnd(); };
         await audioEl.play();
       }catch(err){
         console.error('Plain <audio> failed', err);
-        startMouth(); startBlinkLoop();
-        const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
-        setTimeout(()=>{ stopMouth(); stopBlinkLoop(); onEnd&&onEnd(); }, (approx+0.2)*1000);
+        startMouth(); const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
+        setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
       }
-    }
-
-    /* Blink helpers */
-    function blinkOnce(){
-      chunkletWrap.classList.add('blink-on');
-      delay(95, ()=>{ chunkletWrap.classList.remove('blink-on'); });
-    }
-    function startBlinkLoop(){
-      stopBlinkLoop();
-      const loop=()=>{
-        const next = 1800 + Math.random()*2200; // 1.8–4.0s
-        blinkTimer = setTimeout(()=>{ blinkOnce(); loop(); }, next);
-      };
-      loop();
-    }
-    function stopBlinkLoop(){ if(blinkTimer){ clearTimeout(blinkTimer); blinkTimer=null; } }
-
-    /* Character switching */
-    function setCharacter(name, persist=true){
-      if(!charMeta[name]) name='chunklet';
-      currentChar=name;
-      const meta=charMeta[name];
-
-      // toolbar UI
-      document.querySelectorAll('#charbar button').forEach(b=>b.classList.toggle('active', b.dataset.char===name));
-
-      // figure scale
-      document.documentElement.style.setProperty('--figure-scale', meta.figureScale ?? 1.15);
-
-      if(meta.mode==='mouth'){
-        // show single sprite + mouth overlay
-        spriteSingle.src = meta.sprite;
-        spriteSingle.style.display='block';
-        mouthOverlay.style.display='flex';
-        spriteHeadTop.style.display='none';
-        spriteHeadBottom.style.display='none';
-        chunkletWrap.classList.remove('is-headpop');
-
-        if(meta.mouthTop)  document.documentElement.style.setProperty('--mouth-top',  meta.mouthTop);
-        if(meta.mouthLeft) document.documentElement.style.setProperty('--mouth-left', meta.mouthLeft);
-
-      }else{ // headpop
-        chunkletWrap.classList.add('is-headpop');
-        spriteSingle.style.display='none';
-        mouthOverlay.style.display='none';
-        spriteHeadTop.src = meta.sprite;
-        spriteHeadBottom.src = meta.sprite;
-        spriteHeadTop.style.display='block';
-        spriteHeadBottom.style.display='block';
-
-        document.documentElement.style.setProperty('--hinge', meta.hinge || '55%');
-      }
-
-      // blink placement per character
-      document.documentElement.style.setProperty('--blink-top', meta.blinkTop || '34%');
-      document.documentElement.style.setProperty('--blink-h',   meta.blinkH   || '14%');
-
-      if(persist){ try{ localStorage.setItem('cc_char', name); }catch(_){} }
     }
 
     /* main */
     async function summon(){
       if(busy) return;
       try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
-      busy=true; stopAudio(); clearTimeout(lingerTimer); outputContainer.classList.remove('active');
-      // stop any old blink/anim
-      stopBlinkLoop();
+      busy=true; stopAudio(); clearTimeout(lingerTimer);
+      outputContainer.classList.remove('active');
 
       // open & stage
       typed.textContent='';
@@ -752,27 +556,24 @@
         const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
 
-        // Only show bubble now, when typing begins
         typeOut(text, async ()=>{
           const onEnd = ()=>{
             showWork(work, author);
             placeBubble();
-            // linger, then hide & close
             clearTimeout(lingerTimer);
             lingerTimer = setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, BUBBLE_STAY_MS);
           };
           if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
           else {
-            // silent timing fallback
-            startMouth(); startBlinkLoop();
             const approx=Math.min(7, Math.max(2.2, text.length/16));
-            setTimeout(()=>{ stopMouth(); stopBlinkLoop(); onEnd(); }, (approx+0.2)*1000);
+            startMouth();
+            setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
           }
         });
 
       }catch(e){
         console.error(e);
-        // Compact retry badge over doorway instead of generic text
+        // Compact retry badge over doorway
         typed.textContent='';
         outputContainer.classList.remove('active');
         const badge = document.createElement('div');
@@ -787,19 +588,6 @@
 
     doorTrigger.addEventListener('click', summon);
     doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
-
-    /* Character bar */
-    document.getElementById('charbar').addEventListener('click', (e)=>{
-      const btn=e.target.closest('button[data-char]'); if(!btn) return;
-      setCharacter(btn.dataset.char);
-    });
-
-    /* Restore preferred character */
-    (function restoreChar(){
-      const fromQuery = new URLSearchParams(location.search).get('char');
-      const saved = localStorage.getItem('cc_char');
-      setCharacter(fromQuery || saved || 'chunklet', false);
-    })();
 
     /* Calibration (optional, local only) */
     const calHud=document.getElementById('calHud'); let calOn=false, calTarget='door'; const STORAGE_KEY='cc_vars';
@@ -841,8 +629,6 @@ C=toggle  M=switch target  R=reset saved`;
       if(e.key==='c'||e.key==='C'){ toggleCal(); return; }
       if(!calOn) return;
       const fine=e.shiftKey, step=fine?0.001:0.003, pct=fine?0.5:1.0;
-      if(e.key==='m'||e.key==='M'){ calTarget=calTarget==='door'?'mouth':'door'; updateHud(); return; }
-      if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
       if(calTarget==='door'){
         if(e.key==='ArrowLeft')  setVar('--door-x', getVar('--door-x')-step);
         if(e.key==='ArrowRight') setVar('--door-x', getVar('--door-x')+step);
