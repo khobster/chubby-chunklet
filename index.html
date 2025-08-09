@@ -5,20 +5,19 @@
   <title>chubby chunklet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Icons -->
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
 
-  <!-- Fonts: Rubik for UI/HUD; Emily's Candy for the line -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee:wght@400&family=Barlow+Condensed:wght@400;600&display=swap" rel="stylesheet" />
 
   <style>
     :root{
-      /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Chunklet sprite / mouth (calibrated) */
+      /* Chunklet + face calibration */
       --figure-scale:1.15;
       --mouth-top:39%;
       --mouth-left:49%;
@@ -26,37 +25,39 @@
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Typing speed */
+      /* Eyes (overlay) */
+      --eyes-top:32%;
+      --eyes-left:49%;
+      --eyes-w:34px;  /* width of whole eyes svg */
+      --eye-scale:1;
+
+      /* Typing */
       --char-ms:18;
 
-      /* Door anchors (normalized to background image) */
+      /* Door anchors (normalized) */
       --door-x: 0.472;
       --door-y: 0.579;
       --door-w: 0.099;
       --door-h: 0.248;
 
-      /* Bubble layout */
-      --output-top-fallback: 8vmin; /* starting spot; JS lifts it further if needed */
-      --bubble-gap: 18px;           /* min space between bubble bottom and Chunklet top */
-      --tail-x: 50%;                /* updated dynamically */
-
-      /* Approx eye position (for blink overlay) */
-      --eyes-top: 24%;
+      /* Bubble */
+      --bubble-gap: 18px;
+      --tail-x: 50%;
     }
 
     *{box-sizing:border-box}
     html,body{
-      margin:0;padding:0;
+      margin:0;padding:0; height:100%; width:100%;
       font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       background:#000;color:#fff; -webkit-font-smoothing:antialiased;
-      overflow:hidden; height:100%; width:100%;
+      overflow:hidden;
     }
 
     .scene-container{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#4a7ba7; }
     .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; perspective:900px; }
     .scene-bg img{ width:100%; height:100%; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
 
-    /* Door (CSS fallback so it’s visible even if JS hasn’t run yet) */
+    /* Door */
     .door-container{
       position:absolute; left:50%; top:52%; width:140px; height:180px;
       transform:translate(-50%, -50%); cursor:pointer; z-index:50;
@@ -87,33 +88,8 @@
       opacity:0; transition:opacity 0.3s; z-index:60; pointer-events:none;
     }
     .chunklet-container.active{ opacity:1; }
-    .chunklet-wrap{
-      position:relative; width:calc(100px*var(--figure-scale)); height:calc(130px*var(--figure-scale));
-      display:flex; align-items:flex-end; justify-content:center;
-    }
-    .chunklet-img{
-      width:calc(90px*var(--figure-scale)); max-width:100%;
-      user-select:none; -webkit-user-drag:none;
-      filter:drop-shadow(0 8px 16px rgba(0,0,0,.6));
-      image-rendering:-webkit-optimize-contrast;
-    }
-    /* Eye lids overlay (tiny bar that animates, not a full-screen flash) */
-    .eye-lids{
-      position:absolute; left:50%; top:var(--eyes-top);
-      width:calc(60px*var(--figure-scale)); height:calc(13px*var(--figure-scale));
-      transform:translate(-50%,-50%) scaleY(0);
-      transform-origin:center center;
-      background:#111; border-radius:999px; opacity:.9; pointer-events:none;
-      filter:drop-shadow(0 1px 0 rgba(0,0,0,.25));
-    }
-    .eye-lids.blink{ animation:blinkCloseOpen .14s ease-in-out 1; }
-    @keyframes blinkCloseOpen {
-      0%{transform:translate(-50%,-50%) scaleY(0)}
-      40%{transform:translate(-50%,-50%) scaleY(1)}
-      100%{transform:translate(-50%,-50%) scaleY(0)}
-    }
-
-    /* Ground shadow */
+    .chunklet-wrap{ position:relative; width:calc(100px*var(--figure-scale)); height:calc(130px*var(--figure-scale)); display:flex; align-items:flex-end; justify-content:center; }
+    .chunklet-img{ width:calc(90px*var(--figure-scale)); max-width:100%; user-select:none; -webkit-user-drag:none; filter:drop-shadow(0 8px 16px rgba(0,0,0,.6)); image-rendering:-webkit-optimize-contrast; }
     .ground-shadow{
       position:absolute; left:50%; bottom:-2px; width:88px; height:18px; transform:translateX(-50%) scale(0.6);
       background:radial-gradient(ellipse at center, rgba(0,0,0,.45) 0%, rgba(0,0,0,.25) 40%, rgba(0,0,0,0) 70%);
@@ -125,95 +101,54 @@
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-    /* ===== Speech bubble (Peanuts-style) ===== */
+    /* Eyes overlay */
+    .eyes-overlay{
+      position:absolute; top:var(--eyes-top); left:var(--eyes-left);
+      width:var(--eyes-w); height:auto; transform:translate(-50%,-50%) scale(var(--eye-scale));
+      pointer-events:none; filter:drop-shadow(0 0 0 rgba(0,0,0,0));
+      transition:transform .08s ease, opacity .08s ease;
+    }
+    .eyes-overlay svg{ width:100%; height:auto; display:block; }
+    .eyes-overlay.blink{ opacity:0; } /* quick hide for blink */
+
+    /* Bubble */
     .output-container{
       position:fixed; left:50%; transform:translateX(-50%);
-      width:76%; max-width:860px; min-width:280px;
-      z-index:40; opacity:0; transition:opacity 0.35s;
-      pointer-events:none; top:var(--output-top-fallback);
-      text-align:center;
+      width:auto; max-width:90vw; z-index:40; opacity:0; transition:opacity 0.35s ease;
+      pointer-events:none;
     }
     .output-container.active{ opacity:1; }
-
     .bubble-wrap{ position:relative; display:inline-block; }
     .speech-bubble{
-      position:relative;
-      background:#fff;
-      border:6px solid #000;
-      border-radius:38px;
-      padding:26px 32px 22px 28px;
-      color:#111;
+      background:#fff; color:#111;
+      border:6px solid #000; border-radius:32px;
+      padding:18px 26px 18px 22px;
       box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
-      display:inline-block;
-      max-width:100%;
+      display:inline-block; max-width:86vw;
     }
-    /* Rounded tail via SVG (stroke = outline) */
     .bubble-tail{
-      position:absolute;
-      bottom:-2px;  /* overlaps slightly so stroke connects */
-      left:var(--tail-x);
-      transform:translate(-50%, 100%);
-      width:44px; height:28px;
-      overflow:visible; pointer-events:none;
+      position:absolute; bottom:-2px; left:var(--tail-x);
+      transform:translate(-50%, 100%); width:44px; height:28px; overflow:visible; pointer-events:none;
     }
-
-    /* Context pill (sleek, minimal, a touch of fun) */
-    .context-pill{
-      margin-top:12px; display:inline-block;
-      padding:10px 14px; border:3px solid #000; border-radius:18px;
-      background:linear-gradient(180deg,#fff 0%, #f5f5ff 100%);
-      box-shadow:0 4px 0 #000, 0 8px 18px rgba(0,0,0,.18);
-      color:#222; text-align:left;
-      font: 500 14px/1.25 Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      letter-spacing:0; text-transform:none; max-width:calc(100% - 8px);
-    }
-    .context-pill b{ font-weight:700; margin-right:.45ch; }
-
-    /* Speech text — Emily’s Candy + tight tracking */
     .output{
       font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      text-transform:uppercase;
-      font-weight:400;
-      font-size:clamp(22px, 2.6vw, 36px);
-      line-height:1.06;
-      letter-spacing:-0.06em;
-      word-spacing:-0.04em;
-      color:#111;
-      margin:0;
-      white-space:pre-wrap;
-      text-shadow:none;
-      text-align:center;
+      text-transform:uppercase; font-weight:400;
+      font-size:clamp(22px, 2.4vw, 36px); line-height:1.04;
+      letter-spacing:-0.06em; word-spacing:-0.04em;
+      color:#111; margin:0; white-space:pre-wrap; text-align:center;
     }
-    /* Cursor only during typing */
-    .cursor{ display:none; width:.5ch; height:1.05em; background:#111; vertical-align:text-bottom; border-radius:2px; }
-    .typing .cursor{ display:inline-block; animation:blink 1s steps(1,end) infinite; }
+    .cursor{ display:inline-block; width:.5ch; height:1.05em; background:#111; vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px; }
     @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
-
-    /* Attribution */
+    .typing .cursor{animation:none}
     .output .work-tag{
       opacity:.95; text-transform:uppercase;
-      margin-left:.6em; font-size:.68em; letter-spacing:-0.06em; word-spacing:-0.04em;
+      margin-left:.6em; font-size:.7em; letter-spacing:-0.04em;
       color:#333; display:block; margin-top:10px; text-shadow:none;
     }
 
-    /* ===== Entrance + “breath” ===== */
-    @keyframes emergePop {
-      0%   { transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85); }
-      40%  { transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1; }
-      60%  { transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg); }
-      100% { transform:translate(-50%,-12px) scale(1,1) rotate(0deg); }
-    }
-    @keyframes waddleDown {
-      0%   { transform:translate(-50%,-12px) rotate(0deg); }
-      10%  { transform:translate(-50%,   0px) rotate(-3deg); }
-      20%  { transform:translate(-50%,  10px) rotate(3deg); }
-      30%  { transform:translate(-50%,  20px) rotate(-3deg); }
-      40%  { transform:translate(-50%,  30px) rotate(3deg); }
-      55%  { transform:translate(-50%,  45px) rotate(-2deg); }
-      70%  { transform:translate(-50%,  58px) rotate(2deg); }
-      85%  { transform:translate(-50%,  66px) rotate(-1deg) scale(1.02,.98); }
-      100% { transform:translate(-50%,  70px) rotate(0deg)  scale(1,1); }
-    }
+    /* Dramatic entrance */
+    @keyframes emergePop { 0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85);} 40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1;} 60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);} 100%{transform:translate(-50%,-12px) scale(1,1) rotate(0deg);} }
+    @keyframes waddleDown { 0%{transform:translate(-50%,-12px) rotate(0deg);} 10%{transform:translate(-50%,0px) rotate(-3deg);} 20%{transform:translate(-50%,10px) rotate(3deg);} 30%{transform:translate(-50%,20px) rotate(-3deg);} 40%{transform:translate(-50%,30px) rotate(3deg);} 55%{transform:translate(-50%,45px) rotate(-2deg);} 70%{transform:translate(-50%,58px) rotate(2deg);} 85%{transform:translate(-50%,66px) rotate(-1deg) scale(1.02,.98);} 100%{transform:translate(-50%,70px) rotate(0deg) scale(1,1);} }
     @keyframes shadowEmerge { 0%{opacity:0; transform:translateX(-50%) scale(0.4);} 60%{opacity:.55; transform:translateX(-50%) scale(0.75);} 100%{opacity:.65; transform:translateX(-50%) scale(0.85);} }
     @keyframes shadowWaddle { 0%{opacity:.65; transform:translateX(-50%) scale(0.85);} 25%{opacity:.70; transform:translateX(-50%) scale(0.95);} 50%{opacity:.60; transform:translateX(-50%) scale(0.88);} 75%{opacity:.72; transform:translateX(-50%) scale(1.00);} 100%{opacity:.68; transform:translateX(-50%) scale(1.05);} }
     .chunklet-container.emerge { animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards; }
@@ -221,21 +156,74 @@
     .chunklet-container.emerge .ground-shadow { animation:shadowEmerge .7s ease-out forwards; }
     .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 2.4s ease-out forwards; }
 
-    /* Breathing prep (pre-speech) */
-    .breath{ animation:breathPrep 0.9s cubic-bezier(.22,1,.36,1) 1; }
-    @keyframes breathPrep {
-      0% { transform:translate(-50%, -12px) scale(1) }
-      50%{ transform:translate(-50%, -14px) scale(1.04) }
-      100%{transform:translate(-50%, -12px) scale(1) }
-    }
+    /* Calibration HUD (optional) */
+    .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
+    .cal-hud.on{ opacity:1; }
 
-    /* Mobile tweaks */
+    /* --- Context lower-third ribbon --- */
+    .context-ribbon {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: clamp(14px, 3vh, 28px);
+      z-index: 45;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s ease;
+      width: min(92vw, 860px);
+    }
+    .context-frame {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #000;
+      box-shadow: 0 6px 0 #111, 0 14px 30px rgba(0,0,0,.35);
+      border: 3px solid #111;
+    }
+    .context-bug {
+      font-family: "Bungee", system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+      font-size: clamp(12px, 2.3vw, 16px);
+      line-height: 1;
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: linear-gradient(180deg,#ffb400 0%,#ff8c00 50%,#ffb400 100%), #ff9800;
+      box-shadow: inset 0 -3px 0 rgba(0,0,0,.35);
+      min-width: 84px;
+      text-align: center;
+    }
+    .context-copy {
+      font-family: "Barlow Condensed", system-ui, sans-serif;
+      color: #e9f2ff;
+      font-size: clamp(14px, 2.4vw, 19px);
+      line-height: 1.15;
+    }
+    .context-tag {
+      font-family: "Bungee", system-ui, sans-serif;
+      color: #9fd0ff;
+      font-size: clamp(10px, 2vw, 12px);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      opacity: .95;
+    }
+    .context-underline {
+      height: 6px;
+      background: linear-gradient(90deg,#1f5fff 0%,#39a1ff 60%,#1f5fff 100%);
+      border-radius: 0 0 6px 6px;
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,.35);
+    }
+    .context-ribbon.show { opacity: 1; }
+
     @media(max-width:600px){
-      .output-container{ width:92%; }
-      .speech-bubble{ border-radius:30px; padding:20px 22px 18px 20px; }
+      .output-container{ max-width:94vw; }
+      .speech-bubble{ border-radius:28px; padding:14px 18px 14px 16px; }
       .output{ font-size:clamp(18px, 4.1vw, 28px); letter-spacing:-0.06em; line-height:1.07; }
-      .output .work-tag{ font-size:.74em; }
-      .context-pill{ font-size:13px; padding:9px 12px; }
     }
   </style>
 </head>
@@ -264,7 +252,15 @@
       <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
         <div class="chunklet-wrap">
           <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
-          <div class="eye-lids" id="eyeLids"></div>
+          <!-- Eyes overlay (dots) -->
+          <div class="eyes-overlay" id="eyesOverlay" aria-hidden="true">
+            <svg viewBox="0 0 100 40" preserveAspectRatio="xMidYMid meet">
+              <!-- two dots -->
+              <circle cx="35" cy="20" r="7" fill="#111"/>
+              <circle cx="65" cy="20" r="7" fill="#111"/>
+            </svg>
+          </div>
+          <!-- Mouth overlay -->
           <div class="mouth-overlay">
             <svg viewBox="0 0 100 100" aria-hidden="true">
               <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
@@ -284,28 +280,37 @@
           <span id="typed"></span><span id="cursor" class="cursor"></span>
         </div>
       </div>
-      <!-- SVG rounded tail -->
       <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
   </div>
 
+  <!-- Context lower-third -->
+  <div id="contextRibbon" class="context-ribbon" aria-live="polite">
+    <div class="context-frame">
+      <div class="context-bug">Context</div>
+      <div class="context-copy" id="contextCopy"></div>
+      <div class="context-tag" id="contextTag"></div>
+    </div>
+    <div class="context-underline"></div>
+  </div>
+
+  <div class="cal-hud" id="calHud"></div>
+
   <script>
     /* ===== CONFIG & Timings ===== */
     const css = getComputedStyle(document.documentElement);
     const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
       'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-    // Add &context=1
     const QUERY    = '?style=canon&modern=0&accent=scottish&context=1';
     const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
     const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
+    const BUBBLE_LINGER_MS = 15000; // quote+context stay visible after speech
 
     const doorTrigger       = document.getElementById('doorTrigger');
     const chunkletContainer = document.getElementById('chunkletContainer');
-    const chunkletWrap      = document.querySelector('.chunklet-wrap');
-    const eyeLids           = document.getElementById('eyeLids');
     const outputContainer   = document.getElementById('outputContainer');
     const bubble            = document.getElementById('bubble');
     const bubbleTail        = document.getElementById('bubbleTail');
@@ -314,16 +319,37 @@
     const mouth             = document.getElementById('mouth');
     const output            = document.getElementById('output');
     const clickSnd          = document.getElementById('clickSnd');
+    const eyesOverlay       = document.getElementById('eyesOverlay');
+
+    const ribbon = document.getElementById('contextRibbon');
+    const ctxCopy = document.getElementById('contextCopy');
+    const ctxTag  = document.getElementById('contextTag');
 
     const bgImg   = document.querySelector('.scene-bg img');
     const host    = document.querySelector('.scene-bg');
     const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-    let busy=false, doorOpen=false;
+    let busy=false, doorOpen=false, frozen=false;
     let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
     let raf,animating=false,tagPlaying=false;
     let currentObjectURL=null, iosAudioInitialized=false;
-    let blinkTimer=null, clearTimer=null;
+    let blinkTimer = null;
+
+    /* ===== Blink control ===== */
+    function scheduleBlink(){
+      clearTimeout(blinkTimer);
+      const delay = 2200 + Math.random()*2600; // 2.2–4.8s
+      blinkTimer = setTimeout(()=>{
+        eyesOverlay.classList.add('blink');
+        setTimeout(()=>{ eyesOverlay.classList.remove('blink'); scheduleBlink(); }, 120);
+      }, delay);
+    }
+    function stopBlink(){ clearTimeout(blinkTimer); eyesOverlay.classList.remove('blink'); }
+
+    /* ===== micro scheduler ===== */
+    const timers = new Set();
+    function delay(ms, fn){ const id=setTimeout(()=>{timers.delete(id); fn&&fn();},ms); timers.add(id); return id; }
+    function clearTimers(){ for(const id of timers) clearTimeout(id); timers.clear(); }
 
     /* ===== mouth anim bands ===== */
     const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
@@ -350,8 +376,17 @@
       }
     }
     function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
-    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
-    function setClosed(){ setLevel(0); }
+    function setLevel(n){
+      n=Math.max(0,Math.min(4,n|0));
+      if(n===level) return;
+      level=n;
+      mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`;
+      // tie eyes size slightly to energy (subtle)
+      const eyeScale = 1 + level*0.06;
+      document.documentElement.style.setProperty('--eye-scale', eyeScale.toFixed(2));
+      lastChange=performance.now();
+    }
+    function setClosed(){ setLevel(0); document.documentElement.style.setProperty('--eye-scale','1'); }
     function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
     function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
     function tick(){
@@ -369,12 +404,10 @@
         }else{ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); }
         return;
       }
-      // idle micro-mouth (very subtle)
       const t=(now/1000); const phase=((t*13)|0)%4; const rand=Math.random();
       setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
     }
 
-    /* iOS audio bootstrapping */
     function initializeIOSAudio(){
       if(iosAudioInitialized) return;
       try{
@@ -384,7 +417,7 @@
           audioEl.style.position='absolute'; audioEl.style.left='-9999px';
           audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
         }
-        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
         audioEl.src=silent; audioEl.load();
         const p=audioEl.play();
         if(p!==undefined){
@@ -409,16 +442,24 @@
     document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
     document.addEventListener('click', unlockAudioOnce, {once:true});
 
-    /* Bubble typing */
-    function typeOut(text, done){
-      // Show bubble only now
-      outputContainer.classList.add('active');
+    const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
+    function showContext(ctx, work, author){
+      if(!ctx){ ribbon.classList.remove('show'); return; }
+      ctxCopy.textContent = ctx;
+      ctxTag.textContent  = [work, author].filter(Boolean).join(' · ');
+      ribbon.classList.add('show');
+    }
+    function hideContext(){ ribbon.classList.remove('show'); }
+
+    function typeOut(text, done){
       typed.textContent='';
       output.classList.add('typing');
+      outputContainer.classList.add('active'); // visible only when typing begins
+      placeBubble();
       (function loop(i=0){
         typed.textContent = text.slice(0,i);
-        placeBubble(); // keep bubble clear of Chunklet as text wraps
+        placeBubble();
         if(i<text.length){
           setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
         }else{
@@ -444,18 +485,7 @@
       document.getElementById('output').appendChild(span);
     }
 
-    function showContext(contextText){
-      const old = document.getElementById('contextLine'); if(old) old.remove();
-      if(!contextText) return;
-      const div = document.createElement('div');
-      div.id = 'contextLine';
-      div.className = 'context-pill';
-      div.innerHTML = `<b>Context</b>${contextText}`;
-      document.getElementById('bubble').appendChild(div);
-      placeBubble();
-    }
-
-    /* Door/chunklet normalized positioning (unchanged, matches your “good” build) */
+    /* Door/chunklet normalized positioning */
     const DOOR={
       get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
       get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -484,7 +514,6 @@
       placeBubble();
     }
 
-    /* Bubble placement: keeps bubble above Chunklet + aims tail */
     function placeBubble(){
       const cardRect = outputContainer.getBoundingClientRect();
       const guyRect  = chunkletContainer.getBoundingClientRect();
@@ -523,46 +552,24 @@
         setTimeout(()=>{
           chunkletContainer.classList.remove('emerge');
           chunkletContainer.classList.add('waddle');
-          // NOTE: we DO NOT show the bubble here anymore (it waits for typing)
+          setTimeout(()=>{
+            // pre-speech: start subtle blinking
+            scheduleBlink();
+          }, WADDLE_MS);
         }, EMERGE_MS);
       }, DOOR_SWING_MS);
     }
     function closeDoor(){
       if(!doorOpen) return; doorOpen=false;
-      stopBlinking();
-      stopMouth();
+      stopBlink();
       outputContainer.classList.remove('active');
-      typed.textContent='';
-      const ctxEl=document.getElementById('contextLine'); if(ctxEl) ctxEl.remove();
-      const tag=document.querySelector('#output .work-tag'); if(tag) tag.remove();
-      chunkletContainer.classList.remove('active','emerge','waddle','breath');
-      setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 400);
-    }
-
-    /* Blinking */
-    function blinkOnce(){
-      if(!eyeLids) return;
-      eyeLids.classList.remove('blink');
-      // force reflow to restart animation
-      void eyeLids.offsetWidth;
-      eyeLids.classList.add('blink');
-    }
-    function startBlinking(){
-      stopBlinking();
-      const loop=()=>{
-        blinkTimer=setTimeout(()=>{
-          blinkOnce();
-          loop();
-        }, 2200 + Math.random()*1800);
-      };
-      loop();
-    }
-    function stopBlinking(){
-      if(blinkTimer){ clearTimeout(blinkTimer); blinkTimer=null; }
+      hideContext();
+      chunkletContainer.classList.remove('active','emerge','waddle');
+      setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
     }
 
     /* TTS playback */
-    async function playAudio(b64,onPlay,onEnd){
+    async function playAudio(b64,onEnd){
       if(isIOS){
         try{
           ensureCtx();
@@ -578,13 +585,12 @@
             audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
           }
           audioEl.src=currentObjectURL; audioEl.load();
-          audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; onPlay && onPlay(); };
+          audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
           audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
           const pp=audioEl.play(); if(pp!==undefined) await pp; return;
         }catch(err){
           console.error('iOS audio playback failed', err);
-          startMouth(); onPlay && onPlay();
-          const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
+          startMouth(); const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
           setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000); return;
         }
       }
@@ -594,8 +600,7 @@
         const buf=await audioCtx.decodeAudioData(bin.buffer);
         currentSource=audioCtx.createBufferSource(); currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
         attachAnalyserToBufferSource(currentSource);
-        setClosed(); startMouth(); onPlay && onPlay();
-        currentSource.start();
+        setClosed(); startMouth(); currentSource.start();
         currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd&&onEnd(); };
         return;
       }catch(e){
@@ -608,13 +613,12 @@
         if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
         if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
         currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
-        audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; onPlay && onPlay(); };
+        audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
         audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
         await audioEl.play();
       }catch(err){
         console.error('Plain <audio> failed', err);
-        startMouth(); onPlay && onPlay();
-        const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
+        startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
         setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
       }
     }
@@ -623,15 +627,10 @@
     async function summon(){
       if(busy) return;
       try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
-      busy=true; stopAudio();
-      outputContainer.classList.remove('active');
-      const oldTag=document.querySelector('#output .work-tag'); if(oldTag) oldTag.remove();
-      const oldCtx=document.getElementById('contextLine'); if(oldCtx) oldCtx.remove();
+      busy=true; stopAudio(); hideContext(); outputContainer.classList.remove('active');
 
+      // open & stage (eyes blink during idle)
       openDoor();
-
-      // Pre-speech: one “breath” + one quick blink while waiting for fetch
-      setTimeout(()=>{ chunkletContainer.classList.add('breath'); blinkOnce(); setTimeout(()=>chunkletContainer.classList.remove('breath'), 900); }, DOOR_SWING_MS + EMERGE_MS - 250);
 
       try{
         await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
@@ -639,47 +638,119 @@
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
         const work = data.work || null, author = data.author || null;
-        const text = (data.text||'').trim().replace(/!+$/,''); // bubble will ensure period
+        const text = sanitize(data.text);
+        const context = data.context || null;
 
-        typeOut(text.endsWith('.')||text.endsWith('?')||text.endsWith('!') ? text : text+'.', async ()=>{
-          const afterAudio = ()=>{
+        // show context right away so it lands with the line
+        showContext(context, work, author);
+
+        // start typing; bubble appears only now
+        typeOut(text, async ()=>{
+          const onEnd = ()=>{
             showWork(work, author);
-            showContext(data.context || null);
             placeBubble();
-
-            // clear after ~10s
-            if(clearTimer){ clearTimeout(clearTimer); }
-            clearTimer = setTimeout(()=>{ closeDoor(); }, 10000);
+            delay(BUBBLE_LINGER_MS, ()=>{ closeDoor(); });
           };
-
-          const onPlay = ()=>{ startBlinking(); };
-          const onEnd  = ()=>{ stopBlinking(); afterAudio(); };
-
-          if(data.audioBase64){ await playAudio(data.audioBase64, onPlay, onEnd); }
+          if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
           else {
             // silent timing fallback
-            onPlay();
+            startMouth();
             const approx=Math.min(7, Math.max(2.2, text.length/16));
-            setTimeout(()=>{ stopBlinking(); afterAudio(); }, (approx+0.2)*1000);
+            setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
           }
         });
 
       }catch(e){
         console.error(e);
-        typeOut('A shy packet tripped. Try again.', ()=>{
-          if(clearTimer){ clearTimeout(clearTimer); }
-          clearTimer = setTimeout(()=>{ closeDoor(); }, 2000);
-        });
+        outputContainer.classList.add('active');
+        typeOut('A shy packet tripped. Try again.', ()=>{ delay(1800, ()=>{ closeDoor(); }); });
       }
     }
 
     doorTrigger.addEventListener('click', summon);
     doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
 
+    /* Calibration (optional, unchanged) */
+    const calHud=document.getElementById('calHud'); let calOn=false, calTarget='door'; const STORAGE_KEY='cc_vars';
+    function getVar(name,fallback){ const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v)?(fallback??0):v; }
+    function setVar(name,value){ document.documentElement.style.setProperty(name,String(value)); persistVars(); positionDoorAndChunklet(); updateHud(); }
+    function persistVars(){
+      const data={ door_x:getVar('--door-x'), door_y:getVar('--door-y'), door_w:getVar('--door-w'), door_h:getVar('--door-h'),
+        mouth_top:getComputedStyle(document.documentElement).getPropertyValue('--mouth-top'),
+        mouth_left:getComputedStyle(document.documentElement).getPropertyValue('--mouth-left'),
+        eyes_top:getComputedStyle(document.documentElement).getPropertyValue('--eyes-top'),
+        eyes_left:getComputedStyle(document.documentElement).getPropertyValue('--eyes-left') };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    function loadVars(){
+      try{
+        const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return;
+        const d=JSON.parse(raw);
+        if(d.door_x) document.documentElement.style.setProperty('--door-x', d.door_x);
+        if(d.door_y) document.documentElement.style.setProperty('--door-y', d.door_y);
+        if(d.door_w) document.documentElement.style.setProperty('--door-w', d.door_w);
+        if(d.door_h) document.documentElement.style.setProperty('--door-h', d.door_h);
+        if(d.mouth_top)  document.documentElement.style.setProperty('--mouth-top', d.mouth_top);
+        if(d.mouth_left) document.documentElement.style.setProperty('--mouth-left', d.mouth_left);
+        if(d.eyes_top)   document.documentElement.style.setProperty('--eyes-top', d.eyes_top);
+        if(d.eyes_left)  document.documentElement.style.setProperty('--eyes-left', d.eyes_left);
+      }catch(_){}
+    }
+    function updateHud(){
+      if(!calOn) return;
+      const door={ x:getVar('--door-x').toFixed(3), y:getVar('--door-y').toFixed(3), w:getVar('--door-w').toFixed(3), h:getVar('--door-h').toFixed(3) };
+      const mTop=getComputedStyle(document.documentElement).getPropertyValue('--mouth-top').trim();
+      const mLeft=getComputedStyle(document.documentElement).getPropertyValue('--mouth-left').trim();
+      const eTop=getComputedStyle(document.documentElement).getPropertyValue('--eyes-top').trim();
+      const eLeft=getComputedStyle(document.documentElement).getPropertyValue('--eyes-left').trim();
+      calHud.textContent=
+`CALIBRATION — Shift = fine
+Door  x:${door.x}  y:${door.y}  w:${door.w}  h:${door.h}
+Mouth top:${mTop}  left:${mLeft}
+Eyes  top:${eTop}  left:${eLeft}
+C=toggle  M=switch (door/mouth/eyes)  R=reset`;
+    }
+    let targetIdx=0; const targets=['door','mouth','eyes'];
+    function toggleCal(){ calOn=!calOn; calHud.classList.toggle('on', calOn); updateHud(); }
+    function resetSaved(){ localStorage.removeItem(STORAGE_KEY); location.reload(); }
+    loadVars();
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='c'||e.key==='C'){ toggleCal(); return; }
+      if(!calOn) return;
+      if(e.key==='m'||e.key==='M'){ targetIdx=(targetIdx+1)%targets.length; updateHud(); return; }
+      if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
+      const fine=e.shiftKey, step=fine?0.001:0.003, pct=fine?0.5:1.0;
+      const target=targets[targetIdx];
+      if(target==='door'){
+        if(e.key==='ArrowLeft')  setVar('--door-x', getVar('--door-x')-step);
+        if(e.key==='ArrowRight') setVar('--door-x', getVar('--door-x')+step);
+        if(e.key==='ArrowUp')    setVar('--door-y', getVar('--door-y')-step);
+        if(e.key==='ArrowDown')  setVar('--door-y', getVar('--door-y')+step);
+        if(e.key==='[')          setVar('--door-w', Math.max(0.01, getVar('--door-w')-step));
+        if(e.key===']')          setVar('--door-w', getVar('--door-w')+step);
+        if(e.key==='{')          setVar('--door-h', Math.max(0.01, getVar('--door-h')-step));
+        if(e.key==='}')          setVar('--door-h', getVar('--door-h')+step);
+      }else if(target==='mouth'){
+        const top=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-top'));
+        const left=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-left'));
+        if(e.key==='ArrowUp')    { document.documentElement.style.setProperty('--mouth-top', (top - pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key==='ArrowDown')  { document.documentElement.style.setProperty('--mouth-top', (top + pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key==='ArrowLeft')  { document.documentElement.style.setProperty('--mouth-left',(left- pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key==='ArrowRight') { document.documentElement.style.setProperty('--mouth-left',(left+ pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+      }else{
+        const top=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--eyes-top'));
+        const left=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--eyes-left'));
+        if(e.key==='ArrowUp')    { document.documentElement.style.setProperty('--eyes-top', (top - pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key==='ArrowDown')  { document.documentElement.style.setProperty('--eyes-top', (top + pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key==='ArrowLeft')  { document.documentElement.style.setProperty('--eyes-left',(left- pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+        if(e.key==='ArrowRight') { document.documentElement.style.setProperty('--eyes-left',(left+ pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
+      }
+    });
+
     // initial layout
     (function boot(){
-      if(bgImg.complete){ positionDoorAndChunklet(); placeBubble(); }
-      else bgImg.addEventListener('load', ()=>{ positionDoorAndChunklet(); placeBubble(); });
+      positionDoorAndChunklet();
+      if(bgImg.complete) placeBubble(); else bgImg.addEventListener('load', placeBubble);
     })();
   </script>
 </body>
