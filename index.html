@@ -26,11 +26,11 @@
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Eyes (restored to earlier smaller feel) */
-      --eye-top:27.5%;
-      --eye-left:47%;
-      --eye-right:51%;
-      --eye-size:7.2px;
+      /* Eyes — smaller like the good iteration */
+      --eye-top:27.7%;
+      --eye-left:47.6%;
+      --eye-right:50.8%;
+      --eye-size:5.2px; /* ← tweak here if you want a hair bigger/smaller */
 
       /* Typing */
       --char-ms:18;
@@ -104,7 +104,7 @@
     .mouth-overlay svg{width:100%;height:100%}
     #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-    /* Eyes overlay (smaller, subtle blink) */
+    /* Eyes overlay (smaller + blink) */
     .eyes-overlay{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; }
     .eye{
       position:absolute;
@@ -252,9 +252,6 @@
       white-space:nowrap;
     }
 
-    .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
-    .cal-hud.on{ opacity:1; }
-
     @media(max-width:600px){
       .output-container{ max-width:94vw; }
       .speech-bubble{ border-radius:28px; padding:14px 18px 14px 16px; }
@@ -289,7 +286,7 @@
       <!-- Chunklet -->
       <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
         <div class="chunklet-wrap">
-          <!-- Use littleboytalk.png WITHOUT eyes -->
+          <!-- littleboytalk.png should not have eyes baked in -->
           <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
           <!-- Mouth overlay -->
           <div class="mouth-overlay">
@@ -331,20 +328,18 @@
     </div>
   </div>
 
-  <!-- Calibration HUD -->
-  <div class="cal-hud" id="calHud"></div>
-
+  <!-- SINGLE SCRIPT (no duplicate globals) -->
   <script>
-    const css = getComputedStyle(document.documentElement);
-    const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
-      'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+    /* -------- Config -------- */
+    const ENDPOINT = (getComputedStyle(document.documentElement).getPropertyValue('--endpoint') || '').trim();
     const QUERY    = '?style=canon&modern=0&accent=scottish&context=1';
 
-    const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
+    const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
     const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
     const CONTEXT_AFTER_MS = 900;
     const LINGER_AFTER_CONTEXT_MS = 12000;
 
+    /* -------- Elements -------- */
     const doorTrigger       = document.getElementById('doorTrigger');
     const chunkletContainer = document.getElementById('chunkletContainer');
     const outputContainer   = document.getElementById('outputContainer');
@@ -354,7 +349,6 @@
     const cursor            = document.getElementById('cursor');
     const mouth             = document.getElementById('mouth');
     const output            = document.getElementById('output');
-    const clickSnd          = document.getElementById('clickSnd');
 
     const ctxCard = document.getElementById('contextCard');
     const ctxText = document.getElementById('ctxText');
@@ -365,15 +359,13 @@
     const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
     let busy=false, doorOpen=false;
-    let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-    let raf,animating=false,tagPlaying=false;
-    let currentObjectURL=null, iosAudioInitialized=false;
-
     const timers = new Set();
-    function delay(ms, fn){ const id=setTimeout(()=>{timers.delete(id); fn&&fn();}, ms); timers.add(id); return id; }
-    function clearTimers(){ for(const id of timers) clearTimeout(id); timers.clear(); }
+    const delay = (ms, fn) => { const id=setTimeout(()=>{timers.delete(id); fn&&fn();}, ms); timers.add(id); return id; };
+    const clearTimers = ()=>{ for(const id of timers) clearTimeout(id); timers.clear(); };
 
-    /* Mouth animation helpers (unchanged) */
+    /* -------- Mouth / Audio (single instance) -------- */
+    let audioCtx, analyser, timeData, currentSource=null, audioEl=null, mediaSource=null, raf, animating=false, tagPlaying=false, iosAudioInitialized=false;
+
     const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
     const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
     const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
@@ -430,62 +422,22 @@
           audioEl.style.position='absolute'; audioEl.style.left='-9999px';
           audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
         }
+        // tiny silent mp3 to unlock
         const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
         audioEl.src=silent; audioEl.load();
         const p=audioEl.play();
-        if(p!==undefined){
-          p.then(()=>{ audioEl.pause(); audioEl.currentTime=0;
-            if(!mediaSource && audioCtx){
-              try{ mediaSource=audioCtx.createMediaElementSource(audioEl); ensureAnalyser(); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); iosAudioInitialized=true; }
-              catch(e){ console.warn('iOS audio init partial success, no analyser:', e); }
-            }
-          }).catch(e=>console.warn('iOS audio init failed',e));
-        }
-      }catch(e){ console.warn('iOS audio initialization error:', e); }
+        if(p!==undefined){ p.then(()=>{ audioEl.pause(); audioEl.currentTime=0; iosAudioInitialized=true; }).catch(()=>{}); }
+      }catch(_){}
     }
     function unlockAudioOnce(){
-      try{
-        ensureCtx();
-        if(isIOS){ initializeIOSAudio(); }
-        else { const buf=audioCtx.createBuffer(1,1,22050); const src=audioCtx.createBufferSource(); src.buffer=buf; src.connect(audioCtx.destination); src.start(0); }
-      }catch(_){}
+      try{ ensureCtx(); if(isIOS){ initializeIOSAudio(); } else { const b=audioCtx.createBuffer(1,1,22050); const s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0); } }catch(_){}
       document.removeEventListener('touchstart', unlockAudioOnce);
       document.removeEventListener('click', unlockAudioOnce);
     }
     document.addEventListener('touchstart', unlockAudioOnce, {once:true, passive:true});
     document.addEventListener('click', unlockAudioOnce, {once:true});
 
-    function typeOut(text, done){
-      typed.textContent='';
-      output.classList.add('typing');
-      (function loop(i=0){
-        typed.textContent = text.slice(0,i);
-        placeBubble();
-        if(i<text.length){
-          setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
-        }else{
-          output.classList.remove('typing');
-          placeBubble();
-          done && done();
-        }
-      })();
-    }
-
-    function stopAudio(){
-      if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
-      if(audioEl){ try{ audioEl.pause(); audioEl.currentTime=0; }catch(_){ } }
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      tagPlaying=false;
-    }
-
-    function showWork(work, author){
-      const old = document.querySelector('#output .work-tag'); if(old) old.remove();
-      if(!work && !author) return;
-      const span=document.createElement('span'); span.className='work-tag';
-      span.textContent='— '+[work,author].filter(Boolean).join(' · ');
-      document.getElementById('output').appendChild(span);
-    }
-
+    /* -------- Layout -------- */
     const DOOR={
       get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
       get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -527,13 +479,9 @@
       const tailPx = (guyRect.left + guyRect.width/2) - cardLeft;
       const tailPct = Math.max(8, Math.min(92, tailPx / cardRect.width * 100));
       outputContainer.style.setProperty('--tail-x', tailPct + '%');
-
-      placeContext();
     }
 
     function placeContext(){
-      const ctxCard = document.getElementById('contextCard');
-      if(!ctxCard) return;
       const ctxRect = ctxCard.getBoundingClientRect();
       const cardRect = outputContainer.getBoundingClientRect();
       if(!(cardRect.width && ctxRect.width)) return;
@@ -549,8 +497,8 @@
       ctxCard.style.maxWidth = maxW + 'px';
     }
 
-    const ro1 = new ResizeObserver(()=>placeBubble()); ro1.observe(outputContainer);
-    const ro2 = new ResizeObserver(()=>placeContext()); ro2.observe(document.getElementById('contextCard'));
+    const ro1 = new ResizeObserver(()=>{ placeBubble(); placeContext(); }); ro1.observe(outputContainer);
+    const ro2 = new ResizeObserver(()=>{ placeContext(); }); ro2.observe(ctxCard);
 
     function onReadyToPosition(){
       positionDoorAndChunklet();
@@ -561,128 +509,13 @@
     window.addEventListener('resize', positionDoorAndChunklet);
     window.addEventListener('orientationchange', positionDoorAndChunklet);
 
+    /* -------- Door + flow -------- */
     function openDoor(){
       if(doorOpen) return;
       clearTimers();
       positionDoorAndChunklet();
       doorOpen=true; doorTrigger.classList.add('door-open');
 
-      setTimeout(()=>{
-        chunkletContainer.classList.add('active','emerge');
-        setTimeout(()=>{
-          chunkletContainer.classList.remove('emerge');
-          chunkletContainer.classList.add('waddle');
-        }, EMERGE_MS);
-      }, DOOR_SWING_MS);
-    }
-    function closeDoor(){
-      if(!doorOpen) return; doorOpen=false;
-      chunkletContainer.classList.remove('active','emerge','waddle');
-      outputContainer.classList.remove('active');
-      ctxCard.classList.remove('on');
-      setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
-    }
-
-    /* TTS + audio plumbing omitted here for brevity in comments—identical to prior version */
-    let currentSource,audioEl,mediaSource,analyser,timeData,tagPlaying=false,raf,animating=false,audioCtx,currentObjectURL=null, iosAudioInitialized=false;
-    function startMouth(){}; function stopMouth(){}; // placeholders for scope
-  </script>
-  <script>
-    /* Full audio/analysis functions (kept exactly as earlier block) */
-    // Re-inserted (same as previous message) for completeness:
-    const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
-    const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
-    const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
-    const GATE_FLOOR=0.010, CLOSE_GRACE_MS=20;
-    let level=0,lastChange=0;
-
-    function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
-    function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
-    function attachAnalyserToBufferSource(src){ ensureAnalyser(); try{src.disconnect();}catch(_){ } src.connect(analyser); analyser.connect(audioCtx.destination); }
-    function attachAnalyserToMediaElement(){
-      ensureAnalyser();
-      if(isIOS && !iosAudioInitialized){ initializeIOSAudio(); return; }
-      if(!audioEl){
-        audioEl=document.createElement('audio');
-        audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-        audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
-        document.body.appendChild(audioEl);
-      }
-      if(!mediaSource && audioCtx && audioEl){
-        try{ mediaSource=audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); }
-        catch(e){ console.warn('createMediaElementSource failed', e); }
-      }
-    }
-    function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
-    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
-    function setClosed(){ setLevel(0); }
-    function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
-    function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
-    function tick(){
-      if(!animating) return; raf=requestAnimationFrame(tick);
-      const active=!!currentSource||tagPlaying, now=performance.now();
-      if(active){
-        if(analyser && (currentSource || (tagPlaying && mediaSource))){
-          const e=rmsLevel();
-          if(isIOS && e===0 && tagPlaying){ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); return; }
-          let target=level;
-          while(target<4 && e>=THRESH_UP[target]) target++;
-          while(target>0 && e<THRESH_DOWN[target-1]) target--;
-          if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
-          setLevel(target);
-        }else{ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); }
-        return;
-      }
-      const t=(now/1000); const phase=((t*13)|0)%4; const rand=Math.random();
-      setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
-    }
-
-    function initializeIOSAudio(){
-      if(iosAudioInitialized) return;
-      try{
-        ensureCtx();
-        if(!audioEl){
-          audioEl=document.createElement('audio');
-          audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-          audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline',''); document.body.appendChild(audioEl);
-        }
-        const silent='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAYYZn5GDeAAAAAAD/+1DEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u////////////////////////////////////////////////////////AAAAAExhdmY1OC40NS4xMDAAAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAABhmfkYN4AAAAAAP/7UMQAA8AAAGkAAAAIAAANIAAAARMQU1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-        audioEl.src=silent; audioEl.load();
-        const p=audioEl.play();
-        if(p!==undefined){
-          p.then(()=>{ audioEl.pause(); audioEl.currentTime=0; iosAudioInitialized=true; })
-           .catch(()=>{});
-        }
-      }catch(e){}
-    }
-  </script>
-  <script>
-    /* main flow */
-    const ctxCard = document.getElementById('contextCard');
-    const ctxText = document.getElementById('ctxText');
-    const ctxMeta = document.getElementById('ctxMeta');
-    const outputContainer = document.getElementById('outputContainer');
-    const typed = document.getElementById('typed');
-    const output = document.getElementById('output');
-    const mouth = document.getElementById('mouth');
-    const doorTrigger = document.getElementById('doorTrigger');
-    const chunkletContainer = document.getElementById('chunkletContainer');
-    const bgImg = document.querySelector('.scene-bg img');
-    const host  = document.querySelector('.scene-bg');
-
-    const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
-    const CONTEXT_AFTER_MS = 900;
-    const LINGER_AFTER_CONTEXT_MS = 12000;
-
-    let busy=false; let doorOpen=false;
-
-    function placeBubble(){ /* already defined in previous script tag */ }
-    function placeContext(){ /* already defined in previous script tag */ }
-
-    function openDoor(){
-      if(doorOpen) return;
-      positionDoorAndChunklet();
-      doorOpen=true; doorTrigger.classList.add('door-open');
       setTimeout(()=>{
         chunkletContainer.classList.add('active','emerge');
         setTimeout(()=>{
@@ -706,7 +539,7 @@
         typed.textContent = text.slice(0,i);
         placeBubble();
         if(i<text.length){
-          setTimeout(()=>loop(i+1), 18 + ((i%7)?0:Math.random()*10));
+          setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
         }else{
           output.classList.remove('typing');
           placeBubble();
@@ -716,23 +549,30 @@
     }
 
     async function fetchLine(){
-      const res = await fetch(ENDPOINT + '?style=canon&modern=0&accent=scottish&context=1', { cache:'no-store' });
+      const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
       if(!res.ok) throw new Error('HTTP '+res.status);
       return res.json();
     }
 
-    function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+    function showWorkMeta(work, author){
+      const old = document.querySelector('#output .work-tag'); if(old) old.remove();
+      if(!work && !author) return;
+      const span=document.createElement('span'); span.className='work-tag';
+      span.textContent='— '+[work,author].filter(Boolean).join(' · ');
+      output.appendChild(span);
+      placeBubble();
+    }
 
     async function summon(){
-      if(busy) return;
-      busy=true;
+      if(busy) return; busy=true;
+
       ctxCard.classList.remove('on');
       ctxText.textContent=''; ctxMeta.textContent='';
       outputContainer.classList.remove('active');
       typed.textContent='';
 
       openDoor();
-      await delay(DOOR_SWING_MS + EMERGE_MS + WADDLE_MS);
+      await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
 
       try{
         const data = await fetchLine();
@@ -745,11 +585,7 @@
 
         typeOut(/[.?!]$/.test(text)?text:(text+'.'), async ()=>{
           const onEnd=()=>{
-            const span=document.createElement('span');
-            span.className='work-tag';
-            span.textContent='— '+meta;
-            output.appendChild(span);
-            placeBubble();
+            showWorkMeta(data.work, data.author);
 
             setTimeout(()=>{
               if(context){
@@ -763,21 +599,19 @@
           };
 
           if(data.audioBase64){
-            await (async ()=>{
-              try{
-                ensureCtx(); ensureAnalyser();
-                const bin=Uint8Array.from(atob(data.audioBase64.split(',')[1]), c=>c.charCodeAt(0));
-                const buf=await audioCtx.decodeAudioData(bin.buffer);
-                currentSource=audioCtx.createBufferSource();
-                currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
-                attachAnalyserToBufferSource(currentSource);
-                setClosed(); startMouth(); currentSource.start();
-                currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd(); };
-              }catch(_){
-                setClosed(); startMouth();
-                setTimeout(()=>{ stopMouth(); onEnd(); }, Math.min(7, Math.max(2.2, text.length/16))*1000);
-              }
-            })();
+            try{
+              ensureCtx(); ensureAnalyser();
+              const bin=Uint8Array.from(atob(data.audioBase64.split(',')[1]), c=>c.charCodeAt(0));
+              const buf=await audioCtx.decodeAudioData(bin.buffer);
+              currentSource=audioCtx.createBufferSource();
+              currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
+              attachAnalyserToBufferSource(currentSource);
+              setClosed(); startMouth(); currentSource.start();
+              currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd(); };
+            }catch(_){
+              setClosed(); startMouth();
+              setTimeout(()=>{ stopMouth(); onEnd(); }, Math.min(7, Math.max(2.2, text.length/16))*1000);
+            }
           }else{
             setClosed(); startMouth();
             setTimeout(()=>{ stopMouth(); onEnd(); }, Math.min(7, Math.max(2.2, text.length/16))*1000);
@@ -794,32 +628,6 @@
 
     doorTrigger.addEventListener('click', summon);
     doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
-
-    function positionDoorAndChunklet(){
-      const hostRect=host.getBoundingClientRect();
-      const natW=bgImg.naturalWidth, natH=bgImg.naturalHeight;
-
-      const scale = (natW&&natH) ? Math.max(hostRect.width/natW, hostRect.height/natH) : 1;
-      const dispW = (natW||hostRect.width)*scale;
-      const dispH = (natH||hostRect.height)*scale;
-      const offsetX=(hostRect.width-dispW)/2, offsetY=(hostRect.height-dispH)/2;
-
-      const cx = hostRect.left + offsetX + dispW*parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'));
-      const cy = hostRect.top  + offsetY + dispH*parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'));
-      const dw = dispW*parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-w'));
-      const dh = dispH*parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-h'));
-
-      Object.assign(document.getElementById('doorTrigger').style, { left:(cx-hostRect.left)+'px', top:(cy-hostRect.top)+'px', width:dw+'px', height:dh+'px' });
-
-      const exitY = cy + dh*0.35;
-      Object.assign(chunkletContainer.style, { left:(cx-hostRect.left)+'px', top:(exitY-hostRect.top)+'px', transform:'translate(-50%,-30px)' });
-
-      placeBubble(); placeContext();
-    }
-
-    if(bgImg.complete){ positionDoorAndChunklet(); } else { bgImg.addEventListener('load', positionDoorAndChunklet); }
-    window.addEventListener('resize', positionDoorAndChunklet);
-    window.addEventListener('orientationchange', positionDoorAndChunklet);
   </script>
 </body>
 </html>
