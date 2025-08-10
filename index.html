@@ -5,20 +5,16 @@
 <title>chubby chunklet</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<!-- Icons -->
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="apple-touch-icon" href="favicon.png" />
 
-<!-- Fonts -->
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
 
 <style>
   :root{
-    /* Backend */
     --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-    /* Chunklet sprite / mouth (calibrated) */
     --figure-scale:1.15;
     --mouth-top:39%;
     --mouth-left:49%;
@@ -26,26 +22,22 @@
     --mouth-h:20px;
     --mouth-scale-0:.05;
 
-    /* Eyes (adjust here if you want) */
-    --eye-top:33.6%;    /* lower = bigger number */
-    --eye-gap:18px;     /* distance between eye centers */
-    --eye-size:7px;     /* base diameter of each eye dot */
+    /* Eyes back to smaller default */
+    --eye-top:34.2%;
+    --eye-gap:18px;
+    --eye-size:6px;
 
-    /* Typing */
     --char-ms:18;
 
-    /* Door anchors (normalized, calibrated) */
     --door-x: 0.472;
     --door-y: 0.579;
     --door-w: 0.099;
     --door-h: 0.248;
 
-    /* Bubble layout */
-    --output-top-fallback: 8vmin; /* starting spot; JS lifts it further if needed */
-    --bubble-gap: 18px;           /* min space between bubble bottom and Chunklet top */
-    --tail-x: 50%;                /* updated dynamically */
+    --output-top-fallback: 8vmin;
+    --bubble-gap: 18px;
+    --tail-x: 50%;
 
-    /* Audio */
     --theme-base-vol: 0.45;
   }
 
@@ -57,38 +49,17 @@
     overflow:hidden; height:100%; width:100%;
   }
 
-  /* ===== INTRO ===== */
-  .intro-overlay{
-    position:fixed; inset:0; z-index:9999;
-    display:flex; align-items:center; justify-content:center;
-    background:#000;
-    cursor:pointer; /* tap anywhere */
-  }
-  .intro-bg{
-    position:absolute; inset:0;
-    background:url('introscreen.png') center/contain no-repeat #000;
-  }
-  .intro-hint{
-    position:absolute; bottom:5vh; left:50%; transform:translateX(-50%);
-    font:700 14px/1.1 DM Sans, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    color:#fff; letter-spacing:.06em;
-    padding:8px 12px; border:2px solid rgba(255,255,255,.85); border-radius:999px;
-    background:rgba(0,0,0,.35);
-    animation:hintPulse 1.6s ease-in-out infinite;
-    user-select:none;
-  }
+  /* INTRO */
+  .intro-overlay{position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:#000; cursor:pointer;}
+  .intro-bg{position:absolute; inset:0; background:url('introscreen.png') center/contain no-repeat #000;}
+  .intro-hint{position:absolute; bottom:5vh; left:50%; transform:translateX(-50%); font:700 14px/1.1 DM Sans; color:#fff; letter-spacing:.06em; padding:8px 12px; border:2px solid rgba(255,255,255,.85); border-radius:999px; background:rgba(0,0,0,.35); animation:hintPulse 1.6s ease-in-out infinite; user-select:none;}
   @keyframes hintPulse{0%,100%{opacity:.85}50%{opacity:.45}}
 
-  /* ===== SCENE ===== */
   .scene-container{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#4a7ba7; }
   .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; perspective:900px; }
   .scene-bg img{ width:100%; height:100%; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
 
-  /* Door (CSS fallback so it's visible even if JS hasn't run yet) */
-  .door-container{
-    position:absolute; left:50%; top:52%; width:140px; height:180px;
-    transform:translate(-50%, -50%); cursor:pointer; z-index:50;
-  }
+  .door-container{ position:absolute; left:50%; top:52%; width:140px; height:180px; transform:translate(-50%, -50%); cursor:pointer; z-index:50; }
   .door-left, .door-right{
     position:absolute; width:50%; height:100%;
     background:#3d2418; border:3px solid #2d1810;
@@ -98,161 +69,73 @@
   }
   .door-left{ left:0;  transform-origin:left center;  border-right:2px solid #1a0e08; }
   .door-right{right:0;  transform-origin:right center; border-left: 2px solid #1a0e08; }
-  .door-panel{ position:absolute; background:#2d1810; border:2px solid #1a0e08;
-    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.4), inset -1px -1px 2px rgba(61,36,24,0.3); }
+  .door-panel{ position:absolute; background:#2d1810; border:2px solid #1a0e08; box-shadow: inset 2px 2px 4px rgba(0,0,0,0.4), inset -1px -1px 2px rgba(61,36,24,0.3); }
   .door-left .panel-top{   width:65%; height:22%; top:15%; left:17.5%;}
   .door-left .panel-mid{   width:65%; height:22%; top:41%; left:17.5%;}
   .door-left .panel-bottom{width:65%; height:22%; top:67%; left:17.5%;}
   .door-right .panel-top{   width:65%; height:22%; top:15%; right:17.5%;}
   .door-right .panel-mid{   width:65%; height:22%; top:41%; right:17.5%;}
   .door-right .panel-bottom{width:65%; height:22%; top:67%; right:17.5%;}
+
   .door-open .door-left{ transform:rotateY(85deg); }
   .door-open .door-right{ transform:rotateY(-85deg); }
 
-  /* Chunklet */
-  .chunklet-container{
-    position:absolute; transform:translate(-50%, -30px);
-    opacity:0; transition:opacity 0.3s; z-index:60; pointer-events:none;
-  }
+  .chunklet-container{ position:absolute; transform:translate(-50%, -30px); opacity:0; transition:opacity 0.3s; z-index:60; pointer-events:none; }
   .chunklet-container.active{ opacity:1; }
   .chunklet-wrap{ position:relative; width:calc(100px*var(--figure-scale)); height:calc(130px*var(--figure-scale)); display:flex; align-items:flex-end; justify-content:center; }
   .chunklet-img{ width:calc(90px*var(--figure-scale)); max-width:100%; user-select:none; -webkit-user-drag:none; filter:drop-shadow(0 8px 16px rgba(0,0,0,.6)); image-rendering:-webkit-optimize-contrast; }
 
-  /* Ground shadow */
-  .ground-shadow{
-    position:absolute; left:50%; bottom:-2px; width:88px; height:18px; transform:translateX(-50%) scale(0.6);
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.45) 0%, rgba(0,0,0,.25) 40%, rgba(0,0,0,0) 70%);
-    filter:blur(2px); opacity:0; pointer-events:none;
-  }
+  .ground-shadow{ position:absolute; left:50%; bottom:-2px; width:88px; height:18px; transform:translateX(-50%) scale(0.6); background:radial-gradient(ellipse at center, rgba(0,0,0,.45) 0%, rgba(0,0,0,.25) 40%, rgba(0,0,0,0) 70%); filter:blur(2px); opacity:0; pointer-events:none; }
 
-  /* Mouth overlay */
   .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; }
   .mouth-overlay svg{width:100%;height:100%}
   #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-  /* Eyes overlay */
-  .eyes-overlay{
-    position:absolute; top:var(--eye-top); left:50%;
-    transform:translate(-50%,-50%); width:0; height:0; pointer-events:none;
-  }
-  .eye-dot{
-    position:absolute; top:0; width:var(--eye-size); height:var(--eye-size);
-    margin-top:0; border-radius:50%; background:#111; box-shadow:0 0 0 2px rgba(0,0,0,.15);
-    transform:translate(-50%,-50%);
-  }
+  /* Eyes overlay — small, centered, subtle blink */
+  .eyes-overlay{ position:absolute; top:var(--eye-top); left:50%; transform:translate(-50%,-50%); width:0; height:0; pointer-events:none; }
+  .eye-dot{ position:absolute; top:0; width:var(--eye-size); height:var(--eye-size); border-radius:50%; background:#111; transform:translate(-50%,-50%); box-shadow:0 0 0 2px rgba(0,0,0,.12);}
   .eye-left{ left:calc(-1 * var(--eye-gap) / 2); }
   .eye-right{ left:calc(var(--eye-gap) / 2); }
   .eye-dot.blink { transform:translate(-50%,-50%) scaleY(0.15); }
 
-  /* ===== Speech bubble (Peanuts-style) ===== */
-  .output-container{
-    position:fixed; left:50%; transform:translateX(-50%);
-    width:auto; max-width:90vw;
-    z-index:40; opacity:0; transition:opacity 0.5s;
-    pointer-events:none; top:var(--output-top-fallback);
-    text-align:center;
-  }
+  /* Bubble */
+  .output-container{ position:fixed; left:50%; transform:translateX(-50%); width:auto; max-width:90vw; z-index:40; opacity:0; transition:opacity 0.35s; pointer-events:none; top:var(--output-top-fallback); text-align:center; }
   .output-container.active{ opacity:1; }
-
   .bubble-wrap{ position:relative; display:inline-block; }
-  .speech-bubble{
-    position:relative;
-    background:#fff;
-    border:6px solid #000;
-    border-radius:32px;
-    padding:18px 26px 18px 22px;
-    color:#111;
-    box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35);
-    display:inline-block;
-    max-width:86vw;
-  }
-  .bubble-tail{
-    position:absolute;
-    bottom:-2px; left:var(--tail-x);
-    transform:translate(-50%, 100%);
-    width:44px; height:28px; overflow:visible; pointer-events:none;
-  }
-
-  /* Speech text */
-  .output{
-    font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    text-transform:uppercase; font-weight:400;
-    font-size:clamp(22px, 2.4vw, 36px);
-    line-height:1.04; letter-spacing:-0.06em; word-spacing:-0.04em;
-    color:#111; margin:0; white-space:pre-wrap; text-shadow:none; text-align:center;
-  }
-  .cursor{
-    display:inline-block; width:.5ch; height:1.05em; background:#111;
-    vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px;
-  }
+  .speech-bubble{ position:relative; background:#fff; border:6px solid #000; border-radius:32px; padding:18px 26px 18px 22px; color:#111; box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35); display:inline-block; max-width:86vw; }
+  .bubble-tail{ position:absolute; bottom:-2px; left:var(--tail-x); transform:translate(-50%, 100%); width:44px; height:28px; pointer-events:none; }
+  .output{ font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; text-transform:uppercase; font-weight:400; font-size:clamp(22px, 2.4vw, 36px); line-height:1.04; letter-spacing:-0.06em; word-spacing:-0.04em; color:#111; margin:0; white-space:pre-wrap; text-align:center; }
+  .cursor{ display:inline-block; width:.5ch; height:1.05em; background:#111; vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px;}
   @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
   .typing .cursor{animation:none}
+  .output .work-tag{ opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.72em; letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:12px; }
 
-  .output .work-tag{
-    opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.72em;
-    letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:12px; text-shadow:none;
-  }
+  /* Entrance */
+  @keyframes emergePop{0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85);}40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1;}60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);}100%{transform:translate(-50%,-12px) scale(1,1) rotate(0deg);}}
+  @keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0)}20%{transform:translate(-50%,10px)}30%{transform:translate(-50%,20px)}40%{transform:translate(-50%,30px)}55%{transform:translate(-50%,45px)}70%{transform:translate(-50%,58px)}85%{transform:translate(-50%,66px) scale(1.02,.98)}100%{transform:translate(-50%,70px)}}
+  @keyframes shadowEmerge{0%{opacity:0; transform:translateX(-50%) scale(0.4);}60%{opacity:.55; transform:translateX(-50%) scale(0.75);}100%{opacity:.65; transform:translateX(-50%) scale(0.85);}}
+  @keyframes shadowWaddle{0%{opacity:.65; transform:translateX(-50%) scale(0.85);}25%{opacity:.70; transform:translateX(-50%) scale(0.95);}50%{opacity:.60; transform:translateX(-50%) scale(0.88);}75%{opacity:.72; transform:translateX(-50%) scale(1.00);}100%{opacity:.68; transform:translateX(-50%) scale(1.05);}}
+  .chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards;}
+  .chunklet-container.waddle{animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards;}
+  .chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards;}
+  .chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
 
-  /* ===== Dramatic entrance ===== */
-  @keyframes emergePop {
-    0%   { transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85); }
-    40%  { transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1; }
-    60%  { transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg); }
-    100% { transform:translate(-50%,-12px) scale(1,1) rotate(0deg); }
-  }
-  @keyframes waddleDown {
-    0%   { transform:translate(-50%,-12px) rotate(0deg); }
-    10%  { transform:translate(-50%,   0px) rotate(-3deg); }
-    20%  { transform:translate(-50%,  10px) rotate(3deg); }
-    30%  { transform:translate(-50%,  20px) rotate(-3deg); }
-    40%  { transform:translate(-50%,  30px) rotate(3deg); }
-    55%  { transform:translate(-50%,  45px) rotate(-2deg); }
-    70%  { transform:translate(-50%,  58px) rotate(2deg); }
-    85%  { transform:translate(-50%,  66px) rotate(-1deg) scale(1.02,.98); }
-    100% { transform:translate(-50%,  70px) rotate(0deg)  scale(1,1); }
-  }
-  @keyframes shadowEmerge { 0%{opacity:0; transform:translateX(-50%) scale(0.4);} 60%{opacity:.55; transform:translateX(-50%) scale(0.75);} 100%{opacity:.65; transform:translateX(-50%) scale(0.85);} }
-  @keyframes shadowWaddle { 0%{opacity:.65; transform:translateX(-50%) scale(0.85);} 25%{opacity:.70; transform:translateX(-50%) scale(0.95);} 50%{opacity:.60; transform:translateX(-50%) scale(0.88);} 75%{opacity:.72; transform:translateX(-50%) scale(1.00);} 100%{opacity:.68; transform:translateX(-50%) scale(1.05);} }
-  .chunklet-container.emerge { animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards; }
-  .chunklet-container.waddle { animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards; }
-  .chunklet-container.emerge .ground-shadow { animation:shadowEmerge .7s ease-out forwards; }
-  .chunklet-container.waddle .ground-shadow { animation:shadowWaddle 2.4s ease-out forwards; }
-
-  /* ===== Context card (British Open-ish) ===== */
-  .context-container{
-    position:fixed; left:50%; transform:translateX(-50%);
-    top:12px; z-index:70; pointer-events:none;
-    opacity:0; transition:opacity .35s ease;
-    max-width:min(980px, 92vw);
-  }
+  /* Context card */
+  .context-container{ position:fixed; left:50%; transform:translateX(-50%); top:12px; z-index:70; pointer-events:none; opacity:0; transition:opacity .35s ease; max-width:min(980px, 92vw); }
   .context-container.active{ opacity:1; }
-  .context-card{
-    position:relative; background:#F1C40F; color:#111; border-radius:10px;
-    border:4px solid #111; box-shadow:0 6px 0 #111, 0 14px 30px rgba(0,0,0,.35);
-    padding:14px 18px 12px 18px;
-    font: 500 16px/1.35 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  }
+  .context-card{ position:relative; background:#F1C40F; color:#111; border-radius:10px; border:4px solid #111; box-shadow:0 6px 0 #111, 0 14px 30px rgba(0,0,0,.35); padding:14px 18px 12px 18px; font: 500 16px/1.35 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
   .context-row{ display:flex; align-items:flex-start; gap:12px; }
-  .ctx-pill{
-    background:#FF7F27; color:#fff; border:3px solid #111; border-radius:9px;
-    font: 800 12px/1 DM Sans, system-ui; letter-spacing:.08em;
-    padding:8px 10px; text-transform:uppercase; white-space:nowrap;
-    box-shadow:0 3px 0 #111;
-  }
+  .ctx-pill{ background:#FF7F27; color:#fff; border:3px solid #111; border-radius:9px; font:800 12px/1 DM Sans; letter-spacing:.08em; padding:8px 10px; text-transform:uppercase; white-space:nowrap; box-shadow:0 3px 0 #111; }
   .ctx-text{ flex:1; font-size:15px; line-height:1.45; }
-  .ctx-meta{
-    margin-top:10px; font:700 11px/1 DM Sans, system-ui; letter-spacing:.12em; text-transform:uppercase; color:#111;
-    opacity:.9;
-  }
+  .ctx-meta{ margin-top:10px; font:700 11px/1 DM Sans; letter-spacing:.12em; text-transform:uppercase; color:#111; opacity:.9; }
 
-  /* Calibration HUD (unchanged) */
   .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
   .cal-hud.on{ opacity:1; }
 
   @media(max-width:600px){
     .output-container{ max-width:94vw; }
     .speech-bubble{ border-radius:28px; padding:14px 18px 14px 16px; }
-    .output{ font-size:clamp(18px, 4.1vw, 28px); letter-spacing:-0.06em; line-height:1.07; }
+    .output{ font-size:clamp(18px, 4.1vw, 28px); }
     .context-card{ padding:12px 14px 10px 14px; }
     .ctx-text{ font-size:14px; }
   }
@@ -260,7 +143,6 @@
 </head>
 <body>
 
-<!-- INTRO (tap anywhere) -->
 <div class="intro-overlay" id="intro">
   <div class="intro-bg" aria-hidden="true"></div>
   <div class="intro-hint">TAP ANYWHERE</div>
@@ -273,7 +155,6 @@
   <div class="scene-bg">
     <img src="skullbones.png" alt="Scene background" />
 
-    <!-- Door -->
     <div class="door-container" id="doorTrigger" aria-label="Open the door" role="button" tabindex="0">
       <div class="door-left">
         <div class="door-panel panel-top"></div>
@@ -287,16 +168,13 @@
       </div>
     </div>
 
-    <!-- Chunklet -->
     <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
       <div class="chunklet-wrap">
         <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
-        <!-- Eyes -->
         <div class="eyes-overlay" id="eyes">
           <div class="eye-dot eye-left"></div>
           <div class="eye-dot eye-right"></div>
         </div>
-        <!-- Mouth -->
         <div class="mouth-overlay">
           <svg viewBox="0 0 100 100" aria-hidden="true">
             <ellipse id="mouth" cx="50" cy="50" rx="26" ry="24" fill="#111"/>
@@ -308,7 +186,6 @@
   </div>
 </div>
 
-<!-- Speech bubble output -->
 <div class="output-container" id="outputContainer" aria-live="polite">
   <div class="bubble-wrap">
     <div class="speech-bubble" id="bubble">
@@ -316,14 +193,12 @@
         <span id="typed"></span><span id="cursor" class="cursor"></span>
       </div>
     </div>
-    <!-- SVG rounded tail -->
     <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   </div>
 </div>
 
-<!-- Context card (appears above bubble, after the reading) -->
 <div class="context-container" id="ctx">
   <div class="context-card">
     <div class="context-row">
@@ -334,12 +209,10 @@
   </div>
 </div>
 
-<!-- Calibration HUD -->
 <div class="cal-hud" id="calHud"></div>
 
 <script>
 (() => {
-  /* ====== constants & helpers ====== */
   const css = getComputedStyle(document.documentElement);
   const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
     'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
@@ -348,15 +221,14 @@
   const THEME_BASE_VOL = parseFloat(css.getPropertyValue('--theme-base-vol')) || 0.45;
 
   const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
-  const SHOW_CTX_AFTER_MS = 800;       // after TTS ends
-  const BUBBLE_LINGER_MS  = 12000;     // total linger before clearing
-  const CTX_LINGER_MS     = 10000;     // context visibility (will clear with bubble)
-  const BLINK_MIN = 2600, BLINK_MAX = 5400; // eye blink cadence
+  const SHOW_CTX_AFTER_MS = 800;
+  const BUBBLE_LINGER_MS  = 12000;
+  const CTX_LINGER_MS     = 10000;
+  const BLINK_MIN = 2600, BLINK_MAX = 5400;
 
-  /* DOM */
-  const intro            = document.getElementById('intro');
-  const introTheme       = document.getElementById('introTheme');
-  const gameRoot         = document.getElementById('gameRoot');
+  const intro = document.getElementById('intro');
+  const introTheme = document.getElementById('introTheme');
+  const gameRoot = document.getElementById('gameRoot');
 
   const doorTrigger       = document.getElementById('doorTrigger');
   const chunkletContainer = document.getElementById('chunkletContainer');
@@ -369,25 +241,24 @@
   const output            = document.getElementById('output');
   const clickSnd          = document.getElementById('clickSnd');
 
-  const eyesWrap          = document.getElementById('eyes');
-  const eyeL              = eyesWrap.querySelector('.eye-left');
-  const eyeR              = eyesWrap.querySelector('.eye-right');
+  const eyesWrap = document.getElementById('eyes');
+  const eyeL = eyesWrap.querySelector('.eye-left');
+  const eyeR = eyesWrap.querySelector('.eye-right');
 
-  const ctxWrap           = document.getElementById('ctx');
-  const ctxText           = document.getElementById('ctxText');
-  const ctxMeta           = document.getElementById('ctxMeta');
+  const ctxWrap = document.getElementById('ctx');
+  const ctxText = document.getElementById('ctxText');
+  const ctxMeta = document.getElementById('ctxMeta');
 
   const bgImg   = document.querySelector('.scene-bg img');
   const hostEl  = document.querySelector('.scene-bg');
   const isIOS   = /iP(hone|od|ad)|Macintosh.*Mobile/.test(navigator.userAgent);
 
-  let busy=false, doorOpen=false, frozen=false;
+  let busy=false, doorOpen=false;
   let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
   let raf,animating=false,tagPlaying=false;
   let currentObjectURL=null, iosAudioInitialized=false;
   let blinkTO=null;
 
-  /* ===== Theme song: start immediately (best-effort), unmute on first gesture ===== */
   function fadeIn(audio, target=THEME_BASE_VOL, ms=700){
     try{
       audio.volume = 0;
@@ -403,38 +274,20 @@
     const a = introTheme; if(!a) return;
     a.autoplay = true; a.loop = true; a.playsInline = true;
     (async ()=>{
-      try{
-        a.muted = false;
-        await a.play();
-        fadeIn(a, THEME_BASE_VOL, 700);
-      }catch(_){
-        a.muted = true; // muted fallback
-        try{ await a.play(); }catch(__){}
-      }
+      try{ a.muted = false; await a.play(); fadeIn(a, THEME_BASE_VOL, 700); }
+      catch(_){ a.muted = true; try{ await a.play(); }catch(__){} }
     })();
   }
   if (document.readyState === 'complete' || document.readyState === 'interactive') startThemeAutoplay();
   else document.addEventListener('DOMContentLoaded', startThemeAutoplay);
-  document.addEventListener('visibilitychange', ()=>{
-    const a=introTheme; if(document.visibilityState==='visible' && a && a.paused){ startThemeAutoplay(); }
-  });
-  const unmuteOnce = () => {
-    if(introTheme && introTheme.muted){ introTheme.muted=false; fadeIn(introTheme, THEME_BASE_VOL, 600); }
-    window.removeEventListener('pointerdown', unmuteOnce);
-    window.removeEventListener('keydown', unmuteOnce);
-  };
+  const unmuteOnce = ()=>{ if(introTheme && introTheme.muted){ introTheme.muted=false; fadeIn(introTheme, THEME_BASE_VOL, 600);} window.removeEventListener('pointerdown', unmuteOnce); window.removeEventListener('keydown', unmuteOnce); };
   window.addEventListener('pointerdown', unmuteOnce, { once:true, passive:true });
   window.addEventListener('keydown', unmuteOnce, { once:true });
 
-  /* ===== micro scheduler: kill stale timeouts to avoid early closes ===== */
   const timers = new Set();
-  function delay(ms, fn){
-    const id = setTimeout(()=>{ timers.delete(id); fn && fn(); }, ms);
-    timers.add(id); return id;
-  }
+  function delay(ms, fn){ const id=setTimeout(()=>{timers.delete(id); fn&&fn();},ms); timers.add(id); return id; }
   function clearTimers(){ for(const id of timers) clearTimeout(id); timers.clear(); }
 
-  /* ===== mouth anim bands ===== */
   const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
   const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
   const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
@@ -455,7 +308,7 @@
     }
     if(!mediaSource && audioCtx && audioEl){
       try{ mediaSource=audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); }
-      catch(e){ console.warn('createMediaElementSource failed', e); }
+      catch(e){ console.warn('media element source failed', e); }
     }
   }
   function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
@@ -469,13 +322,11 @@
     if(active){
       if(analyser && (currentSource || (tagPlaying && mediaSource))){
         const e=rmsLevel();
-        if(isIOS && e===0 && tagPlaying){ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); return; }
         let target=level;
         while(target<4 && e>=THRESH_UP[target]) target++;
         while(target>0 && e<THRESH_DOWN[target-1]) target--;
         if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
         setLevel(target);
-        // subtle "speak" eye micro-squish
         const speakScale = 1 - Math.min(0.22, level*0.04);
         eyeL.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
         eyeR.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
@@ -502,11 +353,11 @@
         p.then(()=>{ audioEl.pause(); audioEl.currentTime=0;
           if(!mediaSource && audioCtx){
             try{ mediaSource=audioCtx.createMediaElementSource(audioEl); ensureAnalyser(); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); iosAudioInitialized=true; }
-            catch(e){ console.warn('iOS audio init partial success, no analyser:', e); }
+            catch(e){ console.warn('iOS audio init partial', e); }
           }
-        }).catch(e=>console.warn('iOS audio init failed',e));
+        }).catch(()=>{});
       }
-    }catch(e){ console.warn('iOS audio initialization error:', e); }
+    }catch(_){}
   }
   function unlockAudioOnce(){
     try{
@@ -523,6 +374,11 @@
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
   function typeOut(text, done){
+    // show bubble *now* (no idle bubble before typing)
+    if(!outputContainer.classList.contains('active')){
+      outputContainer.classList.add('active');
+    }
+
     typed.textContent='';
     output.classList.add('typing');
     (function loop(i=0){
@@ -552,11 +408,8 @@
     span.textContent='— '+[work,author].filter(Boolean).join(' · ');
     document.getElementById('output').appendChild(span);
   }
-  function clearWorkTag(){
-    const old = document.querySelector('#output .work-tag'); if(old) old.remove();
-  }
+  function clearWorkTag(){ const old = document.querySelector('#output .work-tag'); if(old) old.remove(); }
 
-  /* Door/chunklet normalized positioning */
   const DOOR={
     get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
     get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -610,7 +463,6 @@
   window.addEventListener('resize', positionDoorAndChunklet);
   window.addEventListener('orientationchange', positionDoorAndChunklet);
 
-  /* Door choreography */
   function openDoor(){
     if(doorOpen) return;
     positionDoorAndChunklet();
@@ -622,7 +474,8 @@
         chunkletContainer.classList.remove('emerge');
         chunkletContainer.classList.add('waddle');
         setTimeout(()=>{
-          outputContainer.classList.add('active');
+          // NOTE: DO NOT show bubble here anymore (prevents idle caret)
+          // outputContainer.classList.add('active');
           placeBubble();
         }, WADDLE_MS);
       }, EMERGE_MS);
@@ -637,7 +490,6 @@
     setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
   }
 
-  /* Eyes blink */
   function scheduleBlink(){
     clearTimeout(blinkTO);
     const ms = Math.round(BLINK_MIN + Math.random()*(BLINK_MAX-BLINK_MIN));
@@ -647,7 +499,6 @@
     }, ms);
   }
 
-  /* TTS playback */
   async function playAudio(b64,onEnd){
     if(isIOS){
       try{
@@ -697,89 +548,17 @@
       await audioEl.play();
     }catch(err){
       console.error('Plain <audio> failed', err);
-      startMouth(); const approx=Math.min(7, Math.max(2.2, typed.textContent.length/16));
+      startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
       setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
     }
   }
 
-  /* Fetch line + context */
   async function fetchLine(){
     const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     return await res.json();
   }
 
-  /* main */
-  async function summon(){
-    if(busy) return;
-    try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
-    busy=true; clearTimers(); ctxWrap.classList.remove('active'); stopAudio();
-
-    typed.textContent=''; clearWorkTag();
-    openDoor();
-
-    try{
-      await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
-      const data = await fetchLine();
-
-      const work = data.work || null, author = data.author || null;
-      const text = sanitize(data.text);
-      const ctx   = (data.context && (data.context.summary||'').trim()) || '';
-      const ctxW  = (data.context && (data.context.work||work)) || work || '';
-      const ctxA  = (data.context && (data.context.author||author)) || author || '';
-
-      // typing
-      typeOut(text, async ()=>{
-        const onEnd = ()=>{
-          showWork(work, author);
-          placeBubble();
-
-          // show context shortly after speaking ends
-          if(ctx){
-            delay(SHOW_CTX_AFTER_MS, ()=>{
-              ctxText.textContent = ctx;
-              ctxMeta.textContent = [ctxW, ctxA].filter(Boolean).join(' · ').toUpperCase();
-              ctxWrap.classList.add('active');
-            });
-            // clear both after linger
-            delay(Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS), ()=>{
-              ctxWrap.classList.remove('active');
-              outputContainer.classList.remove('active');
-              clearWorkTag();
-              if(!doorOpen) return;
-              delay(500, closeDoor);
-            });
-          }else{
-            // no context returned: just clear bubble after linger
-            delay(BUBBLE_LINGER_MS, ()=>{
-              outputContainer.classList.remove('active');
-              clearWorkTag();
-              delay(500, closeDoor);
-            });
-          }
-        };
-
-        // blink loop while speaking/idle
-        scheduleBlink();
-
-        if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
-        else {
-          startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
-          setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000);
-        }
-      });
-
-    }catch(e){
-      console.error(e);
-      typeOut('A shy packet tripped. Try again.');
-      delay(2000, ()=>{ closeDoor(); });
-    }
-  }
-
-  doorTrigger.addEventListener('click', summon);
-  doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
-
-  /* ==== INTRO to GAME transition ==== */
   function startGame(){
     if(!intro) return;
     intro.style.transition='opacity .28s ease';
@@ -789,7 +568,69 @@
   intro.addEventListener('pointerdown', startGame, {passive:true});
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
 
-  /* ===== Calibration (optional) ===== */
+  function summon(){
+    if(busy) return;
+    try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
+    busy=true; clearTimers(); ctxWrap.classList.remove('active'); stopAudio(); clearWorkTag();
+    openDoor();
+
+    (async ()=>{
+      try{
+        await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
+        const data = await fetchLine();
+
+        const work = data.work || null, author = data.author || null;
+        const text = sanitize(data.text);
+        const ctx   = (data.context && (data.context.summary||'').trim()) || '';
+        const ctxW  = (data.context && (data.context.work||work)) || work || '';
+        const ctxA  = (data.context && (data.context.author||author)) || author || '';
+
+        // start blink loop
+        scheduleBlink();
+
+        typeOut(text, async ()=>{
+          const onEnd = ()=>{
+            showWork(work, author);
+            placeBubble();
+
+            if(ctx){
+              delay(SHOW_CTX_AFTER_MS, ()=>{
+                ctxText.textContent = ctx;
+                ctxMeta.textContent = [ctxW, ctxA].filter(Boolean).join(' · ').toUpperCase();
+                ctxWrap.classList.add('active');
+              });
+              delay(Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS), ()=>{
+                ctxWrap.classList.remove('active');
+                outputContainer.classList.remove('active');
+                clearWorkTag();
+                delay(500, closeDoor);
+              });
+            }else{
+              delay(BUBBLE_LINGER_MS, ()=>{
+                outputContainer.classList.remove('active');
+                clearWorkTag();
+                delay(500, closeDoor);
+              });
+            }
+          };
+
+          if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
+          else { startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16)); setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000); }
+        });
+
+      }catch(e){
+        console.error(e);
+        // brief inline message then close up
+        if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
+        typed.textContent='A shy packet tripped. Try again.';
+        delay(1800, ()=>{ outputContainer.classList.remove('active'); closeDoor(); });
+      }
+    })();
+  }
+
+  doorTrigger.addEventListener('click', summon);
+  doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
+
   const calHud=document.getElementById('calHud'); let calOn=false, calTarget='door'; const STORAGE_KEY='cc_vars';
   function getVar(name,fallback){ const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v)?(fallback??0):v; }
   function setVar(name,value){ document.documentElement.style.setProperty(name,String(value)); persistVars(); positionDoorAndChunklet(); updateHud(); }
@@ -826,11 +667,11 @@
     const eGap=getComputedStyle(document.documentElement).getPropertyValue('--eye-gap').trim();
     const eSize=getComputedStyle(document.documentElement).getPropertyValue('--eye-size').trim();
     calHud.textContent=
-`CALIBRATION (${calTarget.toUpperCase()})  —  Shift = fine
+`CALIBRATION — Shift=fine
 Door  x:${door.x}  y:${door.y}  w:${door.w}  h:${door.h}
 Mouth top:${mTop}  left:${mLeft}
 Eyes top:${eTop}  gap:${eGap}  size:${eSize}
-C=toggle  M=switch target  R=reset saved`;
+C=toggle  R=reset`;
   }
   function toggleCal(){ calOn=!calOn; calHud.classList.toggle('on', calOn); updateHud(); }
   function resetSaved(){ localStorage.removeItem(STORAGE_KEY); location.reload(); }
@@ -838,29 +679,9 @@ C=toggle  M=switch target  R=reset saved`;
   window.addEventListener('keydown', (e)=>{
     if(e.key==='c'||e.key==='C'){ toggleCal(); return; }
     if(!calOn) return;
-    const fine=e.shiftKey, step=fine?0.001:0.003, pct=fine?0.5:1.0;
-    if(e.key==='m'||e.key==='M'){ calTarget=calTarget==='door'?'mouth':'door'; updateHud(); return; }
     if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
-    if(calTarget==='door'){
-      if(e.key==='ArrowLeft')  setVar('--door-x', getVar('--door-x')-step);
-      if(e.key==='ArrowRight') setVar('--door-x', getVar('--door-x')+step);
-      if(e.key==='ArrowUp')    setVar('--door-y', getVar('--door-y')-step);
-      if(e.key==='ArrowDown')  setVar('--door-y', getVar('--door-y')+step);
-      if(e.key==='[')          setVar('--door-w', Math.max(0.01, getVar('--door-w')-step));
-      if(e.key===']')          setVar('--door-w', getVar('--door-w')+step);
-      if(e.key==='{')          setVar('--door-h', Math.max(0.01, getVar('--door-h')-step));
-      if(e.key==='}')          setVar('--door-h', getVar('--door-h')+step);
-    }else{
-      const top=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-top'));
-      const left=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mouth-left'));
-      if(e.key==='ArrowUp')    { document.documentElement.style.setProperty('--mouth-top', (top - pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
-      if(e.key==='ArrowDown')  { document.documentElement.style.setProperty('--mouth-top', (top + pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
-      if(e.key==='ArrowLeft')  { document.documentElement.style.setProperty('--mouth-left',(left- pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
-      if(e.key==='ArrowRight') { document.documentElement.style.setProperty('--mouth-left',(left+ pct)+'%'); persistVars(); positionDoorAndChunklet(); updateHud(); }
-    }
   });
 
-  // initial layout
   positionDoorAndChunklet();
 })();
 </script>
