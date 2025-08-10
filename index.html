@@ -14,10 +14,9 @@
 
   <style>
     :root{
-      /* Backend */
       --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-      /* Chunklet sprite / mouth (calibrated) */
+      /* Chunklet + mouth */
       --figure-scale:1.15;
       --mouth-top:39%;
       --mouth-left:49%;
@@ -25,7 +24,7 @@
       --mouth-h:20px;
       --mouth-scale-0:.05;
 
-      /* Eyes — lower & farther apart */
+      /* Eyes (kept size from the “good” build, just a hair lower & wider) */
       --eye-top:31.2%;
       --eye-left:44.6%;
       --eye-right:54.4%;
@@ -34,7 +33,7 @@
       /* Typing */
       --char-ms:18;
 
-      /* Door anchors (normalized, calibrated) */
+      /* Door anchors (calibrated) */
       --door-x: 0.472;
       --door-y: 0.579;
       --door-w: 0.099;
@@ -65,7 +64,7 @@
     .intro.hidden{ opacity:0; pointer-events:none; }
     .intro-bg{
       position:absolute; inset:0; width:100%; height:100%;
-      object-fit:contain;      /* not zoomed */
+      object-fit:contain;               /* not zoomed in */
       user-select:none; -webkit-user-drag:none;
     }
 
@@ -166,7 +165,6 @@
       overflow:visible; pointer-events:none;
     }
 
-    /* Phrase text */
     .output{
       font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-transform:uppercase;
@@ -277,8 +275,8 @@
   </style>
 </head>
 <body>
-  <!-- Intro audio -->
-  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto" playsinline autoplay loop></audio>
+  <!-- Theme song: loops always; ducks during TTS -->
+  <audio id="introTheme" src="chunklet_theme_song.mp3" preload="auto" playsinline loop></audio>
 
   <!-- Tap anywhere to start -->
   <div class="intro" id="introOverlay" role="dialog" aria-label="Intro (tap anywhere to start)">
@@ -355,9 +353,11 @@
     const CHAR_MS  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 20;
     const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
 
-    /* show context a beat after reading; let it linger longer */
     const CONTEXT_AFTER_MS = 900;
     const LINGER_AFTER_CONTEXT_MS = 14000;
+
+    const THEME_BASE_VOL = 0.48;     // plays the whole time
+    const THEME_DUCK_VOL = 0.15;     // while TTS is speaking
 
     /* ===== Elements ===== */
     const introOverlay      = document.getElementById('introOverlay');
@@ -366,8 +366,6 @@
     const doorTrigger       = document.getElementById('doorTrigger');
     const chunkletContainer = document.getElementById('chunkletContainer');
     const outputContainer   = document.getElementById('outputContainer');
-    const bubble            = document.getElementById('bubble');
-    const bubbleTail        = document.getElementById('bubbleTail');
     const typed             = document.getElementById('typed');
     const cursor            = document.getElementById('cursor');
     const mouth             = document.getElementById('mouth');
@@ -387,7 +385,7 @@
     const clearTimers = ()=>{ for(const id of timers) clearTimeout(id); timers.clear(); };
 
     /* ===== Audio / Mouth ===== */
-    let audioCtx, analyser, timeData, currentSource=null, audioEl=null, mediaSource=null, raf, animating=false, tagPlaying=false, iosAudioInitialized=false;
+    let audioCtx, analyser, timeData, currentSource=null, raf, animating=false;
 
     const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
     const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
@@ -397,66 +395,72 @@
 
     function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
     function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
-    function attachAnalyserToBufferSource(src){ ensureAnalyser(); try{src.disconnect();}catch(_){ } src.connect(analyser); analyser.connect(audioCtx.destination); }
+    function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
+    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
+    function setClosed(){ setLevel(0); }
+    function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
+    function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
+    function tick(){
+      if(!animating) return; raf=requestAnimationFrame(tick);
+      const now=performance.now();
+      if(currentSource && analyser){
+        const e=rmsLevel();
+        let target=level;
+        while(target<4 && e>=THRESH_UP[target]) target++;
+        while(target>0 && e<THRESH_DOWN[target-1]) target--;
+        if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
+        setLevel(target);
+      }else{
+        const phase=((now/1000*13)|0)%4; const rand=Math.random();
+        setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
+      }
+    }
 
-    function initializeIOSAudio(){ if(iosAudioInitialized) return; try{ ensureCtx(); iosAudioInitialized=true; }catch(_){} }
-
-    /* ===== Intro behavior (robust autoplay) ===== */
-    function primeIntro(){
+    /* ===== Theme music: play always, handle mobile autoplay ===== */
+    function startThemeAutoplay(){
       try{
-        introTheme.loop = true;
+        introTheme.volume = THEME_BASE_VOL;
         (async ()=>{
           try{
             introTheme.muted = false;
-            await introTheme.play();         // desktop should succeed
+            await introTheme.play();      // desktop
           }catch(_){
-            try{
-              introTheme.muted = true;       // mobile: start silent
-              await introTheme.play();
-            }catch(__){}
+            // mobile: silently loop until first interaction, then unmute
+            introTheme.muted = true;
+            try{ await introTheme.play(); }catch(__){}
           }
         })();
       }catch(_){}
     }
-    if (document.readyState === 'complete' || document.readyState === 'interactive') primeIntro();
-    else document.addEventListener('DOMContentLoaded', primeIntro);
-
+    if (document.readyState === 'complete' || document.readyState === 'interactive') startThemeAutoplay();
+    else document.addEventListener('DOMContentLoaded', startThemeAutoplay);
     document.addEventListener('visibilitychange', ()=>{
-      if(document.visibilityState==='visible' && introTheme.paused) primeIntro();
+      if(document.visibilityState==='visible' && introTheme.paused){
+        startThemeAutoplay();
+      }
     });
 
-    function startApp(){
-      // if it was silent, make it audible for the fade then stop
-      if (introTheme.muted) { try{ introTheme.muted = false; }catch(_){} }
-      const dur = 900;
-      const v0 = introTheme.volume || 1;
-      const t0 = performance.now();
-      function fade(){
-        const t = performance.now() - t0;
-        const v = Math.max(0, v0 * (1 - t/dur));
-        introTheme.volume = v;
-        if(t < dur) requestAnimationFrame(fade);
-        else { try{ introTheme.pause(); }catch(_){}
-          introTheme.currentTime = 0; introTheme.volume = 1;
-        }
-      }
-      requestAnimationFrame(fade);
-      requestAnimationFrame(()=>introOverlay.classList.add('hidden'));
+    function duckTheme(on){
+      try{
+        introTheme.volume = on ? THEME_DUCK_VOL : THEME_BASE_VOL;
+      }catch(_){}
     }
 
+    /* ===== Intro overlay -> start app ===== */
+    function startApp(){
+      // If theme was forced muted by autoplay rules, unmute now and keep playing
+      if (introTheme.muted) { try{ introTheme.muted = false; }catch(_){ } }
+      introOverlay.classList.add('hidden');
+      try{ ensureCtx(); }catch(_){}
+    }
     ['pointerdown','click','touchstart','keydown'].forEach(ev=>{
       introOverlay.addEventListener(ev, (e)=>{
         if(e.type==='keydown' && !['Enter',' '].includes(e.key)) return;
-        // unlock for TTS/mouth right away
-        try{ ensureCtx(); }catch(_){}
-        if (!introOverlay.classList.contains('hidden') && !introTheme.paused && introTheme.muted){
-          try{ introTheme.muted = false; }catch(_){}
-        }
         startApp();
       }, {once:true, passive:true});
     });
 
-    /* ===== Layout (door + bubble + context) ===== */
+    /* ===== Layout ===== */
     const DOOR={
       get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
       get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -508,7 +512,6 @@
       const gap = 10;
       const newTop = Math.max(8, Math.round(cardRect.top - ctxRect.height - gap));
       ctxCard.style.top = newTop + 'px';
-
       ctxCard.style.left = '50%';
       ctxCard.style.transform = 'translateX(-50%)';
 
@@ -528,52 +531,7 @@
     window.addEventListener('resize', positionDoorAndChunklet);
     window.addEventListener('orientationchange', positionDoorAndChunklet);
 
-    /* ===== Mouth anim (minimal passive if no audio) ===== */
-    function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
-    function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
-    function setClosed(){ setLevel(0); }
-    function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
-    function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
-    function tick(){
-      if(!animating) return; raf=requestAnimationFrame(tick);
-      const now=performance.now();
-      const active=!!currentSource;
-      if(active && analyser){
-        const e=rmsLevel();
-        let target=level;
-        while(target<4 && e>=THRESH_UP[target]) target++;
-        while(target>0 && e<THRESH_DOWN[target-1]) target--;
-        if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
-        setLevel(target);
-      }else{
-        const phase=((now/1000*13)|0)%4; const rand=Math.random();
-        setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
-      }
-    }
-
-    /* ===== Flow ===== */
-    function openDoor(){
-      if(doorOpen) return;
-      clearTimers();
-      positionDoorAndChunklet();
-      doorOpen=true; doorTrigger.classList.add('door-open');
-
-      setTimeout(()=>{
-        chunkletContainer.classList.add('active','emerge');
-        setTimeout(()=>{
-          chunkletContainer.classList.remove('emerge');
-          chunkletContainer.classList.add('waddle');
-        }, EMERGE_MS);
-      }, DOOR_SWING_MS);
-    }
-    function closeDoor(){
-      if(!doorOpen) return; doorOpen=false;
-      chunkletContainer.classList.remove('active','emerge','waddle');
-      outputContainer.classList.remove('active');
-      ctxCard.classList.remove('on');
-      setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
-    }
-
+    /* ===== Bubble typing ===== */
     function typeOut(text, done){
       typed.textContent='';
       output.classList.add('typing');
@@ -590,23 +548,45 @@
       })();
     }
 
-    async function fetchLineWithRetry(){
-      const urls = [
-        ENDPOINT + QUERY,                             // full (tts+context)
-        ENDPOINT + '?style=canon&modern=0&context=1'  // fallback (still with context)
-      ];
-      let lastErr;
-      for(let i=0;i<urls.length;i++){
-        try{
-          const res = await fetch(urls[i], { cache:'no-store' });
-          if(!res.ok) throw new Error('HTTP '+res.status);
-          return await res.json();
-        }catch(e){
-          lastErr = e;
-          await new Promise(r=>setTimeout(r, 300 + Math.random()*400));
-        }
+    /* ===== Context tightening (Lish-y) ===== */
+    function compactContext(raw, work, author){
+      if(!raw) return '';
+      let s = String(raw).replace(/\s+/g,' ').trim();
+
+      // strip boilerplate openings
+      s = s.replace(/^In this (?:moment|passage|scene|poem|speech|chapter),?\s*/i,'')
+           .replace(/^Here,?\s*/i,'')
+           .replace(/^This (?:line|passage)\s*/i,'');
+
+      // prune hedges
+      s = s.replace(/\b(kind of|sort of|perhaps|maybe|somewhat|rather|quite|very|really)\b/gi,'').replace(/\s{2,}/g,' ').trim();
+
+      // take max two sentences
+      const bits = s.match(/[^.?!]+[.?!]/g) || [s + '.'];
+      let core = (bits[0] || '').trim() + (bits[1] ? ' ' + bits[1].trim() : '');
+      core = core.replace(/\s{2,}/g,' ').trim();
+
+      // keep it short
+      if(core.length > 280){
+        core = core.slice(0, 270);
+        core = core.replace(/\s+\S*$/,'').replace(/[,:;]$/,'') + '…';
       }
-      throw lastErr || new Error('Network error');
+
+      // tiny head-nod
+      const hay = (work + ' ' + author + ' ' + s).toLowerCase();
+      let tag = '';
+      if(/grief|death|mourn|loss|funeral/.test(hay)) tag='loss';
+      else if(/love|desire|heart/.test(hay)) tag='love';
+      else if(/time|memory|forget|past|future/.test(hay)) tag='time';
+      else if(/power|king|crown|rule|tyrant|authority/.test(hay)) tag='power';
+      else if(/justice|law|mercy|guilt/.test(hay)) tag='justice';
+      else if(/faith|soul|grace|sin|heaven|hell|god/.test(hay)) tag='faith';
+      else if(/freedom|fate|choice|will/.test(hay)) tag='choice';
+
+      if(core.length <= 240 && tag){
+        core += ` — about ${tag}.`;
+      }
+      return core;
     }
 
     function showWorkMeta(work, author){
@@ -618,23 +598,75 @@
       placeBubble();
     }
 
-    async function summon(){
-      if(busy) return; busy=true;
+    function clearQuoteAndMeta(){
+      typed.textContent='';
+      const old = document.querySelector('#output .work-tag'); if(old) old.remove();
+    }
 
+    /* ===== Door choreography ===== */
+    function openDoor(){
+      if(doorOpen) return;
+      clearTimers();
+      positionDoorAndChunklet();
+      doorOpen=true; document.getElementById('doorTrigger').classList.add('door-open');
+
+      setTimeout(()=>{
+        chunkletContainer.classList.add('active','emerge');
+        setTimeout(()=>{
+          chunkletContainer.classList.remove('emerge');
+          chunkletContainer.classList.add('waddle');
+        }, EMERGE_MS);
+      }, DOOR_SWING_MS);
+    }
+    function closeDoor(){
+      doorOpen=false;
+      chunkletContainer.classList.remove('active','emerge','waddle');
+      document.getElementById('doorTrigger').classList.remove('door-open');
+
+      // Hide and clear everything so attribution never lingers
       ctxCard.classList.remove('on');
       ctxText.textContent=''; ctxMeta.textContent='';
       outputContainer.classList.remove('active');
-      typed.textContent='';
+      clearQuoteAndMeta();
+
+      busy=false;
+    }
+
+    /* ===== Fetch + playback ===== */
+    async function fetchLineWithRetry(){
+      const urls = [
+        ENDPOINT + QUERY,
+        ENDPOINT + '?style=canon&modern=0&context=1'
+      ];
+      let lastErr;
+      for(const u of urls){
+        try{
+          const res = await fetch(u, { cache:'no-store' });
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          return await res.json();
+        }catch(e){
+          lastErr = e;
+          await new Promise(r=>setTimeout(r, 300 + Math.random()*400));
+        }
+      }
+      throw lastErr || new Error('Network error');
+    }
+
+    async function summon(){
+      if(busy) return; busy=true;
+
+      // reset UI
+      ctxCard.classList.remove('on'); ctxText.textContent=''; ctxMeta.textContent='';
+      outputContainer.classList.remove('active'); clearQuoteAndMeta();
 
       openDoor();
       await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
 
       try{
         const data = await fetchLineWithRetry();
-
         const text = (data.text||'').trim();
-        const context = (data.context||'') || '';
         const meta = [data.work, data.author].filter(Boolean).join(' · ');
+        const contextTight = compactContext(data.context||'', data.work||'', data.author||'');
 
         outputContainer.classList.add('active');
         placeBubble();
@@ -644,8 +676,8 @@
             showWorkMeta(data.work, data.author);
 
             delay(CONTEXT_AFTER_MS, ()=>{
-              if(context){
-                ctxText.textContent = context;
+              if(contextTight){
+                ctxText.textContent = contextTight;
                 ctxMeta.textContent = meta;
                 ctxCard.classList.add('on');
                 placeContext();
@@ -661,16 +693,19 @@
               const buf=await audioCtx.decodeAudioData(bin.buffer);
               currentSource=audioCtx.createBufferSource();
               currentSource.buffer=buf; currentSource.playbackRate.value=1.08;
-              attachAnalyserToBufferSource(currentSource);
+              currentSource.connect(analyser); analyser.connect(audioCtx.destination);
+              duckTheme(true);
               setClosed(); startMouth(); currentSource.start();
-              currentSource.onended=()=>{ currentSource=null; stopMouth(); onEnd(); };
+              currentSource.onended=()=>{ currentSource=null; stopMouth(); duckTheme(false); onEnd(); };
             }catch(_){
+              duckTheme(true);
               setClosed(); startMouth();
-              delay(Math.min(7, Math.max(2.2, text.length/16))*1000, ()=>{ stopMouth(); onEnd(); });
+              delay(Math.min(7, Math.max(2.2, text.length/16))*1000, ()=>{ stopMouth(); duckTheme(false); onEnd(); });
             }
           }else{
+            duckTheme(true);
             setClosed(); startMouth();
-            delay(Math.min(7, Math.max(2.2, text.length/16))*1000, ()=>{ stopMouth(); onEnd(); });
+            delay(Math.min(7, Math.max(2.2, text.length/16))*1000, ()=>{ stopMouth(); duckTheme(false); onEnd(); });
           }
         });
 
@@ -682,8 +717,8 @@
       }
     }
 
-    doorTrigger.addEventListener('click', summon);
-    doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
+    document.getElementById('doorTrigger').addEventListener('click', summon);
+    document.getElementById('doorTrigger').addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
 
     /* init layout */
     function ready(){ positionDoorAndChunklet(); }
