@@ -37,8 +37,6 @@
     --output-top-fallback: 8vmin;
     --bubble-gap: 18px;
     --tail-x: 50%;
-
-    --theme-base-vol: 0.45; /* unused now but leaving in case we re-add music later */
   }
 
   *{box-sizing:border-box}
@@ -91,7 +89,7 @@
 
   /* Eyes overlay — pure black, subtle blink */
   .eyes-overlay{ position:absolute; top:var(--eye-top); left:50%; transform:translate(-50%,-50%); width:0; height:0; pointer-events:none; }
-  .eye-dot{ position:absolute; top:0; width:var(--eye-size); height:var(--eye-size); border-radius:50%; background:#000; transform:translate(-50%,-50%); /* removed gray ring */ }
+  .eye-dot{ position:absolute; top:0; width:var(--eye-size); height:var(--eye-size); border-radius:50%; background:#000; transform:translate(-50%,-50%); }
   .eye-left{ left:calc(-1 * var(--eye-gap) / 2); }
   .eye-right{ left:calc(var(--eye-gap) / 2); }
   .eye-dot.blink { transform:translate(-50%,-50%) scaleY(0.15); }
@@ -122,8 +120,8 @@
   .context-container{ position:fixed; left:50%; transform:translateX(-50%); top:12px; z-index:70; pointer-events:none; opacity:0; transition:opacity .35s ease; max-width:min(700px, 92vw); }
   .context-container.active{ opacity:1; }
   .tweet-card{
-    background:#0f172a; /* slate-900 vibe */
-    color:#e5e7eb;      /* light gray text */
+    background:#0f172a;
+    color:#e5e7eb;
     border:1px solid rgba(255,255,255,.08);
     border-radius:14px;
     padding:14px 16px;
@@ -202,7 +200,7 @@
   </div>
 </div>
 
-<!-- New tweet-style context card -->
+<!-- tweet-style context -->
 <div class="context-container" id="ctx">
   <div class="tweet-card">
     <div class="tweet-text" id="ctxText"></div>
@@ -216,13 +214,17 @@
   const css = getComputedStyle(document.documentElement);
   const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
     'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
-  const QUERY    = '?style=canon&modern=0&accent=scottish&context=1';
+
+  // Primary tries to include context (no TTS). Fallback returns only a line.
+  const QUERY_PRIMARY  = '?style=canon&modern=0&accent=scottish&context=1&tts=0';
+  const QUERY_FALLBACK = '?style=canon&modern=0&accent=scottish&context=0&tts=0';
+
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
   const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
   const SHOW_CTX_AFTER_MS = 800;
   const BUBBLE_LINGER_MS  = 50000;
-  const CTX_LINGER_MS     = 50000; // longer default so people can read
+  const CTX_LINGER_MS     = 50000;
 
   const BLINK_MIN = 2600, BLINK_MAX = 5400;
 
@@ -254,7 +256,6 @@
   let currentObjectURL=null;
   let blinkTO=null;
 
-  /* --- typing and bubble --- */
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
   function typeOut(text, done){
@@ -276,7 +277,6 @@
     })();
   }
 
-  /* --- mouth animation (unchanged) --- */
   const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
   const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
   const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
@@ -285,7 +285,6 @@
 
   function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
   function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
-  function attachAnalyserToBufferSource(src){ ensureAnalyser(); try{src.disconnect();}catch(_){ } src.connect(analyser); analyser.connect(audioCtx.destination); }
   function attachAnalyserToMediaElement(){
     ensureAnalyser();
     if(!audioEl){
@@ -325,7 +324,6 @@
     setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
   }
 
-  /* --- position & bubble tail --- */
   const DOOR={
     get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
     get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -379,7 +377,6 @@
   window.addEventListener('resize', positionDoorAndChunklet);
   window.addEventListener('orientationchange', positionDoorAndChunklet);
 
-  /* --- door + flow --- */
   function openDoor(){
     if(doorOpen) return;
     positionDoorAndChunklet();
@@ -403,7 +400,6 @@
     setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
   }
 
-  /* --- blink loop (start early so he always blinks) --- */
   function scheduleBlink(){
     clearTimeout(blinkTO);
     const ms = Math.round(BLINK_MIN + Math.random()*(BLINK_MAX-BLINK_MIN));
@@ -413,7 +409,6 @@
     }, ms);
   }
 
-  /* --- audio helpers (for TTS playback only) --- */
   async function playAudio(b64,onEnd){
     try{
       ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
@@ -447,16 +442,34 @@
   }
   function clearWorkTag(){ const old = document.querySelector('#output .work-tag'); if(old) old.remove(); }
 
+  // --- Robust fetch with timeout and fallback ---
+  function fetchJSONWithTimeout(url, timeoutMs){
+    const ctrl = new AbortController();
+    const id = setTimeout(()=>ctrl.abort(), timeoutMs);
+    return fetch(url, { cache:'no-store', signal: ctrl.signal })
+      .finally(()=> clearTimeout(id));
+  }
+
   async function fetchLine(){
-    const res = await fetch(ENDPOINT + QUERY, { cache:'no-store' });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    return await res.json();
+    // try full (with context) quickly
+    try{
+      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, 6000);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('Primary fetch failed, falling back to fast line:', err);
+      // fallback = no context, no tts
+      const res2 = await fetchJSONWithTimeout(ENDPOINT + QUERY_FALLBACK, 6000);
+      if(!res2.ok) throw new Error('HTTP '+res2.status);
+      const data = await res2.json();
+      // make sure shape exists for UI
+      return { ...data, context: null, audioBase64: null, timings: data.timings||[] };
+    }
   }
 
   function startGame(){
     if(!intro) return;
-    // start blink loop right away so he always blinks
-    scheduleBlink();
+    scheduleBlink(); // blink immediately
 
     intro.style.transition='opacity .28s ease';
     intro.style.opacity='0';
@@ -489,7 +502,7 @@
 
             if(ctx){
               setTimeout(()=>{
-                ctxText.textContent = ctx;          // tweet text (lowercased via CSS)
+                ctxText.textContent = ctx;
                 ctxWrap.classList.add('active');
               }, SHOW_CTX_AFTER_MS);
 
@@ -524,7 +537,7 @@
   doorTrigger.addEventListener('click', summon);
   doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
 
-  /* --- calibration HUD (unchanged) --- */
+  // calibration (unchanged)
   const calHud=document.getElementById('calHud'); let calOn=false; const STORAGE_KEY='cc_vars';
   function getVar(name,fallback){ const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v)?(fallback??0):v; }
   function setVar(name,value){ document.documentElement.style.setProperty(name,String(value)); persistVars(); positionDoorAndChunklet(); updateHud(); }
