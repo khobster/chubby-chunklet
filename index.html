@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <title>chubby chunklet</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="apple-touch-icon" href="favicon.png" />
@@ -13,29 +13,30 @@
 
 <style>
   :root{
+    /* ← change this to your deployed URL if different */
     --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
-    --figure-scale:1.15;
+    /* Figure + face */
+    --figure-scale: 1.08;
     --mouth-top:39%;
     --mouth-left:49%;
     --mouth-w:20px;
     --mouth-h:20px;
-    --mouth-scale-0:.05;
+    --mouth-scale-0:.08;
 
-    /* Eyes */
     --eye-top:34.2%;
     --eye-gap:18px;
     --eye-size:4px;
 
     --char-ms:18;
 
+    /* Door hotspot (in image-relative coords) */
     --door-x: 0.472;
     --door-y: 0.579;
     --door-w: 0.099;
     --door-h: 0.248;
 
-    --output-top-fallback: 8vmin;
-    --bubble-gap: 18px;
+    --bubble-gap: 18px; /* gap between bubble bottom and chunklet head */
     --tail-x: 50%;
   }
 
@@ -50,14 +51,14 @@
   /* INTRO */
   .intro-overlay{position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:#000; cursor:pointer;}
   .intro-bg{position:absolute; inset:0; background:url('introscreen.png') center/cover no-repeat #000;}
-  @media (max-aspect-ratio: 3/4) {
-    .intro-bg{ background-size:contain; background-position:center center; }
-  }
+  @media (max-aspect-ratio: 3/4) { .intro-bg{ background-size:contain; background-position:center center; } }
 
+  /* Scene */
   .scene-container{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#4a7ba7; }
   .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; perspective:900px; }
   .scene-bg img{ width:100%; height:100%; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
 
+  /* Door hotspot */
   .door-container{ position:absolute; left:50%; top:52%; width:140px; height:180px; transform:translate(-50%, -50%); cursor:pointer; z-index:50; }
   .door-left, .door-right{
     position:absolute; width:50%; height:100%;
@@ -75,35 +76,33 @@
   .door-right .panel-top{   width:65%; height:22%; top:15%; right:17.5%;}
   .door-right .panel-mid{   width:65%; height:22%; top:41%; right:17.5%;}
   .door-right .panel-bottom{width:65%; height:22%; top:67%; right:17.5%;}
-
   .door-open .door-left{ transform:rotateY(85deg); }
   .door-open .door-right{ transform:rotateY(-85deg); }
 
+  /* Chunklet */
   .chunklet-container{ position:absolute; transform:translate(-50%, -30px); opacity:0; transition:opacity 0.3s; z-index:60; pointer-events:none; }
   .chunklet-container.active{ opacity:1; }
   .chunklet-wrap{ position:relative; width:calc(100px*var(--figure-scale)); height:calc(130px*var(--figure-scale)); display:flex; align-items:flex-end; justify-content:center; }
   .chunklet-img{ width:calc(90px*var(--figure-scale)); max-width:100%; user-select:none; -webkit-user-drag:none; filter:drop-shadow(0 8px 16px rgba(0,0,0,.6)); image-rendering:-webkit-optimize-contrast; }
-
   .ground-shadow{ position:absolute; left:50%; bottom:-2px; width:88px; height:18px; transform:translateX(-50%) scale(0.6); background:radial-gradient(ellipse at center, rgba(0,0,0,.45) 0%, rgba(0,0,0,.25) 40%, rgba(0,0,0,0) 70%); filter:blur(2px); opacity:0; pointer-events:none; }
 
-  .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  /* Face overlays */
+  .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:2; }
   .mouth-overlay svg{width:100%;height:100%}
   #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
-
-  /* Eyes overlay */
-  .eyes-overlay{ position:absolute; top:var(--eye-top); left:50%; transform:translate(-50%,-50%); width:0; height:0; pointer-events:none; }
+  .eyes-overlay{ position:absolute; top:var(--eye-top); left:50%; transform:translate(-50%,-50%); width:0; height:0; pointer-events:none; z-index:2; }
   .eye-dot{ position:absolute; top:0; width:var(--eye-size); height:var(--eye-size); border-radius:50%; background:#000; transform:translate(-50%,-50%); }
   .eye-left{ left:calc(-1 * var(--eye-gap) / 2); }
   .eye-right{ left:calc(var(--eye-gap) / 2); }
   .eye-dot.blink { transform:translate(-50%,-50%) scaleY(0.15); }
 
   /* Bubble */
-  .output-container{ position:fixed; left:50%; transform:translateX(-50%); width:auto; max-width:90vw; z-index:40; opacity:0; transition:opacity 0.35s; pointer-events:none; top:var(--output-top-fallback); text-align:center; }
+  .output-container{ position:fixed; left:50%; transform:translateX(-50%); width:auto; max-width:min(94vw, 760px); z-index:40; opacity:0; transition:opacity 0.35s; pointer-events:none; text-align:center; }
   .output-container.active{ opacity:1; }
   .bubble-wrap{ position:relative; display:inline-block; }
-  .speech-bubble{ position:relative; background:#fff; border:6px solid #000; border-radius:32px; padding:18px 26px 18px 22px; color:#111; box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35); display:inline-block; max-width:86vw; }
+  .speech-bubble{ position:relative; background:#fff; border:6px solid #000; border-radius:32px; padding:18px 26px 18px 22px; color:#111; box-shadow:0 6px 0 #000, 0 14px 30px rgba(0,0,0,.35); display:inline-block; max-width:100%; }
   .bubble-tail{ position:absolute; bottom:-2px; left:var(--tail-x); transform:translate(-50%, 100%); width:44px; height:28px; pointer-events:none; }
-  .output{ font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; text-transform:uppercase; font-weight:400; font-size:clamp(22px, 2.4vw, 36px); line-height:1.04; letter-spacing:-0.06em; word-spacing:-0.04em; color:#111; margin:0; white-space:pre-wrap; text-align:center; }
+  .output{ font-family:"Emilys Candy", Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; text-transform:uppercase; font-weight:400; font-size:clamp(22px, 2.6vw, 36px); line-height:1.04; letter-spacing:-0.06em; word-spacing:-0.04em; color:#111; margin:0; white-space:pre-wrap; text-align:center; }
   .cursor{ display:inline-block; width:.5ch; height:1.05em; background:#111; vertical-align:text-bottom; animation:blink 1s steps(1,end) infinite; border-radius:2px;}
   @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
   .typing .cursor{animation:none}
@@ -120,51 +119,43 @@
   .chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
 
   /* Context card */
-  .context-container{ position:fixed; left:50%; transform:translateX(-50%); top:12px; z-index:70; pointer-events:none; opacity:0; transition:opacity .35s ease; max-width:min(700px, 92vw); }
+  .context-container{ position:fixed; left:50%; transform:translateX(-50%); top:8px; z-index:70; pointer-events:none; opacity:0; transition:opacity .35s ease; width:calc(100vw - 24px); max-width:760px; padding:0 6px; }
   .context-container.active{ opacity:1; }
   .tweet-card{
     background:#0f172a; color:#e5e7eb;
     border:1px solid rgba(255,255,255,.08);
-    border-radius:14px; padding:14px 16px;
+    border-radius:14px; padding:12px 14px;
     box-shadow:0 8px 28px rgba(0,0,0,.35);
     font: 400 15px/1.45 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   }
-  .tweet-text{ text-transform:lowercase; letter-spacing:.01em; }
+  .tweet-text{ letter-spacing:.01em; }
 
-  .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
-  .cal-hud.on{ opacity:1; }
-
-  /* PHONE LAYOUT TUNE-UP */
+  /* Mobile (portrait-first) */
   @media (max-width: 600px) {
     :root{
-      --figure-scale:.78;
-      --mouth-w:14px;
-      --mouth-h:14px;
-      --mouth-top:38%;
+      --figure-scale:.70;
+      --mouth-w:16px;
+      --mouth-h:16px;
+      --mouth-top:38.6%;
       --mouth-left:49%;
 
-      --eye-top:33.6%;
+      --eye-top:33.8%;
       --eye-gap:14px;
-      --eye-size:3.2px;
+      --eye-size:3.4px;
 
-      --bubble-gap:12px;
+      --bubble-gap:10px;
     }
 
-    .intro-bg{ background-size:contain; background-position:center center; }
-
-    .context-container{ top:6px; max-width:94vw; }
-    .tweet-card{ padding:10px 12px; font-size:13px; line-height:1.45; }
-
-    .output-container{ max-width:94vw; }
-    .speech-bubble{ border-width:4px; border-radius:24px; padding:12px 14px; }
-    .output{ font-size:clamp(16px, 4.4vw, 22px); letter-spacing:-0.04em; }
+    .tweet-card{ padding:10px 12px; font-size:14px; line-height:1.45; }
+    .output{ font-size:clamp(17px, 4.7vw, 22px); letter-spacing:-0.045em; }
+    .speech-bubble{ border-width:5px; border-radius:26px; padding:12px 14px; }
     .bubble-tail{ width:36px; height:24px; }
   }
 </style>
 </head>
 <body>
 
-<div class="intro-overlay" id="intro">
+<div class="intro-overlay" id="intro" aria-label="Tap to start">
   <div class="intro-bg" aria-hidden="true"></div>
 </div>
 
@@ -205,6 +196,7 @@
   </div>
 </div>
 
+<!-- quote bubble -->
 <div class="output-container" id="outputContainer" aria-live="polite">
   <div class="bubble-wrap">
     <div class="speech-bubble" id="bubble">
@@ -218,7 +210,7 @@
   </div>
 </div>
 
-<!-- tweet-style context -->
+<!-- context -->
 <div class="context-container" id="ctx">
   <div class="tweet-card">
     <div class="tweet-text" id="ctxText"></div>
@@ -235,19 +227,17 @@
 
   const IS_PHONE = window.matchMedia('(max-width: 600px)').matches;
 
-  // Lightweight primary: no TTS, yes context (phone asks for simple format)
-  const QUERY_PRIMARY  = IS_PHONE
-    ? '?style=canon&modern=0&accent=scottish&context=1&ctx_simple=1&tts=0'
-    : '?style=canon&modern=0&accent=scottish&context=1&tts=0';
-  // Super-fast fallback: text only
-  const QUERY_FALLBACK = '?style=canon&modern=0&accent=scottish&context=0&tts=0';
+  // Phase 1: fast quote + context (no TTS)
+  const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&accent=scottish&context=1';
+  // Phase 2: TTS for whatever text we displayed
+  const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=verse&text=${encodeURIComponent(t)}`;
 
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
   const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
-  const SHOW_CTX_AFTER_MS = 800;
-  const BUBBLE_LINGER_MS  = 50000;
-  const CTX_LINGER_MS     = 50000;
+  const SHOW_CTX_AFTER_MS = 700;          // show context soon after typing ends
+  const BUBBLE_LINGER_MS  = 50000;        // bubble life
+  const CTX_LINGER_MS     = 50000;        // context life
 
   const BLINK_MIN = 2600, BLINK_MAX = 5400;
 
@@ -281,7 +271,7 @@
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
-  /* ---- AUDIO UNLOCK ---- */
+  /* ---- AUDIO UNLOCK (mobile-safe) ---- */
   let audioUnlocked = false;
   function unlockAudio(){
     if (audioUnlocked) return;
@@ -289,6 +279,7 @@
       ensureCtx();
       if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
       attachAnalyserToMediaElement();
+      // 20ms silent beep to satisfy gesture requirement on iOS
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       gain.gain.value = 0;
@@ -318,7 +309,8 @@
     })();
   }
 
-  const SY=[0.07,0.55,1.10,1.70,2.30], SX=[1.00,1.01,1.02,1.02,1.03];
+  // mouth anim thresholds
+  const SY=[0.10,0.58,1.12,1.72,2.34], SX=[1.00,1.01,1.02,1.02,1.03];
   const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
   const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
   const GATE_FLOOR=0.010, CLOSE_GRACE_MS=20;
@@ -332,6 +324,7 @@
       audioEl=document.createElement('audio');
       audioEl.style.position='absolute'; audioEl.style.left='-9999px';
       audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
+      audioEl.preload = 'auto';
       audioEl.muted = false;
       document.body.appendChild(audioEl);
     }
@@ -359,11 +352,14 @@
         const speakScale = 1 - Math.min(0.22, level*0.04);
         eyeL.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
         eyeR.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
-      }else{ const t=(now/1000); const phase=((t*15)|0)%5; setLevel([1,2,3,2,1][phase]); }
+      }else{
+        // idle chatter if no audio
+        const phase=((now/1000*13)|0)%4; const rand=Math.random();
+        setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
+      }
       return;
     }
-    const t=(now/1000); const phase=((t*13)|0)%4; const rand=Math.random();
-    setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
+    setClosed();
   }
 
   const DOOR={
@@ -399,20 +395,21 @@
     const guyRect  = chunkletContainer.getBoundingClientRect();
     if(!(cardRect.width && guyRect.width)) return;
 
-    const desiredBottom = Math.max(8, guyRect.top - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')));
+    // Keep bubble between context card and chunklet head
+    const bubbleGap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap'));
+    const desiredBottom = Math.max(8, guyRect.top - bubbleGap);
     let newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
 
     if (ctxWrap.classList.contains('active')) {
       const ctxRect = ctxWrap.getBoundingClientRect();
-      const minTop = Math.round(ctxRect.bottom + 12);
+      const minTop = Math.round(ctxRect.bottom + 10);
       if (newTop < minTop) newTop = minTop;
     }
-
     outputContainer.style.top = newTop + 'px';
 
     const cardLeft = cardRect.left;
     const tailPx = (guyRect.left + guyRect.width/2) - cardLeft;
-    const tailPct = Math.max(8, Math.min(92, tailPx / cardRect.width * 100));
+    const tailPct = Math.max(8, Math.min(92, tailPx / Math.max(1,cardRect.width) * 100));
     outputContainer.style.setProperty('--tail-x', tailPct + '%');
   }
 
@@ -469,13 +466,13 @@
 
       audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
       audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
-      audioEl.onerror = (e)=>{ console.warn('Audio element error', e); };
+      audioEl.onerror = (e)=>{ console.warn('Audio element error', e); onEnd&&onEnd(); };
 
       if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
-
       await audioEl.play();
     }catch(err){
       console.warn('Audio play blocked/failed; fallback mouth only', err);
+      // Let the mouth chatter for a bit so it feels alive
       startMouth(); const approx=Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
       setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
     }
@@ -496,44 +493,27 @@
   }
   function clearWorkTag(){ const old = document.querySelector('#output .work-tag'); if(old) old.remove(); }
 
-  // --- Robust fetch with timeout and fallback ---
+  // --- Robust fetch with timeout and explicit abort ---
   function fetchJSONWithTimeout(url, timeoutMs){
     const ctrl = new AbortController();
-    const id = setTimeout(()=>ctrl.abort(), timeoutMs);
+    const id = setTimeout(()=>ctrl.abort('timeout'), timeoutMs);
     return fetch(url, { cache:'no-store', signal: ctrl.signal })
       .finally(()=> clearTimeout(id));
   }
 
-  async function fetchLine(){
-    try{
-      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, IS_PHONE ? 12000 : 10000);
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      return await res.json();
-    }catch(err){
-      console.warn('Primary fetch failed, falling back to fast line:', err);
-      const res2 = await fetchJSONWithTimeout(ENDPOINT + QUERY_FALLBACK, 6000);
-      if(!res2.ok) throw new Error('HTTP '+res2.status);
-      const data = await res2.json();
-      return { ...data, context: null, timings: data.timings||[] };
-    }
+  async function fetchQuote(){
+    const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_QUOTE, IS_PHONE ? 12000 : 9000);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
   }
-
-  // Separate TTS call (decoupled)
   async function fetchTTS(text){
-    const url = ENDPOINT + '?only_tts=1&accent=scottish&text=' + encodeURIComponent(text);
-    try{
-      const res = await fetchJSONWithTimeout(url, 15000);
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const j = await res.json();
-      return j && j.audioBase64 ? j.audioBase64 : null;
-    }catch(e){
-      console.warn('TTS fetch failed:', e);
-      return null;
-    }
+    const res = await fetchJSONWithTimeout(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
   }
 
   function startGame(){
-    unlockAudio();
+    unlockAudio();            // unlock on first tap/keypress
     if(!intro) return;
     scheduleBlink();
 
@@ -545,7 +525,7 @@
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
 
   function summon(){
-    unlockAudio();
+    unlockAudio();            // ensure iOS audio unlocked
     if(busy) return;
     try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
     busy=true;
@@ -556,70 +536,67 @@
     (async ()=>{
       try{
         await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
-        const data = await fetchLine();
 
+        // Phase 1: fast content
+        const data = await fetchQuote();
         const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
-        const ctx   = (data.context && (data.context.summary||'').trim()) || '';
-
-        // kick off TTS in parallel (decoupled)
-        const ttsPromise = fetchTTS(text);
+        const ctx  = (data.context && (data.context.summary||'').trim()) || '';
 
         typeOut(text, async ()=>{
-          const onEnd = ()=>{
-            showWork(work, author);
-            placeBubble();
+          // Show attribution immediately after typing — regardless of TTS
+          showWork(work, author);
+          placeBubble();
 
-            if(ctx){
-              setTimeout(()=>{
-                ctxText.textContent = ctx;
-                ctxWrap.classList.add('active');
-                placeBubble();
-              }, SHOW_CTX_AFTER_MS);
-
-              setTimeout(()=>{
-                ctxWrap.classList.remove('active');
-                outputContainer.classList.remove('active');
-                clearWorkTag();
-                setTimeout(closeDoor, 500);
-              }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
-            }else{
-              setTimeout(()=>{
-                outputContainer.classList.remove('active');
-                clearWorkTag();
-                setTimeout(closeDoor, 500);
-              }, BUBBLE_LINGER_MS);
-            }
-          };
-
-          // wait a bit for TTS to arrive; if not, just do silent mouth
-          let audioBase64 = await Promise.race([
-            ttsPromise,
-            new Promise(resolve=>setTimeout(()=>resolve(null), 5500))
-          ]);
-
-          if(audioBase64){ await playAudio(audioBase64, onEnd); }
-          else {
-            startMouth();
-            const approx=Math.min(7, Math.max(2.2, text.length/16));
-            setTimeout(async ()=>{
-              stopMouth();
-              // if TTS finally arrives late, still play it
-              audioBase64 = await Promise.race([
-                ttsPromise,
-                new Promise(resolve=>setTimeout(()=>resolve(null), 8000))
-              ]);
-              if(audioBase64){ await playAudio(audioBase64, onEnd); }
-              else { onEnd(); }
-            }, (approx+0.2)*1000);
+          // Show context soon after typing
+          if(ctx){
+            setTimeout(()=>{
+              ctxText.textContent = ctx;
+              ctxWrap.classList.add('active');
+              placeBubble();
+            }, SHOW_CTX_AFTER_MS);
           }
+
+          // Phase 2: request TTS in background; play if/when it arrives
+          try{
+            const tts = await fetchTTS(text);
+            if(tts && tts.audioBase64){
+              await playAudio(tts.audioBase64, ()=>{
+                // after audio, just keep things up until timers close
+              });
+            }else{
+              // no TTS; let mouth chatter briefly so it feels alive
+              startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
+              setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
+            }
+          }catch(e){
+            // TTS fetch failed—fine; visuals already up
+            startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
+            setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
+          }
+
+          // Schedule closeouts based on visuals, not TTS
+          setTimeout(()=>{
+            ctxWrap.classList.remove('active');
+            outputContainer.classList.remove('active');
+            clearWorkTag();
+            setTimeout(closeDoor, 500);
+          }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
         });
 
       }catch(e){
         console.error(e);
+        // Friendly retry line (the backend uses the same one if it fails)
+        const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
         if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-        typed.textContent='the chunklet needs to use his noodle. try again.';
-        setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 1800);
+        typeOut(fallback, ()=>{
+          // try to voice the apology too
+          fetchTTS(fallback).then(tts=>{
+            if(tts && tts.audioBase64){ playAudio(tts.audioBase64, ()=>{}); }
+            else { startMouth(); setTimeout(()=>stopMouth(), 2200); }
+          }).catch(()=>{ startMouth(); setTimeout(()=>stopMouth(), 2200); });
+        });
+        setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 3000);
       }
     })();
   }
