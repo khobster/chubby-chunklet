@@ -50,7 +50,6 @@
   /* INTRO */
   .intro-overlay{position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:#000; cursor:pointer;}
   .intro-bg{position:absolute; inset:0; background:url('introscreen.png') center/cover no-repeat #000;}
-  /* On tall/narrow devices, show whole image instead of cropping */
   @media (max-aspect-ratio: 3/4) {
     .intro-bg{ background-size:contain; background-position:center center; }
   }
@@ -236,10 +235,11 @@
 
   const IS_PHONE = window.matchMedia('(max-width: 600px)').matches;
 
-  // Primary tries for TTS + context; on phones also ask for "simple" context.
+  // Lightweight primary: no TTS, yes context (phone asks for simple format)
   const QUERY_PRIMARY  = IS_PHONE
-    ? '?style=canon&modern=0&accent=scottish&context=1&ctx_simple=1&tts=1'
-    : '?style=canon&modern=0&accent=scottish&context=1&tts=1';
+    ? '?style=canon&modern=0&accent=scottish&context=1&ctx_simple=1&tts=0'
+    : '?style=canon&modern=0&accent=scottish&context=1&tts=0';
+  // Super-fast fallback: text only
   const QUERY_FALLBACK = '?style=canon&modern=0&accent=scottish&context=0&tts=0';
 
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
@@ -289,7 +289,6 @@
       ensureCtx();
       if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
       attachAnalyserToMediaElement();
-      // 20ms silent beep to satisfy gesture requirement
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       gain.gain.value = 0;
@@ -403,7 +402,6 @@
     const desiredBottom = Math.max(8, guyRect.top - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')));
     let newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
 
-    // If context is showing, keep a gap below it
     if (ctxWrap.classList.contains('active')) {
       const ctxRect = ctxWrap.getBoundingClientRect();
       const minTop = Math.round(ctxRect.bottom + 12);
@@ -473,7 +471,6 @@
       audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
       audioEl.onerror = (e)=>{ console.warn('Audio element error', e); };
 
-      // iOS sometimes needs a resume right before play
       if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
 
       await audioEl.play();
@@ -509,7 +506,7 @@
 
   async function fetchLine(){
     try{
-      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, IS_PHONE ? 14000 : 12000);
+      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, IS_PHONE ? 12000 : 10000);
       if(!res.ok) throw new Error('HTTP '+res.status);
       return await res.json();
     }catch(err){
@@ -517,12 +514,26 @@
       const res2 = await fetchJSONWithTimeout(ENDPOINT + QUERY_FALLBACK, 6000);
       if(!res2.ok) throw new Error('HTTP '+res2.status);
       const data = await res2.json();
-      return { ...data, context: null, audioBase64: null, timings: data.timings||[] };
+      return { ...data, context: null, timings: data.timings||[] };
+    }
+  }
+
+  // Separate TTS call (decoupled)
+  async function fetchTTS(text){
+    const url = ENDPOINT + '?only_tts=1&accent=scottish&text=' + encodeURIComponent(text);
+    try{
+      const res = await fetchJSONWithTimeout(url, 15000);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const j = await res.json();
+      return j && j.audioBase64 ? j.audioBase64 : null;
+    }catch(e){
+      console.warn('TTS fetch failed:', e);
+      return null;
     }
   }
 
   function startGame(){
-    unlockAudio();            // unlock on first tap/keypress
+    unlockAudio();
     if(!intro) return;
     scheduleBlink();
 
@@ -534,7 +545,7 @@
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
 
   function summon(){
-    unlockAudio();            // also unlock here
+    unlockAudio();
     if(busy) return;
     try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
     busy=true;
@@ -551,6 +562,9 @@
         const text = sanitize(data.text);
         const ctx   = (data.context && (data.context.summary||'').trim()) || '';
 
+        // kick off TTS in parallel (decoupled)
+        const ttsPromise = fetchTTS(text);
+
         typeOut(text, async ()=>{
           const onEnd = ()=>{
             showWork(work, author);
@@ -560,7 +574,7 @@
               setTimeout(()=>{
                 ctxText.textContent = ctx;
                 ctxWrap.classList.add('active');
-                placeBubble(); // reflow bubble under context
+                placeBubble();
               }, SHOW_CTX_AFTER_MS);
 
               setTimeout(()=>{
@@ -578,8 +592,27 @@
             }
           };
 
-          if(data.audioBase64){ await playAudio(data.audioBase64, onEnd); }
-          else { startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16)); setTimeout(()=>{ stopMouth(); onEnd(); }, (approx+0.2)*1000); }
+          // wait a bit for TTS to arrive; if not, just do silent mouth
+          let audioBase64 = await Promise.race([
+            ttsPromise,
+            new Promise(resolve=>setTimeout(()=>resolve(null), 5500))
+          ]);
+
+          if(audioBase64){ await playAudio(audioBase64, onEnd); }
+          else {
+            startMouth();
+            const approx=Math.min(7, Math.max(2.2, text.length/16));
+            setTimeout(async ()=>{
+              stopMouth();
+              // if TTS finally arrives late, still play it
+              audioBase64 = await Promise.race([
+                ttsPromise,
+                new Promise(resolve=>setTimeout(()=>resolve(null), 8000))
+              ]);
+              if(audioBase64){ await playAudio(audioBase64, onEnd); }
+              else { onEnd(); }
+            }, (approx+0.2)*1000);
+          }
         });
 
       }catch(e){
