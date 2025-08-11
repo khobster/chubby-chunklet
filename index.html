@@ -22,7 +22,7 @@
     --mouth-h:20px;
     --mouth-scale-0:.05;
 
-    /* Eyes: smaller */
+    /* Eyes */
     --eye-top:34.2%;
     --eye-gap:18px;
     --eye-size:4px;
@@ -135,11 +135,31 @@
   .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
   .cal-hud.on{ opacity:1; }
 
-  @media(max-width:600px){
+  /* PHONE LAYOUT TUNE-UP */
+  @media (max-width: 600px) {
+    :root{
+      --figure-scale:.78;
+      --mouth-w:14px;
+      --mouth-h:14px;
+      --mouth-top:38%;
+      --mouth-left:49%;
+
+      --eye-top:33.6%;
+      --eye-gap:14px;
+      --eye-size:3.2px;
+
+      --bubble-gap:12px;
+    }
+
+    .intro-bg{ background-size:contain; background-position:center center; }
+
+    .context-container{ top:6px; max-width:94vw; }
+    .tweet-card{ padding:10px 12px; font-size:13px; line-height:1.45; }
+
     .output-container{ max-width:94vw; }
-    .speech-bubble{ border-radius:28px; padding:14px 18px 14px 16px; }
-    .output{ font-size:clamp(18px, 4.1vw, 28px); }
-    .tweet-card{ padding:12px 14px; font-size:14px; }
+    .speech-bubble{ border-width:4px; border-radius:24px; padding:12px 14px; }
+    .output{ font-size:clamp(16px, 4.4vw, 22px); letter-spacing:-0.04em; }
+    .bubble-tail{ width:36px; height:24px; }
   }
 </style>
 </head>
@@ -214,8 +234,12 @@
   const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
     'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
 
-  // Now try for TTS + context first; fallback is text-only.
-  const QUERY_PRIMARY  = '?style=canon&modern=0&accent=scottish&context=1&tts=1';
+  const IS_PHONE = window.matchMedia('(max-width: 600px)').matches;
+
+  // Primary tries for TTS + context; on phones also ask for "simple" context.
+  const QUERY_PRIMARY  = IS_PHONE
+    ? '?style=canon&modern=0&accent=scottish&context=1&ctx_simple=1&tts=1'
+    : '?style=canon&modern=0&accent=scottish&context=1&tts=1';
   const QUERY_FALLBACK = '?style=canon&modern=0&accent=scottish&context=0&tts=0';
 
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
@@ -257,7 +281,7 @@
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
-  /* ---- AUDIO UNLOCK (Safari/Chrome mobile + desktop) ---- */
+  /* ---- AUDIO UNLOCK ---- */
   let audioUnlocked = false;
   function unlockAudio(){
     if (audioUnlocked) return;
@@ -309,6 +333,7 @@
       audioEl=document.createElement('audio');
       audioEl.style.position='absolute'; audioEl.style.left='-9999px';
       audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
+      audioEl.muted = false;
       document.body.appendChild(audioEl);
     }
     if(!mediaSource && audioCtx && audioEl){
@@ -378,7 +403,7 @@
     const desiredBottom = Math.max(8, guyRect.top - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')));
     let newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
 
-    // If context is showing, keep at least 12px gap below it (BlueSky-like layout)
+    // If context is showing, keep a gap below it
     if (ctxWrap.classList.contains('active')) {
       const ctxRect = ctxWrap.getBoundingClientRect();
       const minTop = Math.round(ctxRect.bottom + 12);
@@ -448,6 +473,9 @@
       audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
       audioEl.onerror = (e)=>{ console.warn('Audio element error', e); };
 
+      // iOS sometimes needs a resume right before play
+      if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
+
       await audioEl.play();
     }catch(err){
       console.warn('Audio play blocked/failed; fallback mouth only', err);
@@ -481,7 +509,7 @@
 
   async function fetchLine(){
     try{
-      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, 11000);
+      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, IS_PHONE ? 13000 : 11000);
       if(!res.ok) throw new Error('HTTP '+res.status);
       return await res.json();
     }catch(err){
@@ -506,7 +534,7 @@
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
 
   function summon(){
-    unlockAudio();            // also unlock here (desktop users who skip intro tap)
+    unlockAudio();            // also unlock here
     if(busy) return;
     try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
     busy=true;
