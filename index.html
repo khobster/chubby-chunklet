@@ -130,6 +130,19 @@
   }
   .tweet-text{ letter-spacing:.01em; }
 
+  /* Mobile context toggle button */
+  .ctx-toggle{ position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:80; display:none; pointer-events:auto; }
+  .ctx-btn{
+    appearance:none; border:none; cursor:pointer;
+    width:64px; height:64px; border-radius:50%;
+    background: radial-gradient(ellipse at 40% 35%, #ff6868 0%, #e31616 60%, #8b0000 100%);
+    box-shadow: 0 6px 0 #000, 0 10px 18px rgba(0,0,0,.45), inset 0 -6px 10px rgba(0,0,0,.35), inset 0 6px 10px rgba(255,255,255,.15);
+    border: 4px solid #000;
+    color:#fff; font-weight:800; font-family:Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    text-transform:uppercase; letter-spacing:.06em;
+  }
+  .ctx-btn:active{ transform: translateY(2px); box-shadow: 0 4px 0 #000, 0 8px 14px rgba(0,0,0,.45), inset 0 -4px 8px rgba(0,0,0,.35), inset 0 4px 8px rgba(255,255,255,.15); }
+
   /* Mobile (portrait-first) */
   @media (max-width: 600px) {
     :root{
@@ -143,58 +156,16 @@
       --eye-gap:14px;
       --eye-size:3.4px;
 
-      /* more air above head so the bubble doesn't crowd the face */
-      --bubble-gap:22px;
+      --bubble-gap:10px;
     }
 
-    /* widen bubble area slightly on phones */
-    .output-container{ max-width:min(98vw, 760px); }
-
-    .tweet-card{ 
-      padding:10px 12px; 
-      font-size:14px; 
-      line-height:1.45;
-
-      /* full note: scroll instead of clipping */
-      max-height:44vh;
-      overflow:auto;
-      -webkit-overflow-scrolling: touch;
-    }
-
+    .tweet-card{ padding:10px 12px; font-size:14px; line-height:1.45; }
+    .output-container{ max-width:96vw; }
     .output{ font-size:clamp(17px, 4.7vw, 22px); letter-spacing:-0.045em; }
-    .speech-bubble{ border-width:5px; border-radius:26px; padding:12px 16px; }
+    .speech-bubble{ border-width:5px; border-radius:26px; padding:12px 14px; }
     .bubble-tail{ width:36px; height:24px; }
 
-    /* Mobile-only toggle button (old-school red push button) */
-    .toggle-btn{
-      position:fixed;
-      right:12px;
-      bottom:12px;
-      width:54px; height:54px;
-      border-radius:50%;
-      background: radial-gradient( circle at 30% 28%, #ff9aa0 0%, #ff4b57 12%, #e31d2f 60%, #a80f1b 100% );
-      border:3px solid #1a0b0e;
-      box-shadow:
-        0 6px 0 #000,
-        inset 0 6px 10px rgba(255,255,255,.28),
-        inset 0 -10px 16px rgba(0,0,0,.45),
-        0 10px 25px rgba(0,0,0,.45);
-      color:#fff;
-      font:700 11px/1 Rubik, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      letter-spacing:.06em;
-      text-shadow:0 1px 0 rgba(0,0,0,.6);
-      display:none; /* hidden by default; shown via JS when note exists */
-      z-index:85;
-      pointer-events:auto;
-      user-select:none;
-    }
-    .toggle-btn span{ display:block; width:100%; text-align:center; margin-top:18px; }
-    .toggle-btn:active{ transform:translateY(2px); box-shadow:
-      0 4px 0 #000,
-      inset 0 4px 8px rgba(255,255,255,.22),
-      inset 0 -8px 12px rgba(0,0,0,.5),
-      0 8px 18px rgba(0,0,0,.4);
-    }
+    .ctx-toggle{ display:block; }
   }
 </style>
 </head>
@@ -262,8 +233,10 @@
   </div>
 </div>
 
-<!-- mobile note toggle button -->
-<button class="toggle-btn" id="toggleBtn" aria-label="Show note" title="Show note"><span>NOTE</span></button>
+<!-- mobile toggle button -->
+<div class="ctx-toggle" aria-hidden="false">
+  <button id="ctxToggleBtn" class="ctx-btn" aria-pressed="false" title="Show note">note</button>
+</div>
 
 <div class="cal-hud" id="calHud"></div>
 
@@ -285,10 +258,9 @@
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
   const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
-  const SHOW_CTX_AFTER_MS = 700;          // show context soon after typing ends (desktop only)
-  const BUBBLE_LINGER_MS  = 50000;        // bubble life
-  const CTX_LINGER_MS     = 50000;        // context life
-  const FAIL_LINGER_MS    = 4200;         // how long the apology line stays up
+  const SHOW_CTX_AFTER_MS = 700;          // desktop auto-note reveal delay
+  const BUBBLE_LINGER_MS  = 50000;        // bubble life (success path)
+  const CTX_LINGER_MS     = 50000;        // context life (success path)
 
   const BLINK_MIN = 2600, BLINK_MAX = 5400;
 
@@ -311,7 +283,7 @@
   const ctxWrap = document.getElementById('ctx');
   const ctxText = document.getElementById('ctxText');
 
-  const toggleBtn = document.getElementById('toggleBtn');
+  const toggleBtn = document.getElementById('ctxToggleBtn');
 
   const bgImg   = document.querySelector('.scene-bg img');
   const hostEl  = document.querySelector('.scene-bg');
@@ -321,7 +293,7 @@
   let raf,animating=false,tagPlaying=false;
   let currentObjectURL=null;
   let blinkTO=null;
-  let showingNote=false;
+  let showingContext=false; // mobile toggle state
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
@@ -347,6 +319,13 @@
       audioUnlocked = true;
     }catch(_){}
   }
+  // Extra unlocks so iOS is ALWAYS happy
+  document.addEventListener('touchstart', unlockAudio, { passive: true, once: true });
+  document.addEventListener('pointerdown', unlockAudio, { passive: true, once: true });
+  ['intro','doorTrigger','ctxToggleBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', unlockAudio, { passive: true });
+  });
 
   function typeOut(text, done){
     if(!outputContainer.classList.contains('active')){
@@ -500,7 +479,6 @@
     chunkletContainer.classList.remove('active','emerge','waddle');
     outputContainer.classList.remove('active');
     ctxWrap.classList.remove('active');
-    toggleBtn.style.display='none'; // hide mobile toggle
     clearWorkTag();
     setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
   }
@@ -514,28 +492,72 @@
     }, ms);
   }
 
-  async function playAudio(b64,onEnd){
+  // NEW: resilient audio playback (element → WebAudio fallback)
+  async function playAudio(b64, onEnd){
     try{
       ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
-      const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-      const blob=new Blob([bin], {type:'audio/mp3'});
-      if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
 
-      audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
-      audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
-      audioEl.onerror = (e)=>{ console.warn('Audio element error', e); onEnd&&onEnd(); };
+      const base = (b64 || '').split(',')[1] || b64 || '';
+      const bin  = Uint8Array.from(atob(base), c => c.charCodeAt(0));
+      const blob = new Blob([bin], { type:'audio/mpeg' });
 
-      if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
-      await audioEl.play();
+      // try HTMLAudioElement first
+      try{
+        if(!audioEl){
+          audioEl = document.createElement('audio');
+          audioEl.hidden = true;
+          audioEl.setAttribute('playsinline','');
+          audioEl.setAttribute('webkit-playsinline','');
+          document.body.appendChild(audioEl);
+        }
+        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL = null; }
+        currentObjectURL = URL.createObjectURL(blob);
+        audioEl.src = currentObjectURL;
+
+        audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying = true; };
+        audioEl.onended = ()=>{ tagPlaying = false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd && onEnd(); };
+        audioEl.onerror = (e)=>{ throw e?.error || new Error('audio element error'); };
+
+        if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
+        await audioEl.play();
+        return; // success via media element
+      }catch(err1){
+        console.warn('media element failed, switching to WebAudio', err1);
+      }
+
+      // WebAudio fallback
+      try{
+        const arrBuf = bin.buffer.slice(0);
+        const audioBuf = await new Promise((res, rej)=> audioCtx.decodeAudioData(arrBuf, res, rej));
+
+        if(currentSource){ try{ currentSource.stop(); }catch(_){ } try{ currentSource.disconnect(); }catch(_){ } currentSource = null; }
+
+        const src = audioCtx.createBufferSource();
+        src.buffer = audioBuf;
+        src.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        src.onended = ()=>{ currentSource = null; stopMouth(); onEnd && onEnd(); };
+
+        currentSource = src;
+        setClosed(); startMouth();
+        src.start();
+        return;
+      }catch(err2){
+        console.warn('decodeAudioData failed; fallback to mouth only', err2);
+      }
+
+      // last resort: mouth only
+      startMouth();
+      const approx = Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
+      setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx + 0.2) * 1000);
+
     }catch(err){
-      console.warn('Audio play blocked/failed; fallback mouth only', err);
-      // Let the mouth chatter for a bit so it feels alive
-      startMouth(); const approx=Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
-      setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
+      console.warn('playAudio fatal; mouth only', err);
+      startMouth();
+      setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, 2200);
     }
   }
+
   function stopAudio(){
     if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
     if(audioEl){ try{ audioEl.pause(); audioEl.currentTime=0; }catch(_){ } }
@@ -600,7 +622,8 @@
       if (finished) return;
       finished = true;
 
-      if (ctx && !ctxWrap.classList.contains('active') && !IS_PHONE){
+      // success path mini-close for context if it wasn't shown yet
+      if (!IS_PHONE && ctx && !ctxWrap.classList.contains('active')){
         ctxText.textContent = ctx;
         ctxWrap.classList.add('active');
         placeBubble();
@@ -610,31 +633,31 @@
       setTimeout(()=>{
         outputContainer.classList.remove('active');
         clearWorkTag();
-        toggleBtn.style.display='none';
         setTimeout(closeDoor, 400);
       }, 3800);
     };
   }
 
-  function showNote(){
-    if (!ctxText.textContent.trim()) return;
-    ctxWrap.classList.add('active');
-    outputContainer.classList.remove('active');
-    showingNote = true;
-    toggleBtn.setAttribute('aria-label','Show quote');
-    toggleBtn.title = 'Show quote';
-    toggleBtn.querySelector('span').textContent = 'QUOTE';
-    placeBubble();
+  // Mobile toggle: quote <-> note
+  function setToggleUI(){
+    if(!IS_PHONE) return;
+    toggleBtn.textContent = showingContext ? 'quote' : 'note';
+    toggleBtn.setAttribute('aria-pressed', String(showingContext));
   }
-  function showBubble(){
-    ctxWrap.classList.remove('active');
+  function showQuote(){
     outputContainer.classList.add('active');
-    showingNote = false;
-    toggleBtn.setAttribute('aria-label','Show note');
-    toggleBtn.title = 'Show note';
-    toggleBtn.querySelector('span').textContent = 'NOTE';
-    placeBubble();
+    ctxWrap.classList.remove('active');
+    showingContext = false; setToggleUI(); placeBubble();
   }
+  function showNote(){
+    outputContainer.classList.remove('active');
+    ctxWrap.classList.add('active');
+    showingContext = true; setToggleUI(); placeBubble();
+  }
+  toggleBtn.addEventListener('click', ()=>{
+    unlockAudio();
+    if(showingContext) showQuote(); else showNote();
+  });
 
   function summon(){
     unlockAudio();            // ensure iOS audio unlocked
@@ -642,9 +665,8 @@
     try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
     busy=true;
     ctxWrap.classList.remove('active');
-    toggleBtn.style.display='none';
-    showingNote = false;
     stopAudio(); clearWorkTag();
+    showingContext = false; setToggleUI();
     openDoor();
 
     (async ()=>{
@@ -655,20 +677,37 @@
         const data = await fetchQuote();
 
         if(!data || !data.text){
+          // FAIL PATH — keep bubble until TTS finishes
           const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
-          const finalize = makeFinalizer({ work:null, author:null, ctx:null });
           if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-          typeOut(sanitize(fallback), ()=>{
+          typeOut(sanitize(fallback), async ()=>{
             showWork(null, null);
             placeBubble();
-            fetchTTS(fallback).then(tts=>{
-              if(tts && tts.audioBase64) playAudio(tts.audioBase64, finalize);
-              else {
-                startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200);
+
+            // speak the apology; only close when done
+            const guard = setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 18000); // safety
+            try{
+              const tts = await fetchTTS(fallback);
+              if(tts && tts.audioBase64){
+                await playAudio(tts.audioBase64, ()=>{
+                  clearTimeout(guard);
+                  outputContainer.classList.remove('active');
+                  clearWorkTag();
+                  setTimeout(closeDoor, 300);
+                });
+              }else{
+                startMouth(); setTimeout(()=>{
+                  stopMouth(); clearTimeout(guard);
+                  outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+                }, 2400);
               }
-            }).catch(()=>{ startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200); });
+            }catch(_){
+              startMouth(); setTimeout(()=>{
+                stopMouth(); clearTimeout(guard);
+                outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+              }, 2400);
+            }
           });
-          setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, FAIL_LINGER_MS);
           return;
         }
 
@@ -683,28 +722,23 @@
           showWork(work, author);
           placeBubble();
 
-          // desktop auto-shows context; mobile waits for button
-          if (ctx) {
-            ctxText.textContent = ctx;
-            if (!IS_PHONE) {
-              setTimeout(()=>{
-                ctxWrap.classList.add('active');
-                placeBubble();
-              }, SHOW_CTX_AFTER_MS);
-            } else {
-              // mobile: show the big red button
-              toggleBtn.style.display='block';
-              toggleBtn.setAttribute('aria-label','Show note');
-              toggleBtn.title='Show note';
-              toggleBtn.querySelector('span').textContent='NOTE';
-            }
+          // Desktop: auto-show context briefly; Mobile: use the red button toggler
+          if(!IS_PHONE && ctx){
+            setTimeout(()=>{
+              ctxText.textContent = ctx;
+              ctxWrap.classList.add('active');
+              placeBubble();
+            }, SHOW_CTX_AFTER_MS);
+          } else {
+            // ensure note text is ready for mobile toggle
+            ctxText.textContent = ctx || '';
           }
         });
 
-        // Phase 2: TTS in background; visuals already up
+        // Phase 2: TTS in background (visuals independent)
         fetchTTS(text).then(tts=>{
           if(tts && tts.audioBase64){
-            playAudio(tts.audioBase64, ()=>{ /* timers handle closeout */ });
+            playAudio(tts.audioBase64, ()=>{ /* visuals linger per timers */ });
           }else{
             startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
             setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
@@ -714,38 +748,47 @@
           setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
         });
 
-        // closeouts not tied to TTS
+        // closeouts not tied to TTS (success path)
         setTimeout(()=>{
-          ctxWrap.classList.remove('active');
+          if(!IS_PHONE) ctxWrap.classList.remove('active'); // on mobile, user controls it
           outputContainer.classList.remove('active');
-          toggleBtn.style.display='none';
           clearWorkTag();
           setTimeout(closeDoor, 500);
         }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
 
       }catch(e){
         console.error('summon hard error', e);
+        // Same fail path as above
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
-        const finalize = makeFinalizer({ work:null, author:null, ctx:null });
         if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-        typeOut(sanitize(fallback), ()=>{
-          fetchTTS(fallback).then(tts=>{
-            if(tts && tts.audioBase64){ playAudio(tts.audioBase64, finalize); }
-            else { startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200); }
-          }).catch(()=>{ startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200); });
+        typeOut(sanitize(fallback), async ()=>{
+          const guard = setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 18000);
+          try{
+            const tts = await fetchTTS(fallback);
+            if(tts && tts.audioBase64){
+              await playAudio(tts.audioBase64, ()=>{
+                clearTimeout(guard);
+                outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+              });
+            }else{
+              startMouth(); setTimeout(()=>{
+                stopMouth(); clearTimeout(guard);
+                outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+              }, 2400);
+            }
+          }catch(_){
+            startMouth(); setTimeout(()=>{
+              stopMouth(); clearTimeout(guard);
+              outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+            }, 2400);
+          }
         });
-        setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, FAIL_LINGER_MS);
       }
     })();
   }
 
   doorTrigger.addEventListener('click', summon);
   doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
-
-  // mobile button toggles quote <-> note
-  toggleBtn.addEventListener('click', ()=>{
-    if(showingNote) showBubble(); else showNote();
-  }, {passive:true});
 
   // calibration (unchanged)
   const calHud=document.getElementById('calHud'); let calOn=false; const STORAGE_KEY='cc_vars';
@@ -799,7 +842,7 @@ C=toggle  R=reset`;
     if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
   });
 
-  onReadyToPosition();
+  positionDoorAndChunklet();
 })();
 </script>
 </body>
