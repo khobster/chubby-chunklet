@@ -509,7 +509,7 @@
 
   async function fetchLine(){
     try{
-      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, IS_PHONE ? 13000 : 11000);
+      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, IS_PHONE ? 14000 : 12000);
       if(!res.ok) throw new Error('HTTP '+res.status);
       return await res.json();
     }catch(err){
