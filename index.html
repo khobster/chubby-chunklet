@@ -47,9 +47,13 @@
     overflow:hidden; height:100%; width:100%;
   }
 
-  /* INTRO (no button, no music) */
+  /* INTRO */
   .intro-overlay{position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:#000; cursor:pointer;}
   .intro-bg{position:absolute; inset:0; background:url('introscreen.png') center/cover no-repeat #000;}
+  /* On tall/narrow devices, show whole image instead of cropping */
+  @media (max-aspect-ratio: 3/4) {
+    .intro-bg{ background-size:contain; background-position:center center; }
+  }
 
   .scene-container{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#4a7ba7; }
   .scene-bg{ width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; perspective:900px; }
@@ -87,7 +91,7 @@
   .mouth-overlay svg{width:100%;height:100%}
   #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
 
-  /* Eyes overlay — pure black, subtle blink */
+  /* Eyes overlay */
   .eyes-overlay{ position:absolute; top:var(--eye-top); left:50%; transform:translate(-50%,-50%); width:0; height:0; pointer-events:none; }
   .eye-dot{ position:absolute; top:0; width:var(--eye-size); height:var(--eye-size); border-radius:50%; background:#000; transform:translate(-50%,-50%); }
   .eye-left{ left:calc(-1 * var(--eye-gap) / 2); }
@@ -116,22 +120,17 @@
   .chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards;}
   .chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
 
-  /* Context card — tweet-like */
+  /* Context card */
   .context-container{ position:fixed; left:50%; transform:translateX(-50%); top:12px; z-index:70; pointer-events:none; opacity:0; transition:opacity .35s ease; max-width:min(700px, 92vw); }
   .context-container.active{ opacity:1; }
   .tweet-card{
-    background:#0f172a;
-    color:#e5e7eb;
+    background:#0f172a; color:#e5e7eb;
     border:1px solid rgba(255,255,255,.08);
-    border-radius:14px;
-    padding:14px 16px;
+    border-radius:14px; padding:14px 16px;
     box-shadow:0 8px 28px rgba(0,0,0,.35);
     font: 400 15px/1.45 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   }
-  .tweet-text{
-    text-transform:lowercase;
-    letter-spacing:.01em;
-  }
+  .tweet-text{ text-transform:lowercase; letter-spacing:.01em; }
 
   .cal-hud{ position:fixed; left:8px; bottom:8px; font:12px/1.3 Rubik, ui-monospace, Menlo, Consolas, monospace; background:rgba(0,0,0,.6); color:#0ff; padding:8px 10px; border:1px solid rgba(0,255,255,.35); border-radius:6px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:pre; z-index:100; }
   .cal-hud.on{ opacity:1; }
@@ -215,8 +214,8 @@
   const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
     'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
 
-  // Primary tries to include context (no TTS). Fallback returns only a line.
-  const QUERY_PRIMARY  = '?style=canon&modern=0&accent=scottish&context=1&tts=0';
+  // Now try for TTS + context first; fallback is text-only.
+  const QUERY_PRIMARY  = '?style=canon&modern=0&accent=scottish&context=1&tts=1';
   const QUERY_FALLBACK = '?style=canon&modern=0&accent=scottish&context=0&tts=0';
 
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
@@ -257,6 +256,25 @@
   let blinkTO=null;
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
+
+  /* ---- AUDIO UNLOCK (Safari/Chrome mobile + desktop) ---- */
+  let audioUnlocked = false;
+  function unlockAudio(){
+    if (audioUnlocked) return;
+    try{
+      ensureCtx();
+      if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+      attachAnalyserToMediaElement();
+      // 20ms silent beep to satisfy gesture requirement
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.02);
+      audioUnlocked = true;
+    }catch(_){}
+  }
 
   function typeOut(text, done){
     if(!outputContainer.classList.contains('active')){
@@ -358,7 +376,15 @@
     if(!(cardRect.width && guyRect.width)) return;
 
     const desiredBottom = Math.max(8, guyRect.top - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap')));
-    const newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
+    let newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
+
+    // If context is showing, keep at least 12px gap below it (BlueSky-like layout)
+    if (ctxWrap.classList.contains('active')) {
+      const ctxRect = ctxWrap.getBoundingClientRect();
+      const minTop = Math.round(ctxRect.bottom + 12);
+      if (newTop < minTop) newTop = minTop;
+    }
+
     outputContainer.style.top = newTop + 'px';
 
     const cardLeft = cardRect.left;
@@ -417,11 +443,14 @@
       if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
       if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
       currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
+
       audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
       audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
+      audioEl.onerror = (e)=>{ console.warn('Audio element error', e); };
+
       await audioEl.play();
     }catch(err){
-      console.error('Audio play failed', err);
+      console.warn('Audio play blocked/failed; fallback mouth only', err);
       startMouth(); const approx=Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
       setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
     }
@@ -451,25 +480,23 @@
   }
 
   async function fetchLine(){
-    // try full (with context) quickly
     try{
-      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, 6000);
+      const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_PRIMARY, 11000);
       if(!res.ok) throw new Error('HTTP '+res.status);
       return await res.json();
     }catch(err){
       console.warn('Primary fetch failed, falling back to fast line:', err);
-      // fallback = no context, no tts
       const res2 = await fetchJSONWithTimeout(ENDPOINT + QUERY_FALLBACK, 6000);
       if(!res2.ok) throw new Error('HTTP '+res2.status);
       const data = await res2.json();
-      // make sure shape exists for UI
       return { ...data, context: null, audioBase64: null, timings: data.timings||[] };
     }
   }
 
   function startGame(){
+    unlockAudio();            // unlock on first tap/keypress
     if(!intro) return;
-    scheduleBlink(); // blink immediately
+    scheduleBlink();
 
     intro.style.transition='opacity .28s ease';
     intro.style.opacity='0';
@@ -479,6 +506,7 @@
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
 
   function summon(){
+    unlockAudio();            // also unlock here (desktop users who skip intro tap)
     if(busy) return;
     try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
     busy=true;
@@ -504,6 +532,7 @@
               setTimeout(()=>{
                 ctxText.textContent = ctx;
                 ctxWrap.classList.add('active');
+                placeBubble(); // reflow bubble under context
               }, SHOW_CTX_AFTER_MS);
 
               setTimeout(()=>{
