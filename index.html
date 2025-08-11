@@ -13,7 +13,7 @@
 
 <style>
   :root{
-    /* ← change this to your deployed URL if different */
+    /* change to your deployed URL if different */
     --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
     /* Figure + face */
@@ -89,7 +89,7 @@
   /* Face overlays */
   .mouth-overlay{ position:absolute; top:var(--mouth-top); left:var(--mouth-left); width:var(--mouth-w); height:var(--mouth-h); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:2; }
   .mouth-overlay svg{width:100%;height:100%}
-  #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0))}
+  #mouth{transform-origin:50% 50%; transform:scale(1, var(--mouth-scale-0)); stroke:#000; stroke-width:1.4px;}
   .eyes-overlay{ position:absolute; top:var(--eye-top); left:50%; transform:translate(-50%,-50%); width:0; height:0; pointer-events:none; z-index:2; }
   .eye-dot{ position:absolute; top:0; width:var(--eye-size); height:var(--eye-size); border-radius:50%; background:#000; transform:translate(-50%,-50%); }
   .eye-left{ left:calc(-1 * var(--eye-gap) / 2); }
@@ -228,7 +228,9 @@
   const IS_PHONE = window.matchMedia('(max-width: 600px)').matches;
 
   // Phase 1: fast quote + context (no TTS)
-  const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&accent=scottish&context=1';
+  const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&context=1';
+  // Phase 1b fallback if quote endpoint has trouble
+  const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=0&tts=0';
   // Phase 2: TTS for whatever text we displayed
   const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=verse&text=${encodeURIComponent(t)}`;
 
@@ -270,6 +272,10 @@
   let blinkTO=null;
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
+
+  /* --- surface hidden errors (SES extensions etc.) --- */
+  window.addEventListener('error', (e)=>console.warn('window error:', e.message, e.error));
+  window.addEventListener('unhandledrejection', (e)=>console.warn('unhandledrejection:', e.reason));
 
   /* ---- AUDIO UNLOCK (mobile-safe) ---- */
   let audioUnlocked = false;
@@ -501,15 +507,26 @@
       .finally(()=> clearTimeout(id));
   }
 
+  async function safeGetJSON(url, ms){
+    try{
+      const res = await fetchJSONWithTimeout(url, ms);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('safeGetJSON fail:', err);
+      return null;
+    }
+  }
+
   async function fetchQuote(){
-    const res = await fetchJSONWithTimeout(ENDPOINT + QUERY_QUOTE, IS_PHONE ? 12000 : 9000);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    return await res.json();
+    // try only_quote first, then a plain fast fallback
+    const first = await safeGetJSON(ENDPOINT + QUERY_QUOTE, IS_PHONE ? 13000 : 9000);
+    if (first && first.text) return first;
+    const second = await safeGetJSON(ENDPOINT + QUERY_QUOTE_FALLBACK, IS_PHONE ? 10000 : 8000);
+    return second;
   }
   async function fetchTTS(text){
-    const res = await fetchJSONWithTimeout(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    return await res.json();
+    return await safeGetJSON(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000);
   }
 
   function startGame(){
@@ -523,6 +540,27 @@
   }
   intro.addEventListener('pointerdown', startGame, {passive:true});
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
+
+  function makeFinalizer({work, author, ctx}){
+    let finished = false;
+    return function finalize(){
+      if (finished) return;
+      finished = true;
+
+      if (ctx && !ctxWrap.classList.contains('active')){
+        ctxText.textContent = ctx;
+        ctxWrap.classList.add('active');
+        placeBubble();
+        setTimeout(()=>{ ctxWrap.classList.remove('active'); }, 4500);
+      }
+
+      setTimeout(()=>{
+        outputContainer.classList.remove('active');
+        clearWorkTag();
+        setTimeout(closeDoor, 400);
+      }, 3800);
+    };
+  }
 
   function summon(){
     unlockAudio();            // ensure iOS audio unlocked
@@ -539,16 +577,36 @@
 
         // Phase 1: fast content
         const data = await fetchQuote();
+
+        if(!data || !data.text){
+          const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
+          const finalize = makeFinalizer({ work:null, author:null, ctx:null });
+          if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
+          typeOut(sanitize(fallback), ()=>{
+            showWork(null, null);
+            placeBubble();
+            fetchTTS(fallback).then(tts=>{
+              if(tts && tts.audioBase64) playAudio(tts.audioBase64, finalize);
+              else {
+                startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200);
+              }
+            }).catch(()=>{ startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200); });
+          });
+          return;
+        }
+
         const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
         const ctx  = (data.context && (data.context.summary||'').trim()) || '';
+        const finalize = makeFinalizer({ work, author, ctx });
 
-        typeOut(text, async ()=>{
-          // Show attribution immediately after typing — regardless of TTS
+        // TYPE the quote
+        typeOut(text, ()=>{
+          // attribution immediately
           showWork(work, author);
           placeBubble();
 
-          // Show context soon after typing
+          // context shortly after
           if(ctx){
             setTimeout(()=>{
               ctxText.textContent = ctx;
@@ -556,47 +614,40 @@
               placeBubble();
             }, SHOW_CTX_AFTER_MS);
           }
+        });
 
-          // Phase 2: request TTS in background; play if/when it arrives
-          try{
-            const tts = await fetchTTS(text);
-            if(tts && tts.audioBase64){
-              await playAudio(tts.audioBase64, ()=>{
-                // after audio, just keep things up until timers close
-              });
-            }else{
-              // no TTS; let mouth chatter briefly so it feels alive
-              startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
-              setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
-            }
-          }catch(e){
-            // TTS fetch failed—fine; visuals already up
+        // Phase 2: TTS in background; always call finalize in some path
+        fetchTTS(text).then(tts=>{
+          if(tts && tts.audioBase64){
+            playAudio(tts.audioBase64, ()=>{ /* keep visuals up; timers will close */ });
+          }else{
             startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
             setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
           }
-
-          // Schedule closeouts based on visuals, not TTS
-          setTimeout(()=>{
-            ctxWrap.classList.remove('active');
-            outputContainer.classList.remove('active');
-            clearWorkTag();
-            setTimeout(closeDoor, 500);
-          }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
+        }).catch(()=>{
+          startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
+          setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
         });
+
+        // closeouts not tied to TTS
+        setTimeout(()=>{
+          ctxWrap.classList.remove('active');
+          outputContainer.classList.remove('active');
+          clearWorkTag();
+          setTimeout(closeDoor, 500);
+        }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
 
       }catch(e){
-        console.error(e);
-        // Friendly retry line (the backend uses the same one if it fails)
+        console.error('summon hard error', e);
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
+        const finalize = makeFinalizer({ work:null, author:null, ctx:null });
         if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-        typeOut(fallback, ()=>{
-          // try to voice the apology too
+        typeOut(sanitize(fallback), ()=>{
           fetchTTS(fallback).then(tts=>{
-            if(tts && tts.audioBase64){ playAudio(tts.audioBase64, ()=>{}); }
-            else { startMouth(); setTimeout(()=>stopMouth(), 2200); }
-          }).catch(()=>{ startMouth(); setTimeout(()=>stopMouth(), 2200); });
+            if(tts && tts.audioBase64){ playAudio(tts.audioBase64, finalize); }
+            else { startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200); }
+          }).catch(()=>{ startMouth(); setTimeout(()=>{ stopMouth(); finalize(); }, 2200); });
         });
-        setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 3000);
       }
     })();
   }
