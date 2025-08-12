@@ -270,7 +270,14 @@
   const output            = document.getElementById('output');
 
   const mainPlayer        = document.getElementById('mainPlayer');
-  const clickSndSrc       = 'click.mp3';
+  const CLICK_MP3         = 'click.mp3';
+
+  // helpful logging if audio fails
+  mainPlayer.addEventListener('error', () => {
+    const el = mainPlayer;
+    const code = el.error && el.error.code;
+    console.warn('mainPlayer error', code, el.error);
+  });
 
   const eyesWrap = document.getElementById('eyes');
   const eyeL = eyesWrap.querySelector('.eye-left');
@@ -517,6 +524,39 @@
     }, ms);
   }
 
+  // Create a tiny WAV beep as a fallback if click.mp3 is missing or blocked
+  function makeBeepURL(freq=1100, duration=0.07, sampleRate=44100){
+    const samples = Math.floor(duration * sampleRate);
+    const buffer  = new ArrayBuffer(44 + samples * 2); // 16-bit mono
+    const view    = new DataView(buffer);
+
+    function writeStr(off, s){ for (let i=0;i<s.length;i++) view.setUint8(off+i, s.charCodeAt(i)); }
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + samples*2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12,'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1,  true);      // PCM
+    view.setUint16(22, 1,  true);      // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); // byteRate = sr * ch * 2
+    view.setUint16(32, 2,  true);      // blockAlign
+    view.setUint16(34, 16, true);      // bitsPerSample
+    writeStr(36,'data');
+    view.setUint32(40, samples*2, true);
+
+    let offset = 44;
+    for (let i=0;i<samples;i++){
+      const t = i / sampleRate;
+      const amp = Math.sin(2 * Math.PI * freq * t) * 0.35;
+      view.setInt16(offset, (amp * 0x7FFF) | 0, true);
+      offset += 2;
+    }
+
+    const blob = new Blob([buffer], {type:'audio/wav'});
+    return URL.createObjectURL(blob);
+  }
+
   // Play TTS using the persistent mainPlayer (unlocks mouth via analyser)
   async function playAudio(b64,onEnd){
     try{
@@ -627,13 +667,28 @@
     unlockAudio();
     if(busy) return;
 
-    // Prime the SAME element (mainPlayer) with the click sound on this user gesture
+    // PRIME the same element (mainPlayer) with a click; fall back to a generated beep if mp3 fails
     try{
       if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      mainPlayer.src = clickSndSrc;
+      mainPlayer.pause();
+      mainPlayer.src = CLICK_MP3;     // try your real asset first
+      mainPlayer.load();
       mainPlayer.currentTime = 0;
       await mainPlayer.play();
-    }catch(_){}
+    } catch (err) {
+      console.warn('click.mp3 failed, falling back to synthesized beep', err);
+      try {
+        const beepURL = makeBeepURL(1200, 0.06);
+        mainPlayer.pause();
+        mainPlayer.src = beepURL;
+        mainPlayer.load();
+        mainPlayer.currentTime = 0;
+        await mainPlayer.play();
+        setTimeout(()=>{ try{ URL.revokeObjectURL(beepURL); }catch(_){} }, 2000);
+      } catch (e2) {
+        console.warn('Beep fallback also failed', e2);
+      }
+    }
 
     busy=true;
     ctxWrap.classList.remove('active');
