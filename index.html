@@ -463,7 +463,7 @@
   function placeGlasses(){
     const guyRect = chunkletContainer.getBoundingClientRect();
     if(!guyRect.width) return;
-    const x = guyRect.left + guyRect.width/2;
+    const x = guyRect.left + guyRect.width/2 + (IS_PHONE ? 12 : 16); // + right, – left
     const offset = IS_PHONE ? 52 : 58; // tweak if you want it higher/lower
     const y = Math.min(window.innerHeight - 72, guyRect.bottom + offset);
     glassesBtn.style.left = x + 'px';
