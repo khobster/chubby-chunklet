@@ -170,7 +170,8 @@
   <div class="intro-bg" aria-hidden="true"></div>
 </div>
 
-<audio id="clickSnd" src="click.mp3" preload="auto"></audio>
+<!-- Persistent, trusted audio element used for ALL sounds (click + TTS) -->
+<audio id="mainPlayer" src="click.mp3" preload="auto" playsinline></audio>
 
 <div class="scene-container" id="gameRoot" aria-hidden="true">
   <div class="scene-bg">
@@ -268,7 +269,9 @@
   const cursor            = document.getElementById('cursor');
   const mouth             = document.getElementById('mouth');
   const output            = document.getElementById('output');
-  const clickSnd          = document.getElementById('clickSnd');
+
+  const mainPlayer  = document.getElementById('mainPlayer'); // persistent player
+  const clickSndSrc = 'click.mp3';
 
   const eyesWrap = document.getElementById('eyes');
   const eyeL = eyesWrap.querySelector('.eye-left');
@@ -283,7 +286,7 @@
   const glassesBtn = document.getElementById('glassesBtn');
 
   let busy=false, doorOpen=false;
-  let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
+  let audioCtx, mediaSource, analyser, timeData;
   let raf,animating=false,tagPlaying=false;
   let currentObjectURL=null;
   let blinkTO=null;
@@ -369,17 +372,12 @@
   function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
   function attachAnalyserToMediaElement(){
     ensureAnalyser();
-    if(!audioEl){
-      audioEl=document.createElement('audio');
-      audioEl.style.position='absolute'; audioEl.style.left='-9999px';
-      audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
-      audioEl.preload = 'auto';
-      audioEl.muted = false;
-      document.body.appendChild(audioEl);
-    }
-    if(!mediaSource && audioCtx && audioEl){
-      try{ mediaSource=audioCtx.createMediaElementSource(audioEl); mediaSource.connect(analyser); analyser.connect(audioCtx.destination); }
-      catch(e){ console.warn('media element source failed', e); }
+    if(!mediaSource && audioCtx && mainPlayer){
+      try{
+        mediaSource = audioCtx.createMediaElementSource(mainPlayer);
+        mediaSource.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }catch(e){ console.warn('media element source failed', e); }
     }
   }
   function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
@@ -389,9 +387,10 @@
   function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
   function tick(){
     if(!animating) return; raf=requestAnimationFrame(tick);
-    const active=!!currentSource||tagPlaying, now=performance.now();
+    const active = tagPlaying;
+    const now = performance.now();
     if(active){
-      if(analyser && (currentSource || (tagPlaying && mediaSource))){
+      if(analyser && (tagPlaying && mediaSource)){
         const e=rmsLevel();
         let target=level;
         while(target<4 && e>=THRESH_UP[target]) target++;
@@ -516,18 +515,28 @@
   async function playAudio(b64,onEnd){
     try{
       ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
+
       const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
       const blob=new Blob([bin], {type:'audio/mp3'});
-      if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
 
-      audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
-      audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
-      audioEl.onerror = (e)=>{ console.warn('Audio element error', e); onEnd&&onEnd(); };
+      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+      currentObjectURL=URL.createObjectURL(blob);
+      mainPlayer.src=currentObjectURL;
+
+      const endedHandler = () => {
+        tagPlaying=false;
+        stopMouth();
+        mainPlayer.removeEventListener('ended', endedHandler);
+        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+        onEnd&&onEnd();
+      };
+      mainPlayer.addEventListener('ended', endedHandler);
+
+      mainPlayer.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
+      mainPlayer.onerror = async (e)=>{ console.warn('Audio element error', e); await speakWithWebSpeech(typed.textContent||''); onEnd&&onEnd(); };
 
       if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
-      await audioEl.play();
+      await mainPlayer.play();
     }catch(err){
       console.warn('Audio play blocked/failed; fallback mouth only', err);
       startMouth(); const approx=Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
@@ -535,8 +544,7 @@
     }
   }
   function stopAudio(){
-    if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
-    if(audioEl){ try{ audioEl.pause(); audioEl.currentTime=0; }catch(_){ } }
+    try{ mainPlayer.pause(); mainPlayer.currentTime=0; }catch(_){}
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
     tagPlaying=false;
   }
@@ -579,6 +587,7 @@
 
   function startGame(){
     unlockAudio();            // unlock on first tap/keypress
+    attachAnalyserToMediaElement(); // connect analyser to the persistent player
     if(!intro) return;
     scheduleBlink();
 
@@ -610,7 +619,7 @@
   function summon(){
     unlockAudio();            // ensure iOS audio unlocked
     if(busy) return;
-    try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
+    try{ mainPlayer.src = clickSndSrc; mainPlayer.play().catch(()=>{}); }catch(_){}
     busy=true;
     ctxWrap.classList.remove('active');
     glassesBtn.classList.remove('show');
