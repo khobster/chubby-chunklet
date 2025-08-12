@@ -7,13 +7,13 @@
 
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="apple-touch-icon" href="favicon.png" />
-<link rel="preload" href="glasses.png" as="image" />
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Emilys+Candy&family=Rubik:wght@400;500;700&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
 
 <style>
   :root{
+    /* change to your deployed URL if different */
     --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
     /* Figure + face */
@@ -36,7 +36,7 @@
     --door-w: 0.099;
     --door-h: 0.248;
 
-    --bubble-gap: 18px;
+    --bubble-gap: 18px; /* gap between bubble bottom and chunklet head */
     --tail-x: 50%;
   }
 
@@ -108,16 +108,6 @@
   .typing .cursor{animation:none}
   .output .work-tag{ opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.72em; letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:12px; }
 
-  /* Entrance */
-  @keyframes emergePop{0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85);}40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1;}60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);}100%{transform:translate(-50%,-12px) scale(1,1) rotate(0deg);}}
-  @keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0)}20%{transform:translate(-50%,10px)}30%{transform:translate(-50%,20px)}40%{transform:translate(-50%,30px)}55%{transform:translate(-50%,45px)}70%{transform:translate(-50%,58px)}85%{transform:translate(-50%,66px) scale(1.02,.98)}100%{transform:translate(-50%,70px)}}
-  @keyframes shadowEmerge{0%{opacity:0; transform:translateX(-50%) scale(0.4);}60%{opacity:.55; transform:translateX(-50%) scale(0.75);}100%{opacity:.65; transform:translateX(-50%) scale(0.85);}}
-  @keyframes shadowWaddle{0%{opacity:.65; transform:translateX(-50%) scale(0.85);}25%{opacity:.70; transform:translateX(-50%) scale(0.95);}50%{opacity:.60; transform:translateX(-50%) scale(0.88);}75%{opacity:.72; transform:translateX(-50%) scale(1.00);}100%{opacity:.68; transform:translateX(-50%) scale(1.05);}}
-  .chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards;}
-  .chunklet-container.waddle{animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards;}
-  .chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards;}
-  .chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
-
   /* Context card */
   .context-container{ position:fixed; left:50%; transform:translateX(-50%); top:8px; z-index:70; pointer-events:none; opacity:0; transition:opacity .35s ease; width:calc(100vw - 24px); max-width:760px; padding:0 6px; }
   .context-container.active{ opacity:1; }
@@ -130,23 +120,22 @@
   }
   .tweet-text{ letter-spacing:.01em; }
 
-  /* Glasses button (bottom-center) */
-  .note-btn{
+  /* Glasses toggle button (keep size/spot the same) */
+  .glasses-btn{
     position:fixed;
-    left:50%;
-    transform:translateX(-50%);
-    bottom: calc(max(env(safe-area-inset-bottom, 0px), 12px));
-    z-index:80;
-    width:112px; height:48px;
-    background: transparent url('glasses.png') center/contain no-repeat;
-    border:none; outline:none; cursor:pointer; user-select:none;
-    filter: drop-shadow(0 10px 0 rgba(0,0,0,.25)) drop-shadow(0 18px 36px rgba(0,0,0,.35));
+    right:10px;
+    top:10px;
+    width:56px;
+    height:36px;
+    background:url('glasses.png') center/contain no-repeat;
+    border:0;
+    outline:none;
+    padding:0;
+    cursor:pointer;
+    z-index:85;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
   }
-  .note-btn:active{ transform:translateX(-50%) scale(.98); }
-  .note-hidden{ display:none; }
-
-  /* Visually-hidden text for a11y */
-  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .glasses-btn:active{ transform:translateY(1px); }
 
   /* Mobile (portrait-first) */
   @media (max-width: 600px) {
@@ -168,6 +157,13 @@
     .output{ font-size:clamp(17px, 4.7vw, 22px); letter-spacing:-0.045em; }
     .speech-bubble{ border-width:5px; border-radius:26px; padding:12px 14px; }
     .bubble-tail{ width:36px; height:24px; }
+
+    .glasses-btn{
+      right:10px;
+      top:10px;
+      width:52px;
+      height:34px;
+    }
   }
 </style>
 </head>
@@ -176,6 +172,8 @@
 <div class="intro-overlay" id="intro" aria-label="Tap to start">
   <div class="intro-bg" aria-hidden="true"></div>
 </div>
+
+<button id="toggleBtn" class="glasses-btn" aria-label="Show note"></button>
 
 <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
@@ -235,11 +233,6 @@
   </div>
 </div>
 
-<!-- GLASSES toggle button -->
-<button id="noteBtn" class="note-btn note-hidden" aria-label="Show note">
-  <span class="sr-only">Show note</span>
-</button>
-
 <div class="cal-hud" id="calHud"></div>
 
 <script>
@@ -250,16 +243,20 @@
 
   const IS_PHONE = window.matchMedia('(max-width: 600px)').matches;
 
+  // Phase 1: fast quote + context (no TTS)
   const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&context=1';
+  // Phase 1b fallback if quote endpoint has trouble
   const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=0&tts=0';
+  // Phase 2: TTS for whatever text we displayed
   const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=verse&text=${encodeURIComponent(t)}`;
 
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
   const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
-  const SHOW_CTX_AFTER_MS = 700;
-  const BUBBLE_LINGER_MS  = 50000;
-  const CTX_LINGER_MS     = 50000;
+
+  // Lingers
+  const SUCCESS_LINGER_MS = 50000; // unchanged for working lines
+  const FAIL_AFTER_END_MS = 900;   // close ~1s after fail speech finishes
 
   const BLINK_MIN = 2600, BLINK_MAX = 5400;
 
@@ -282,22 +279,27 @@
   const ctxWrap = document.getElementById('ctx');
   const ctxText = document.getElementById('ctxText');
 
-  const noteBtn = document.getElementById('noteBtn');
+  const toggleBtn = document.getElementById('toggleBtn');
 
   const bgImg   = document.querySelector('.scene-bg img');
   const hostEl  = document.querySelector('.scene-bg');
 
   let busy=false, doorOpen=false;
   let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-  let raf,animating=false,tagPlaying=false;
+  let raf,animating=false,tagPlaying=false,speechPlaying=false;
   let currentObjectURL=null;
   let blinkTO=null;
+
+  let hasContext=false;
+  let showingContext=false;
+  let closeTimer=null;
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
   window.addEventListener('error', (e)=>console.warn('window error:', e.message, e.error));
   window.addEventListener('unhandledrejection', (e)=>console.warn('unhandledrejection:', e.reason));
 
+  /* ---- AUDIO UNLOCK (mobile-safe) ---- */
   let audioUnlocked = false;
   function unlockAudio(){
     if (audioUnlocked) return;
@@ -305,6 +307,7 @@
       ensureCtx();
       if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
       attachAnalyserToMediaElement();
+      // 20ms silent beep
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       gain.gain.value = 0;
@@ -313,32 +316,64 @@
       osc.stop(audioCtx.currentTime + 0.02);
       audioUnlocked = true;
     }catch(_){}
+    primeWebSpeech(); // also prime speech synthesis on first gesture
   }
 
-  function typeOut(text, done){
-    if(!outputContainer.classList.contains('active')){
-      outputContainer.classList.add('active');
+  /* ---- Web Speech fallback (mobile) ---- */
+  let speechPrimed=false;
+  function primeWebSpeech(){
+    if(speechPrimed) return;
+    try{
+      if(!('speechSynthesis' in window)) return;
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0; // Safari may ignore volume, but this is very short
+      u.rate = 1;
+      speechSynthesis.speak(u);
+      speechPrimed = true;
+    }catch(_){}
+  }
+  function pickVoice(){
+    const synth = window.speechSynthesis;
+    if(!synth) return null;
+    const voices = synth.getVoices() || [];
+    // Prefer natural English voices if present
+    const want = ['Daniel','Samantha','Serena','Moira','Alex','Karen','Tessa'];
+    for(const name of want){
+      const v = voices.find(v=>v.name.indexOf(name)>=0);
+      if(v) return v;
     }
-    typed.textContent='';
-    output.classList.add('typing');
-    (function loop(i=0){
-      typed.textContent = text.slice(0,i);
-      placeBubble();
-      if(i<text.length){
-        setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
-      }else{
-        output.classList.remove('typing');
-        placeBubble();
-        done && done();
+    return voices.find(v=>/^en[-_]/i.test(v.lang)) || voices[0] || null;
+  }
+  function speakWeb(text){
+    return new Promise((resolve)=>{
+      if(!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance){
+        // No web speech—fake a short talk so the mouth moves a bit
+        const approx=Math.min(8, Math.max(2.4, text.length/16));
+        startFakeTalk(approx*1000);
+        setTimeout(resolve, approx*1000);
+        return;
       }
-    })();
+      const synth = window.speechSynthesis;
+      try{ synth.cancel(); }catch(_){}
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice();
+      if(v) u.voice = v;
+      u.lang = (v && v.lang) || 'en-US';
+      u.rate = 0.98;
+      u.pitch = 1.02;
+      u.onstart = ()=>{ speechPlaying=true; startMouth(); };
+      u.onend   = ()=>{ speechPlaying=false; stopMouth(); resolve(); };
+      u.onerror = ()=>{ speechPlaying=false; stopMouth(); resolve(); };
+      try{ synth.speak(u); }catch(_){ resolve(); }
+    });
   }
 
+  /* ---- Mouth animation ---- */
   const SY=[0.10,0.58,1.12,1.72,2.34], SX=[1.00,1.01,1.02,1.02,1.03];
   const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
   const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
   const GATE_FLOOR=0.010, CLOSE_GRACE_MS=20;
-  let level=0,lastChange=0;
+  let level=0,lastChange=0,fakeUntil=0;
 
   function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
   function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
@@ -362,9 +397,12 @@
   function setClosed(){ setLevel(0); }
   function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
   function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
+  function startFakeTalk(ms){ fakeUntil = performance.now() + ms; if(!animating) startMouth(); }
   function tick(){
     if(!animating) return; raf=requestAnimationFrame(tick);
-    const active=!!currentSource||tagPlaying, now=performance.now();
+    const now=performance.now();
+    const active = !!currentSource || tagPlaying || speechPlaying || (fakeUntil > now);
+
     if(active){
       if(analyser && (currentSource || (tagPlaying && mediaSource))){
         const e=rmsLevel();
@@ -377,6 +415,7 @@
         eyeL.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
         eyeR.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
       }else{
+        // speculative talk pattern
         const phase=((now/1000*13)|0)%4; const rand=Math.random();
         setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
       }
@@ -385,6 +424,7 @@
     setClosed();
   }
 
+  /* ---- Positioning ---- */
   const DOOR={
     get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
     get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -418,6 +458,7 @@
     const guyRect  = chunkletContainer.getBoundingClientRect();
     if(!(cardRect.width && guyRect.width)) return;
 
+    // Keep bubble between context card (if visible) and chunklet head
     const bubbleGap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap'));
     const desiredBottom = Math.max(8, guyRect.top - bubbleGap);
     let newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
@@ -445,6 +486,27 @@
   window.addEventListener('resize', positionDoorAndChunklet);
   window.addEventListener('orientationchange', positionDoorAndChunklet);
 
+  /* ---- UI helpers ---- */
+  function showBubble(){
+    outputContainer.classList.add('active');
+    ctxWrap.classList.remove('active');
+    showingContext=false;
+    toggleBtn.setAttribute('aria-label', hasContext ? 'Show note' : 'No note');
+    placeBubble();
+  }
+  function showContext(){
+    if(!hasContext) return;
+    ctxWrap.classList.add('active');
+    outputContainer.classList.remove('active');
+    showingContext=true;
+    toggleBtn.setAttribute('aria-label','Show quote');
+    placeBubble();
+  }
+  function toggleView(){
+    if(showingContext) showBubble(); else showContext();
+  }
+  toggleBtn.addEventListener('click', toggleView);
+
   function openDoor(){
     if(doorOpen) return;
     positionDoorAndChunklet();
@@ -464,7 +526,6 @@
     chunkletContainer.classList.remove('active','emerge','waddle');
     outputContainer.classList.remove('active');
     ctxWrap.classList.remove('active');
-    noteBtn.classList.add('note-hidden');
     clearWorkTag();
     setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
   }
@@ -478,67 +539,32 @@
     }, ms);
   }
 
-  /* =================== TTS: MP3 → Web Speech → wiggle =================== */
-  const CAN_SPEECH = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
-
-  function pickVoice(){
+  async function playAudio(b64,onEnd){
     try{
-      const list = speechSynthesis.getVoices() || [];
-      const wanted = ['Fiona','Moira','Daniel','en-IE','en-GB','en_US','en'];
-      return list.find(v => wanted.some(w => (v.name||'').includes(w) || (v.lang||'').includes(w))) || list[0] || null;
-    }catch(_){ return null; }
-  }
-  function ensureVoices(){
-    return new Promise(resolve=>{
-      if(!CAN_SPEECH) return resolve([]);
-      const got = speechSynthesis.getVoices();
-      if(got && got.length) return resolve(got);
-      const to = setTimeout(()=>resolve(speechSynthesis.getVoices()||[]), 1500);
-      speechSynthesis.onvoiceschanged = ()=>{ clearTimeout(to); resolve(speechSynthesis.getVoices()||[]); };
-    });
-  }
-  function speakWebSpeech(text, onEnd){
-    if(!CAN_SPEECH){ onEnd&&onEnd(); return; }
-    ensureVoices().then(()=>{
-      const u = new SpeechSynthesisUtterance(text);
-      const v = pickVoice(); if(v) u.voice = v;
-      u.rate = 0.98; u.pitch = 1.0;
-      u.onend = ()=>{ stopMouth(); onEnd&&onEnd(); };
-      u.onerror = ()=>{ stopMouth(); onEnd&&onEnd(); };
-      setClosed(); startMouth();
-      try{ speechSynthesis.cancel(); }catch(_){}
-      speechSynthesis.speak(u);
-    }).catch(()=>{ onEnd&&onEnd(); });
-  }
+      ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
+      const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
+      const blob=new Blob([bin], {type:'audio/mp3'});
+      if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
+      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+      currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
 
-  async function playAudio(b64, onEnd, textForFallback){
-    if (b64) {
-      try{
-        ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
-        const bin=Uint8Array.from(atob((b64||'').split(',')[1]||''), c=>c.charCodeAt(0));
-        const blob=new Blob([bin], {type:'audio/mp3'});
-        if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
-        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-        currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
+      audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
+      audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
+      audioEl.onerror = (e)=>{ console.warn('Audio element error', e); onEnd&&onEnd(); };
 
-        audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
-        audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
-        audioEl.onerror = ()=>{ throw new Error('audio error'); };
-
-        if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
-        await audioEl.play();
-        return;
-      }catch(_){ /* fall through */ }
+      if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
+      await audioEl.play();
+    }catch(err){
+      console.warn('Audio play blocked/failed; switch to web speech', err);
+      // Fallback to Web Speech immediately
+      speakWeb((typed.textContent||'').trim()).then(()=>{ onEnd&&onEnd(); });
     }
-    if (textForFallback) { speakWebSpeech(textForFallback, onEnd); return; }
-    startMouth(); setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, 2200);
   }
-
   function stopAudio(){
     if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
     if(audioEl){ try{ audioEl.pause(); audioEl.currentTime=0; }catch(_){ } }
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-    tagPlaying=false;
+    tagPlaying=false; speechPlaying=false; fakeUntil=0; stopMouth();
   }
 
   function showWork(work, author){
@@ -550,6 +576,7 @@
   }
   function clearWorkTag(){ const old = document.querySelector('#output .work-tag'); if(old) old.remove(); }
 
+  // --- fetch with timeout ---
   function fetchJSONWithTimeout(url, timeoutMs){
     const ctrl = new AbortController();
     const id = setTimeout(()=>ctrl.abort('timeout'), timeoutMs);
@@ -572,12 +599,34 @@
     const second = await safeGetJSON(ENDPOINT + QUERY_QUOTE_FALLBACK, IS_PHONE ? 10000 : 8000);
     return second;
   }
-  async function fetchTTS(text){ return await safeGetJSON(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000); }
+  async function fetchTTS(text){
+    return await safeGetJSON(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000);
+  }
+
+  function typeOut(text, done){
+    if(!outputContainer.classList.contains('active')){
+      outputContainer.classList.add('active');
+    }
+    typed.textContent='';
+    output.classList.add('typing');
+    (function loop(i=0){
+      typed.textContent = text.slice(0,i);
+      placeBubble();
+      if(i<text.length){
+        setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
+      }else{
+        output.classList.remove('typing');
+        placeBubble();
+        done && done();
+      }
+    })();
+  }
 
   function startGame(){
-    unlockAudio();
+    unlockAudio(); // primes audio + web speech
     if(!intro) return;
     scheduleBlink();
+
     intro.style.transition='opacity .28s ease';
     intro.style.opacity='0';
     setTimeout(()=>{ intro.remove(); gameRoot.removeAttribute('aria-hidden'); }, 280);
@@ -585,23 +634,28 @@
   intro.addEventListener('pointerdown', startGame, {passive:true});
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
 
-  function setNoteVisible(v){
-    noteBtn.classList.toggle('note-hidden', !v);
-    noteBtn.setAttribute('aria-label', 'Show note');
-  }
-  noteBtn.addEventListener('click', ()=>{
-    const showingNote = ctxWrap.classList.contains('active');
-    if (showingNote){
+  function startCloseTimer(ms){
+    if(closeTimer) { clearTimeout(closeTimer); closeTimer=null; }
+    closeTimer = setTimeout(()=>{
       ctxWrap.classList.remove('active');
-      outputContainer.classList.add('active');
-      noteBtn.setAttribute('aria-label','Show note');
-    }else{
-      ctxWrap.classList.add('active');
       outputContainer.classList.remove('active');
-      noteBtn.setAttribute('aria-label','Show quote');
-    }
-    placeBubble();
-  });
+      clearWorkTag();
+      setTimeout(closeDoor, 500);
+    }, ms);
+  }
+
+  async function speakQuote(text){
+    // Try server MP3 first; then web speech; otherwise fake talk briefly
+    try{
+      const tts = await fetchTTS(text);
+      if(tts && tts.audioBase64){
+        await new Promise(res=> playAudio(tts.audioBase64, res));
+        return true;
+      }
+    }catch(_){}
+    await speakWeb(text);
+    return true;
+  }
 
   function summon(){
     unlockAudio();
@@ -610,28 +664,28 @@
     busy=true;
     ctxWrap.classList.remove('active');
     stopAudio(); clearWorkTag();
-    setNoteVisible(false);
+    hasContext=false; showingContext=false;
+    toggleBtn.setAttribute('aria-label','Show note');
+
     openDoor();
 
     (async ()=>{
       try{
         await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
 
+        // Phase 1: fast content
         const data = await fetchQuote();
 
         if(!data || !data.text){
           const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
           if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-          typeOut(sanitize(fallback), ()=>{
-            fetchTTS(fallback).then(tts=>{
-              playAudio(tts?.audioBase64||null, ()=>{
-                setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 300);
-              }, fallback);
-            }).catch(()=>{
-              playAudio(null, ()=>{
-                setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 300);
-              }, fallback);
-            });
+          typeOut(sanitize(fallback), async ()=>{
+            showWork(null, null);
+            placeBubble();
+            showBubble(); // always show bubble first
+            await speakQuote(fallback);
+            // fail: close shortly after speech ends
+            startCloseTimer(FAIL_AFTER_END_MS);
           });
           return;
         }
@@ -639,55 +693,31 @@
         const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
         const ctx  = (data.context && (data.context.summary||'').trim()) || '';
+        hasContext = !!ctx;
+        if (hasContext) { ctxText.textContent = ctx; }
+        else { ctxText.textContent = ''; }
 
-        typeOut(text, ()=>{
+        // TYPE the quote
+        typeOut(text, async ()=>{
           showWork(work, author);
           placeBubble();
-
-          if(ctx){
-            setTimeout(()=>{
-              ctxText.textContent = ctx;
-              ctxWrap.classList.add('active');
-              setNoteVisible(true);
-              placeBubble();
-            }, SHOW_CTX_AFTER_MS);
-          }else{
-            setNoteVisible(false);
-          }
+          showBubble(); // quote first; context only on glasses tap
         });
 
-        fetchTTS(text).then(tts=>{
-          if(tts && tts.audioBase64){
-            playAudio(tts.audioBase64, ()=>{}, text);
-          }else{
-            playAudio(null, ()=>{}, text);
-          }
-        }).catch(()=>{
-          playAudio(null, ()=>{}, text);
-        });
+        // Speak (server mp3 → web speech)
+        speakQuote(text);
 
-        setTimeout(()=>{
-          ctxWrap.classList.remove('active');
-          outputContainer.classList.remove('active');
-          setNoteVisible(false);
-          clearWorkTag();
-          setTimeout(closeDoor, 500);
-        }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
+        // Success: keep up for standard linger
+        startCloseTimer(SUCCESS_LINGER_MS);
 
       }catch(e){
         console.error('summon hard error', e);
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
         if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-        typeOut(sanitize(fallback), ()=>{
-          fetchTTS(fallback).then(tts=>{
-            playAudio(tts?.audioBase64||null, ()=>{
-              setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 300);
-            }, fallback);
-          }).catch(()=>{
-            playAudio(null, ()=>{
-              setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 300);
-            }, fallback);
-          });
+        typeOut(sanitize(fallback), async ()=>{
+          showBubble();
+          await speakQuote(fallback);
+          startCloseTimer(FAIL_AFTER_END_MS);
         });
       }
     })();
@@ -696,6 +726,7 @@
   doorTrigger.addEventListener('click', summon);
   doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(); } });
 
+  // calibration (unchanged)
   const calHud=document.getElementById('calHud'); let calOn=false; const STORAGE_KEY='cc_vars';
   function getVar(name,fallback){ const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v)?(fallback??0):v; }
   function setVar(name,value){ document.documentElement.style.setProperty(name,String(value)); persistVars(); positionDoorAndChunklet(); updateHud(); }
