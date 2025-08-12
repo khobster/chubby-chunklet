@@ -13,7 +13,6 @@
 
 <style>
   :root{
-    /* change to your deployed URL if different */
     --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
     /* Figure + face */
@@ -36,7 +35,7 @@
     --door-w: 0.099;
     --door-h: 0.248;
 
-    --bubble-gap: 18px; /* gap between bubble bottom and chunklet head */
+    --bubble-gap: 18px;
     --tail-x: 50%;
   }
 
@@ -130,8 +129,8 @@
   }
   .tweet-text{ letter-spacing:.01em; }
 
-  /* Mobile context toggle button */
-  .ctx-toggle{ position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:80; display:none; pointer-events:auto; }
+  /* Mobile toggle button (bottom-right, safe-area aware) */
+  .ctx-toggle{ position:fixed; right:12px; bottom:calc(env(safe-area-inset-bottom) + 12px); z-index:80; display:none; pointer-events:auto; }
   .ctx-btn{
     appearance:none; border:none; cursor:pointer;
     width:64px; height:64px; border-radius:50%;
@@ -250,7 +249,6 @@
 
   // Phase 1: fast quote + context (no TTS)
   const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&context=1';
-  // Phase 1b fallback if quote endpoint has trouble
   const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=0&tts=0';
   // Phase 2: TTS for whatever text we displayed
   const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=verse&text=${encodeURIComponent(t)}`;
@@ -259,8 +257,11 @@
 
   const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
   const SHOW_CTX_AFTER_MS = 700;          // desktop auto-note reveal delay
-  const BUBBLE_LINGER_MS  = 50000;        // bubble life (success path)
-  const CTX_LINGER_MS     = 50000;        // context life (success path)
+  const BUBBLE_LINGER_MS  = 50000;        // success path bubble life
+  const CTX_LINGER_MS     = 50000;        // success path context life
+
+  const FAIL_GUARD_MS_MOBILE = 8000;
+  const FAIL_GUARD_MS_DESK   = 12000;
 
   const BLINK_MIN = 2600, BLINK_MAX = 5400;
 
@@ -293,15 +294,14 @@
   let raf,animating=false,tagPlaying=false;
   let currentObjectURL=null;
   let blinkTO=null;
-  let showingContext=false; // mobile toggle state
+  let showingContext=false;
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
-  /* --- surface hidden errors (SES extensions etc.) --- */
   window.addEventListener('error', (e)=>console.warn('window error:', e.message, e.error));
   window.addEventListener('unhandledrejection', (e)=>console.warn('unhandledrejection:', e.reason));
 
-  /* ---- AUDIO UNLOCK (mobile-safe) ---- */
+  /* ---- AUDIO UNLOCKS ---- */
   let audioUnlocked = false;
   function unlockAudio(){
     if (audioUnlocked) return;
@@ -309,7 +309,6 @@
       ensureCtx();
       if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
       attachAnalyserToMediaElement();
-      // 20ms silent beep to satisfy gesture requirement on iOS
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       gain.gain.value = 0;
@@ -319,12 +318,10 @@
       audioUnlocked = true;
     }catch(_){}
   }
-  // Extra unlocks so iOS is ALWAYS happy
-  document.addEventListener('touchstart', unlockAudio, { passive: true, once: true });
-  document.addEventListener('pointerdown', unlockAudio, { passive: true, once: true });
+  document.addEventListener('touchstart', unlockAudio, { passive: true });
+  document.addEventListener('pointerdown', unlockAudio, { passive: true });
   ['intro','doorTrigger','ctxToggleBtn'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('click', unlockAudio, { passive: true });
+    const el = document.getElementById(id); if (el) el.addEventListener('click', unlockAudio, { passive: true });
   });
 
   function typeOut(text, done){
@@ -346,7 +343,7 @@
     })();
   }
 
-  // mouth anim thresholds
+  // mouth anim setup
   const SY=[0.10,0.58,1.12,1.72,2.34], SX=[1.00,1.01,1.02,1.02,1.03];
   const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
   const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
@@ -361,7 +358,7 @@
       audioEl=document.createElement('audio');
       audioEl.style.position='absolute'; audioEl.style.left='-9999px';
       audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
-      audioEl.preload = 'auto';
+      audioEl.preload = 'none';
       audioEl.muted = false;
       document.body.appendChild(audioEl);
     }
@@ -390,7 +387,6 @@
         eyeL.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
         eyeR.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
       }else{
-        // idle chatter if no audio
         const phase=((now/1000*13)|0)%4; const rand=Math.random();
         setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
       }
@@ -432,7 +428,6 @@
     const guyRect  = chunkletContainer.getBoundingClientRect();
     if(!(cardRect.width && guyRect.width)) return;
 
-    // Keep bubble between context card and chunklet head
     const bubbleGap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap'));
     const desiredBottom = Math.max(8, guyRect.top - bubbleGap);
     let newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
@@ -492,22 +487,22 @@
     }, ms);
   }
 
-  // NEW: resilient audio playback (element → WebAudio fallback)
+  // Robust audio playback (element -> WebAudio)
   async function playAudio(b64, onEnd){
     try{
       ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
 
-      const base = (b64 || '').split(',')[1] || b64 || '';
+      const commaIdx = (b64||'').indexOf(',');
+      const base = commaIdx>=0 ? b64.slice(commaIdx+1) : (b64||'');
       const bin  = Uint8Array.from(atob(base), c => c.charCodeAt(0));
       const blob = new Blob([bin], { type:'audio/mpeg' });
 
-      // try HTMLAudioElement first
+      // 1) try HTMLAudioElement
       try{
         if(!audioEl){
           audioEl = document.createElement('audio');
           audioEl.hidden = true;
-          audioEl.setAttribute('playsinline','');
-          audioEl.setAttribute('webkit-playsinline','');
+          audioEl.setAttribute('playsinline',''); audioEl.setAttribute('webkit-playsinline','');
           document.body.appendChild(audioEl);
         }
         if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL = null; }
@@ -515,20 +510,20 @@
         audioEl.src = currentObjectURL;
 
         audioEl.onplay  = ()=>{ setClosed(); startMouth(); tagPlaying = true; };
-        audioEl.onended = ()=>{ tagPlaying = false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd && onEnd(); };
+        audioEl.onended = ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
         audioEl.onerror = (e)=>{ throw e?.error || new Error('audio element error'); };
 
         if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
         await audioEl.play();
-        return; // success via media element
+        return;
       }catch(err1){
         console.warn('media element failed, switching to WebAudio', err1);
       }
 
-      // WebAudio fallback
+      // 2) WebAudio fallback that Safari accepts
       try{
-        const arrBuf = bin.buffer.slice(0);
-        const audioBuf = await new Promise((res, rej)=> audioCtx.decodeAudioData(arrBuf, res, rej));
+        const arrBuf = await blob.arrayBuffer();
+        const audioBuf = await new Promise((res, rej)=> audioCtx.decodeAudioData(arrBuf.slice(0), res, rej));
 
         if(currentSource){ try{ currentSource.stop(); }catch(_){ } try{ currentSource.disconnect(); }catch(_){ } currentSource = null; }
 
@@ -543,10 +538,10 @@
         src.start();
         return;
       }catch(err2){
-        console.warn('decodeAudioData failed; fallback to mouth only', err2);
+        console.warn('decodeAudioData failed; mouth only', err2);
       }
 
-      // last resort: mouth only
+      // 3) last resort: mouth only
       startMouth();
       const approx = Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
       setTimeout(()=>{ stopMouth(); onEnd && onEnd(); }, (approx + 0.2) * 1000);
@@ -574,14 +569,13 @@
   }
   function clearWorkTag(){ const old = document.querySelector('#output .work-tag'); if(old) old.remove(); }
 
-  // --- Robust fetch with timeout and explicit abort ---
+  // Fetch helpers
   function fetchJSONWithTimeout(url, timeoutMs){
     const ctrl = new AbortController();
     const id = setTimeout(()=>ctrl.abort('timeout'), timeoutMs);
     return fetch(url, { cache:'no-store', signal: ctrl.signal })
       .finally(()=> clearTimeout(id));
   }
-
   async function safeGetJSON(url, ms){
     try{
       const res = await fetchJSONWithTimeout(url, ms);
@@ -592,9 +586,7 @@
       return null;
     }
   }
-
   async function fetchQuote(){
-    // try only_quote first, then a plain fast fallback
     const first = await safeGetJSON(ENDPOINT + QUERY_QUOTE, IS_PHONE ? 13000 : 9000);
     if (first && first.text) return first;
     const second = await safeGetJSON(ENDPOINT + QUERY_QUOTE_FALLBACK, IS_PHONE ? 10000 : 8000);
@@ -605,7 +597,7 @@
   }
 
   function startGame(){
-    unlockAudio();            // unlock on first tap/keypress
+    unlockAudio();
     if(!intro) return;
     scheduleBlink();
 
@@ -622,7 +614,6 @@
       if (finished) return;
       finished = true;
 
-      // success path mini-close for context if it wasn't shown yet
       if (!IS_PHONE && ctx && !ctxWrap.classList.contains('active')){
         ctxText.textContent = ctx;
         ctxWrap.classList.add('active');
@@ -659,8 +650,8 @@
     if(showingContext) showQuote(); else showNote();
   });
 
-  function summon(){
-    unlockAudio();            // ensure iOS audio unlocked
+  async function summon(){
+    unlockAudio();
     if(busy) return;
     try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
     busy=true;
@@ -669,106 +660,32 @@
     showingContext = false; setToggleUI();
     openDoor();
 
-    (async ()=>{
-      try{
-        await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
+    try{
+      await new Promise(r=>setTimeout(r, DOOR_SWING_MS + EMERGE_MS + WADDLE_MS));
 
-        // Phase 1: fast content
-        const data = await fetchQuote();
+      // Phase 1
+      const data = await fetchQuote();
 
-        if(!data || !data.text){
-          // FAIL PATH — keep bubble until TTS finishes
-          const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
-          if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-          typeOut(sanitize(fallback), async ()=>{
-            showWork(null, null);
-            placeBubble();
-
-            // speak the apology; only close when done
-            const guard = setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 18000); // safety
-            try{
-              const tts = await fetchTTS(fallback);
-              if(tts && tts.audioBase64){
-                await playAudio(tts.audioBase64, ()=>{
-                  clearTimeout(guard);
-                  outputContainer.classList.remove('active');
-                  clearWorkTag();
-                  setTimeout(closeDoor, 300);
-                });
-              }else{
-                startMouth(); setTimeout(()=>{
-                  stopMouth(); clearTimeout(guard);
-                  outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
-                }, 2400);
-              }
-            }catch(_){
-              startMouth(); setTimeout(()=>{
-                stopMouth(); clearTimeout(guard);
-                outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
-              }, 2400);
-            }
-          });
-          return;
-        }
-
-        const work = data.work || null, author = data.author || null;
-        const text = sanitize(data.text);
-        const ctx  = (data.context && (data.context.summary||'').trim()) || '';
-        const finalize = makeFinalizer({ work, author, ctx });
-
-        // TYPE the quote
-        typeOut(text, ()=>{
-          // attribution immediately
-          showWork(work, author);
-          placeBubble();
-
-          // Desktop: auto-show context briefly; Mobile: use the red button toggler
-          if(!IS_PHONE && ctx){
-            setTimeout(()=>{
-              ctxText.textContent = ctx;
-              ctxWrap.classList.add('active');
-              placeBubble();
-            }, SHOW_CTX_AFTER_MS);
-          } else {
-            // ensure note text is ready for mobile toggle
-            ctxText.textContent = ctx || '';
-          }
-        });
-
-        // Phase 2: TTS in background (visuals independent)
-        fetchTTS(text).then(tts=>{
-          if(tts && tts.audioBase64){
-            playAudio(tts.audioBase64, ()=>{ /* visuals linger per timers */ });
-          }else{
-            startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
-            setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
-          }
-        }).catch(()=>{
-          startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
-          setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
-        });
-
-        // closeouts not tied to TTS (success path)
-        setTimeout(()=>{
-          if(!IS_PHONE) ctxWrap.classList.remove('active'); // on mobile, user controls it
-          outputContainer.classList.remove('active');
-          clearWorkTag();
-          setTimeout(closeDoor, 500);
-        }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
-
-      }catch(e){
-        console.error('summon hard error', e);
-        // Same fail path as above
+      if(!data || !data.text){
+        // FAIL PATH — bubble stays until TTS finishes, with short guard on mobile
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
         if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
         typeOut(sanitize(fallback), async ()=>{
-          const guard = setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, 18000);
+          showWork(null, null);
+          placeBubble();
+
+          const guard = setTimeout(()=>{
+            outputContainer.classList.remove('active'); clearWorkTag(); closeDoor();
+          }, IS_PHONE ? FAIL_GUARD_MS_MOBILE : FAIL_GUARD_MS_DESK);
+
           try{
             const tts = await fetchTTS(fallback);
             if(tts && tts.audioBase64){
               await playAudio(tts.audioBase64, ()=>{
                 clearTimeout(guard);
-                outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+                outputContainer.classList.remove('active');
+                clearWorkTag();
+                setTimeout(closeDoor, 300);
               });
             }else{
               startMouth(); setTimeout(()=>{
@@ -783,8 +700,79 @@
             }, 2400);
           }
         });
+        return;
       }
-    })();
+
+      const work = data.work || null, author = data.author || null;
+      const text = sanitize(data.text);
+      const ctx  = (data.context && (data.context.summary||'').trim()) || '';
+      const finalize = makeFinalizer({ work, author, ctx });
+
+      // TYPE
+      typeOut(text, ()=>{
+        showWork(work, author);
+        placeBubble();
+
+        if(!IS_PHONE && ctx){
+          setTimeout(()=>{
+            ctxText.textContent = ctx;
+            ctxWrap.classList.add('active');
+            placeBubble();
+          }, SHOW_CTX_AFTER_MS);
+        } else {
+          ctxText.textContent = ctx || '';
+        }
+      });
+
+      // Phase 2 TTS
+      fetchTTS(text).then(tts=>{
+        if(tts && tts.audioBase64){
+          playAudio(tts.audioBase64, ()=>{ /* visuals linger via timers */ });
+        }else{
+          startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
+          setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
+        }
+      }).catch(()=>{
+        startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
+        setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
+      });
+
+      // Success closeouts (independent of TTS)
+      setTimeout(()=>{
+        if(!IS_PHONE) ctxWrap.classList.remove('active');
+        outputContainer.classList.remove('active');
+        clearWorkTag();
+        setTimeout(closeDoor, 500);
+      }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
+
+    }catch(e){
+      console.error('summon hard error', e);
+      // same fail path
+      const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
+      if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
+      typeOut(sanitize(fallback), async ()=>{
+        const guard = setTimeout(()=>{ outputContainer.classList.remove('active'); closeDoor(); }, IS_PHONE ? FAIL_GUARD_MS_MOBILE : FAIL_GUARD_MS_DESK);
+        try{
+          const tts = await fetchTTS(fallback);
+          if(tts && tts.audioBase64){
+            await playAudio(tts.audioBase64, ()=>{
+              clearTimeout(guard);
+              outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+            });
+          }else{
+            startMouth(); setTimeout(()=>{
+              stopMouth(); clearTimeout(guard);
+              outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+            }, 2400);
+          }
+        }catch(_){
+          startMouth(); setTimeout(()=>{
+            stopMouth(); clearTimeout(guard);
+            outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 300);
+          }, 2400);
+        }
+      });
+    }
   }
 
   doorTrigger.addEventListener('click', summon);
