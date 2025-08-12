@@ -297,7 +297,8 @@
   let currentObjectURL=null;
   let blinkTO=null;
 
-  // Guard to prevent intro "ghost click" opening the door immediately
+  // iOS gesture gating
+  let primed=false;
   let gestureGuardUntil = 0;
 
   let currentView = 'quote'; // 'quote' | 'context'
@@ -332,21 +333,32 @@
   }
 
   /* ---- AUDIO UNLOCK (mobile-safe) ---- */
-  let audioUnlocked = false;
+  function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
+  function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
+
+  function attachAnalyserToMediaElement(){
+    ensureAnalyser();
+    if(!mediaSource && audioCtx && mainPlayer){
+      try{
+        mediaSource = audioCtx.createMediaElementSource(mainPlayer);
+        mediaSource.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }catch(e){ console.warn('media element source failed', e); }
+    }
+  }
+
   function unlockAudio(){
-    if (audioUnlocked) return;
     try{
       ensureCtx();
       if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
       attachAnalyserToMediaElement();
-      // 20ms silent beep to satisfy gesture requirement on iOS
+      // gesture-safe tiny silent beep
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       gain.gain.value = 0;
       osc.connect(gain).connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.02);
-      audioUnlocked = true;
     }catch(_){}
   }
 
@@ -375,21 +387,6 @@
   const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
   const GATE_FLOOR=0.010, CLOSE_GRACE_MS=20;
   let level=0,lastChange=0;
-
-  function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
-  function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
-
-  // Attach analyser to the single persistent mainPlayer
-  function attachAnalyserToMediaElement(){
-    ensureAnalyser();
-    if(!mediaSource && audioCtx && mainPlayer){
-      try{
-        mediaSource = audioCtx.createMediaElementSource(mainPlayer);
-        mediaSource.connect(analyser);
-        analyser.connect(audioCtx.destination);
-      }catch(e){ console.warn('media element source failed', e); }
-    }
-  }
 
   function rmsLevel(){ if(!analyser||!timeData) return 0; analyser.getFloatTimeDomainData(timeData); let s=0; for(let i=0;i<timeData.length;i++){s+=timeData[i]*timeData[i]} let r=Math.sqrt(s/timeData.length); return r<GATE_FLOOR?0:r; }
   function setLevel(n){ n=Math.max(0,Math.min(4,n|0)); if(n===level) return; level=n; mouth.style.transform=`scale(${SX[level]}, ${SY[level]})`; lastChange=performance.now(); }
@@ -557,6 +554,35 @@
     return URL.createObjectURL(blob);
   }
 
+  // Common helper: play click or fallback beep through mainPlayer
+  async function playClickOrBeep(){
+    // Revoke any TTS url, we’re about to use the player for SFX
+    if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+    mainPlayer.pause();
+
+    try{
+      mainPlayer.src = CLICK_MP3;
+      mainPlayer.load();
+      mainPlayer.currentTime = 0;
+      await mainPlayer.play();
+      return true;
+    }catch(err){
+      console.warn('click.mp3 failed, falling back to synthesized beep', err);
+      try{
+        const beepURL = makeBeepURL(1200, 0.06);
+        mainPlayer.src = beepURL;
+        mainPlayer.load();
+        mainPlayer.currentTime = 0;
+        await mainPlayer.play();
+        setTimeout(()=>{ try{ URL.revokeObjectURL(beepURL); }catch(_){} }, 2000);
+        return true;
+      }catch(e2){
+        console.warn('Beep fallback also failed', e2);
+        return false;
+      }
+    }
+  }
+
   // Play TTS using the persistent mainPlayer (unlocks mouth via analyser)
   async function playAudio(b64,onEnd){
     try{
@@ -625,10 +651,20 @@
     return await safeGetJSON(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000);
   }
 
-  function startGame(e){
-    unlockAudio();
-    // Prevent the intro tap from "falling through" and clicking the door
+  async function startGame(e){
+    // INTRO TAP — do the priming sound here
     if (e){ e.preventDefault(); e.stopPropagation(); }
+
+    unlockAudio();              // create/resume AudioContext
+    attachAnalyserToMediaElement();
+
+    // Play click or beep on the intro tap to satisfy iOS gesture gate
+    try{
+      const ok = await playClickOrBeep();
+      primed = ok;
+    }catch(_){ primed=false; }
+
+    // Prevent the intro tap from "falling through" to the door
     gestureGuardUntil = performance.now() + 400;
 
     if(!intro) return;
@@ -667,28 +703,10 @@
     unlockAudio();
     if(busy) return;
 
-    // PRIME the same element (mainPlayer) with a click; fall back to a generated beep if mp3 fails
+    // Optional: play click again when the door is tapped
     try{
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      mainPlayer.pause();
-      mainPlayer.src = CLICK_MP3;     // try your real asset first
-      mainPlayer.load();
-      mainPlayer.currentTime = 0;
-      await mainPlayer.play();
-    } catch (err) {
-      console.warn('click.mp3 failed, falling back to synthesized beep', err);
-      try {
-        const beepURL = makeBeepURL(1200, 0.06);
-        mainPlayer.pause();
-        mainPlayer.src = beepURL;
-        mainPlayer.load();
-        mainPlayer.currentTime = 0;
-        await mainPlayer.play();
-        setTimeout(()=>{ try{ URL.revokeObjectURL(beepURL); }catch(_){} }, 2000);
-      } catch (e2) {
-        console.warn('Beep fallback also failed', e2);
-      }
-    }
+      await playClickOrBeep();
+    }catch(_){}
 
     busy=true;
     ctxWrap.classList.remove('active');
@@ -841,6 +859,7 @@ C=toggle  R=reset`;
     if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
   });
 
+  // initial layout
   positionDoorAndChunklet();
 })();
 </script>
