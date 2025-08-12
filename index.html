@@ -513,27 +513,69 @@
     }, ms);
   }
 
+  // IMPROVED playAudio function for better iOS compatibility
   async function playAudio(b64,onEnd){
     try{
       ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
       const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
       const blob=new Blob([bin], {type:'audio/mp3'});
-      if(!audioEl){ audioEl=document.createElement('audio'); audioEl.hidden=true; document.body.appendChild(audioEl); }
-      if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-      currentObjectURL=URL.createObjectURL(blob); audioEl.src=currentObjectURL;
+      
+      if(!audioEl){ 
+        audioEl=document.createElement('audio'); 
+        audioEl.setAttribute('playsinline','');
+        audioEl.setAttribute('webkit-playsinline','');
+        audioEl.preload = 'auto';
+        audioEl.hidden=true; 
+        document.body.appendChild(audioEl); 
+      }
+      
+      if(currentObjectURL){ 
+        URL.revokeObjectURL(currentObjectURL); 
+        currentObjectURL=null; 
+      }
+      
+      currentObjectURL=URL.createObjectURL(blob); 
+      audioEl.src=currentObjectURL;
 
-      audioEl.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
-      audioEl.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
-      audioEl.onerror = (e)=>{ console.warn('Audio element error', e); onEnd&&onEnd(); };
+      // For iOS: ensure audio context is resumed
+      if (audioCtx && audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
 
-      if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
-      await audioEl.play();
+      audioEl.onplay = ()=>{ 
+        setClosed(); 
+        startMouth(); 
+        tagPlaying=true; 
+      };
+      
+      audioEl.onended= ()=>{ 
+        tagPlaying=false; 
+        stopMouth(); 
+        if(currentObjectURL){ 
+          URL.revokeObjectURL(currentObjectURL); 
+          currentObjectURL=null; 
+        } 
+        onEnd&&onEnd(); 
+      };
+      
+      audioEl.onerror = (e)=>{ 
+        console.warn('Audio element error', e); 
+        // Try Web Speech as fallback
+        speakWithWebSpeech(typed.textContent || '').then(()=> onEnd&&onEnd());
+      };
+
+      // Critical for iOS: play() must happen quickly after user gesture
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+      }
     }catch(err){
-      console.warn('Audio play blocked/failed; fallback mouth only', err);
-      startMouth(); const approx=Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
-      setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
+      console.warn('Audio play blocked/failed; fallback to Web Speech', err);
+      await speakWithWebSpeech(typed.textContent || '');
+      onEnd&&onEnd();
     }
   }
+  
   function stopAudio(){
     if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
     if(audioEl){ try{ audioEl.pause(); audioEl.currentTime=0; }catch(_){ } }
@@ -628,16 +670,12 @@
           const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
           const text = sanitize(fallback);
           typeOut(text, async ()=>{
-            // speak fail line; keep bubble until speech ends
-            if(isiOS && isSafari){
-              await speakWithWebSpeech(text);
+            // speak fail line
+            const tts = await fetchTTS(text);
+            if(tts && tts.audioBase64){
+              await new Promise(res=>playAudio(tts.audioBase64, res));
             }else{
-              const tts = await fetchTTS(text);
-              if(tts && tts.audioBase64){
-                await new Promise(res=>playAudio(tts.audioBase64, res));
-              }else{
-                await speakWithWebSpeech(text);
-              }
+              await speakWithWebSpeech(text);
             }
             // close after speaking
             setTimeout(()=>{ outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 400); }, 400);
@@ -662,20 +700,20 @@
           }
         });
 
-        // Phase 2: TTS vs Web Speech
+        // Phase 2: TTS - Try OpenAI first for ALL platforms (FIXED)
         (async ()=>{
-          if(isiOS && isSafari){
-            await speakWithWebSpeech(text);
-            return;
-          }
           try{
             const tts = await fetchTTS(text);
             if(tts && tts.audioBase64){
+              // Use audio element playback for all platforms (including iOS Safari)
               await new Promise(res=>playAudio(tts.audioBase64, res));
             }else{
+              // Only fall back to Web Speech if OpenAI fails
+              console.warn('OpenAI TTS failed, falling back to Web Speech');
               await speakWithWebSpeech(text);
             }
-          }catch(_){
+          }catch(e){
+            console.error('TTS error:', e);
             await speakWithWebSpeech(text);
           }
         })();
@@ -694,15 +732,11 @@
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
         const text = sanitize(fallback);
         typeOut(text, async ()=>{
-          if(isiOS && isSafari){
-            await speakWithWebSpeech(text);
+          const tts = await fetchTTS(text);
+          if(tts && tts.audioBase64){
+            await new Promise(res=>playAudio(tts.audioBase64, res));
           }else{
-            const tts = await fetchTTS(text);
-            if(tts && tts.audioBase64){
-              await new Promise(res=>playAudio(tts.audioBase64, res));
-            }else{
-              await speakWithWebSpeech(text);
-            }
+            await speakWithWebSpeech(text);
           }
           setTimeout(()=>{ outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 400); }, 400);
         });
