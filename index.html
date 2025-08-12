@@ -108,6 +108,32 @@
   .typing .cursor{animation:none}
   .output .work-tag{ opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.72em; letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:12px; }
 
+  /* Toggle button (glasses) */
+  .glasses-btn{
+    position:absolute;
+    right:-10px; top:-14px;          /* anchored to bubble wrap corner */
+    width:48px; height:32px;
+    background:url('glasses.png') center/contain no-repeat;
+    border:none; outline:none;
+    cursor:pointer;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,.45));
+    z-index:85;                       /* above bubble & context */
+    display:none;                     /* enabled by .on class */
+    pointer-events:auto;              /* override parent’s none */
+  }
+  .glasses-btn.on{ display:block; }
+  .glasses-btn:active{ transform:translateY(1px) scale(0.98); }
+
+  /* Entrance */
+  @keyframes emergePop{0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85);}40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1;}60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);}100%{transform:translate(-50%,-12px) scale(1,1) rotate(0deg);}}
+  @keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0)}20%{transform:translate(-50%,10px)}30%{transform:translate(-50%,20px)}40%{transform:translate(-50%,30px)}55%{transform:translate(-50%,45px)}70%{transform:translate(-50%,58px)}85%{transform:translate(-50%,66px) scale(1.02,.98)}100%{transform:translate(-50%,70px)}}
+  @keyframes shadowEmerge{0%{opacity:0; transform:translateX(-50%) scale(0.4);}60%{opacity:.55; transform:translateX(-50%) scale(0.75);}100%{opacity:.65; transform:translateX(-50%) scale(0.85);}}
+  @keyframes shadowWaddle{0%{opacity:.65; transform:translateX(-50%) scale(0.85);}25%{opacity:.70; transform:translateX(-50%) scale(0.95);}50%{opacity:.60; transform:translateX(-50%) scale(0.88);}75%{opacity:.72; transform:translateX(-50%) scale(1.00);}100%{opacity:.68; transform:translateX(-50%) scale(1.05);}}
+  .chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards;}
+  .chunklet-container.waddle{animation:waddleDown 2.4s cubic-bezier(.22,1,.36,1) forwards;}
+  .chunklet-container.emerge .ground-shadow{animation:shadowEmerge .7s ease-out forwards;}
+  .chunklet-container.waddle .ground-shadow{animation:shadowWaddle 2.4s ease-out forwards;}
+
   /* Context card */
   .context-container{ position:fixed; left:50%; transform:translateX(-50%); top:8px; z-index:70; pointer-events:none; opacity:0; transition:opacity .35s ease; width:calc(100vw - 24px); max-width:760px; padding:0 6px; }
   .context-container.active{ opacity:1; }
@@ -119,23 +145,6 @@
     font: 400 15px/1.45 "DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   }
   .tweet-text{ letter-spacing:.01em; }
-
-  /* Glasses toggle button (keep size/spot the same) */
-  .glasses-btn{
-    position:fixed;
-    right:10px;
-    top:10px;
-    width:56px;
-    height:36px;
-    background:url('glasses.png') center/contain no-repeat;
-    border:0;
-    outline:none;
-    padding:0;
-    cursor:pointer;
-    z-index:85;
-    filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
-  }
-  .glasses-btn:active{ transform:translateY(1px); }
 
   /* Mobile (portrait-first) */
   @media (max-width: 600px) {
@@ -157,13 +166,7 @@
     .output{ font-size:clamp(17px, 4.7vw, 22px); letter-spacing:-0.045em; }
     .speech-bubble{ border-width:5px; border-radius:26px; padding:12px 14px; }
     .bubble-tail{ width:36px; height:24px; }
-
-    .glasses-btn{
-      right:10px;
-      top:10px;
-      width:52px;
-      height:34px;
-    }
+    .glasses-btn{ right:-8px; top:-12px; width:42px; height:28px; }
   }
 </style>
 </head>
@@ -172,8 +175,6 @@
 <div class="intro-overlay" id="intro" aria-label="Tap to start">
   <div class="intro-bg" aria-hidden="true"></div>
 </div>
-
-<button id="toggleBtn" class="glasses-btn" aria-label="Show note"></button>
 
 <audio id="clickSnd" src="click.mp3" preload="auto"></audio>
 
@@ -223,6 +224,9 @@
     <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
+
+    <!-- The glasses toggle button (always rendered once quote appears) -->
+    <button class="glasses-btn" id="glassesBtn" aria-label="Toggle note"></button>
   </div>
 </div>
 
@@ -247,16 +251,20 @@
   const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&context=1';
   // Phase 1b fallback if quote endpoint has trouble
   const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=0&tts=0';
+  // Phase 1c: on-demand context if we didn’t get one initially
+  const buildCTX = (t,a,w)=> `?only_context=1&text=${encodeURIComponent(t)}&author=${encodeURIComponent(a||'')}&work=${encodeURIComponent(w||'')}`;
   // Phase 2: TTS for whatever text we displayed
   const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=verse&text=${encodeURIComponent(t)}`;
+
+  // Web Speech fallback (mobile), kept as-is from prior version
+  const ENABLE_WEB_SPEECH_FALLBACK = true;
 
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
   const DOOR_SWING_MS = 800, EMERGE_MS = 700, WADDLE_MS = 2400;
-
-  // Lingers
-  const SUCCESS_LINGER_MS = 50000; // unchanged for working lines
-  const FAIL_AFTER_END_MS = 900;   // close ~1s after fail speech finishes
+  const SHOW_CTX_AFTER_MS = 700;          // we now only auto-show when user toggles; this is unused but kept
+  const BUBBLE_LINGER_MS  = 50000;
+  const CTX_LINGER_MS     = 50000;
 
   const BLINK_MIN = 2600, BLINK_MAX = 5400;
 
@@ -279,23 +287,24 @@
   const ctxWrap = document.getElementById('ctx');
   const ctxText = document.getElementById('ctxText');
 
-  const toggleBtn = document.getElementById('toggleBtn');
+  const glassesBtn = document.getElementById('glassesBtn');
 
   const bgImg   = document.querySelector('.scene-bg img');
   const hostEl  = document.querySelector('.scene-bg');
 
   let busy=false, doorOpen=false;
   let audioCtx,currentSource,audioEl,mediaSource,analyser,timeData;
-  let raf,animating=false,tagPlaying=false,speechPlaying=false;
+  let raf,animating=false,tagPlaying=false;
   let currentObjectURL=null;
   let blinkTO=null;
 
-  let hasContext=false;
-  let showingContext=false;
-  let closeTimer=null;
+  let viewMode = 'quote'; // 'quote' | 'context'
+  let currentQuote = { text:'', author:null, work:null };
+  let haveContext = false; // whether we already have a note for currentQuote
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
+  /* --- surface hidden errors (just for debugging) --- */
   window.addEventListener('error', (e)=>console.warn('window error:', e.message, e.error));
   window.addEventListener('unhandledrejection', (e)=>console.warn('unhandledrejection:', e.reason));
 
@@ -307,7 +316,7 @@
       ensureCtx();
       if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
       attachAnalyserToMediaElement();
-      // 20ms silent beep
+      // 20ms silent beep to satisfy gesture requirement on iOS
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       gain.gain.value = 0;
@@ -316,64 +325,33 @@
       osc.stop(audioCtx.currentTime + 0.02);
       audioUnlocked = true;
     }catch(_){}
-    primeWebSpeech(); // also prime speech synthesis on first gesture
   }
 
-  /* ---- Web Speech fallback (mobile) ---- */
-  let speechPrimed=false;
-  function primeWebSpeech(){
-    if(speechPrimed) return;
-    try{
-      if(!('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(' ');
-      u.volume = 0; // Safari may ignore volume, but this is very short
-      u.rate = 1;
-      speechSynthesis.speak(u);
-      speechPrimed = true;
-    }catch(_){}
-  }
-  function pickVoice(){
-    const synth = window.speechSynthesis;
-    if(!synth) return null;
-    const voices = synth.getVoices() || [];
-    // Prefer natural English voices if present
-    const want = ['Daniel','Samantha','Serena','Moira','Alex','Karen','Tessa'];
-    for(const name of want){
-      const v = voices.find(v=>v.name.indexOf(name)>=0);
-      if(v) return v;
+  function typeOut(text, done){
+    if(!outputContainer.classList.contains('active')){
+      outputContainer.classList.add('active');
     }
-    return voices.find(v=>/^en[-_]/i.test(v.lang)) || voices[0] || null;
-  }
-  function speakWeb(text){
-    return new Promise((resolve)=>{
-      if(!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance){
-        // No web speech—fake a short talk so the mouth moves a bit
-        const approx=Math.min(8, Math.max(2.4, text.length/16));
-        startFakeTalk(approx*1000);
-        setTimeout(resolve, approx*1000);
-        return;
+    typed.textContent='';
+    output.classList.add('typing');
+    (function loop(i=0){
+      typed.textContent = text.slice(0,i);
+      placeBubble();
+      if(i<text.length){
+        setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
+      }else{
+        output.classList.remove('typing');
+        placeBubble();
+        done && done();
       }
-      const synth = window.speechSynthesis;
-      try{ synth.cancel(); }catch(_){}
-      const u = new SpeechSynthesisUtterance(text);
-      const v = pickVoice();
-      if(v) u.voice = v;
-      u.lang = (v && v.lang) || 'en-US';
-      u.rate = 0.98;
-      u.pitch = 1.02;
-      u.onstart = ()=>{ speechPlaying=true; startMouth(); };
-      u.onend   = ()=>{ speechPlaying=false; stopMouth(); resolve(); };
-      u.onerror = ()=>{ speechPlaying=false; stopMouth(); resolve(); };
-      try{ synth.speak(u); }catch(_){ resolve(); }
-    });
+    })();
   }
 
-  /* ---- Mouth animation ---- */
+  // mouth anim thresholds
   const SY=[0.10,0.58,1.12,1.72,2.34], SX=[1.00,1.01,1.02,1.02,1.03];
   const THRESH_UP=[0.030,0.060,0.100,0.160], HYST_DELTA=0.018;
   const THRESH_DOWN=THRESH_UP.map(t=>Math.max(0,t-HYST_DELTA));
   const GATE_FLOOR=0.010, CLOSE_GRACE_MS=20;
-  let level=0,lastChange=0,fakeUntil=0;
+  let level=0,lastChange=0;
 
   function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
   function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
@@ -397,12 +375,9 @@
   function setClosed(){ setLevel(0); }
   function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
   function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
-  function startFakeTalk(ms){ fakeUntil = performance.now() + ms; if(!animating) startMouth(); }
   function tick(){
     if(!animating) return; raf=requestAnimationFrame(tick);
-    const now=performance.now();
-    const active = !!currentSource || tagPlaying || speechPlaying || (fakeUntil > now);
-
+    const active=!!currentSource||tagPlaying, now=performance.now();
     if(active){
       if(analyser && (currentSource || (tagPlaying && mediaSource))){
         const e=rmsLevel();
@@ -415,7 +390,7 @@
         eyeL.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
         eyeR.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
       }else{
-        // speculative talk pattern
+        // idle chatter if no audio
         const phase=((now/1000*13)|0)%4; const rand=Math.random();
         setLevel(phase===0?0:phase===1?(rand<.7?1:2):phase===2?(rand<.6?2:3):(rand<.5?3:4));
       }
@@ -424,7 +399,6 @@
     setClosed();
   }
 
-  /* ---- Positioning ---- */
   const DOOR={
     get x(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-x'))||0.5; },
     get y(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--door-y'))||0.55; },
@@ -458,7 +432,7 @@
     const guyRect  = chunkletContainer.getBoundingClientRect();
     if(!(cardRect.width && guyRect.width)) return;
 
-    // Keep bubble between context card (if visible) and chunklet head
+    // Keep bubble between context card and chunklet head
     const bubbleGap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bubble-gap'));
     const desiredBottom = Math.max(8, guyRect.top - bubbleGap);
     let newTop = Math.max(8, Math.round(desiredBottom - cardRect.height));
@@ -486,27 +460,6 @@
   window.addEventListener('resize', positionDoorAndChunklet);
   window.addEventListener('orientationchange', positionDoorAndChunklet);
 
-  /* ---- UI helpers ---- */
-  function showBubble(){
-    outputContainer.classList.add('active');
-    ctxWrap.classList.remove('active');
-    showingContext=false;
-    toggleBtn.setAttribute('aria-label', hasContext ? 'Show note' : 'No note');
-    placeBubble();
-  }
-  function showContext(){
-    if(!hasContext) return;
-    ctxWrap.classList.add('active');
-    outputContainer.classList.remove('active');
-    showingContext=true;
-    toggleBtn.setAttribute('aria-label','Show quote');
-    placeBubble();
-  }
-  function toggleView(){
-    if(showingContext) showBubble(); else showContext();
-  }
-  toggleBtn.addEventListener('click', toggleView);
-
   function openDoor(){
     if(doorOpen) return;
     positionDoorAndChunklet();
@@ -526,6 +479,7 @@
     chunkletContainer.classList.remove('active','emerge','waddle');
     outputContainer.classList.remove('active');
     ctxWrap.classList.remove('active');
+    hideGlasses();
     clearWorkTag();
     setTimeout(()=>{ doorTrigger.classList.remove('door-open'); busy=false; }, 500);
   }
@@ -555,16 +509,28 @@
       if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
       await audioEl.play();
     }catch(err){
-      console.warn('Audio play blocked/failed; switch to web speech', err);
-      // Fallback to Web Speech immediately
-      speakWeb((typed.textContent||'').trim()).then(()=>{ onEnd&&onEnd(); });
+      console.warn('Audio play blocked/failed; fallback mouth only', err);
+      // Web Speech fallback (mobile)
+      if (ENABLE_WEB_SPEECH_FALLBACK && 'speechSynthesis' in window){
+        try{
+          const u = new SpeechSynthesisUtterance((typed.textContent||'').trim());
+          u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0;
+          u.onstart = ()=>{ startMouth(); };
+          u.onend   = ()=>{ stopMouth(); onEnd&&onEnd(); };
+          speechSynthesis.cancel(); speechSynthesis.speak(u);
+          return;
+        }catch(_){}
+      }
+      // last resort: animated mouth for a bit
+      startMouth(); const approx=Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
+      setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
     }
   }
   function stopAudio(){
     if(currentSource){ try{currentSource.stop();}catch(_){ } try{currentSource.disconnect();}catch(_){ } currentSource=null; }
     if(audioEl){ try{ audioEl.pause(); audioEl.currentTime=0; }catch(_){ } }
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-    tagPlaying=false; speechPlaying=false; fakeUntil=0; stopMouth();
+    tagPlaying=false;
   }
 
   function showWork(work, author){
@@ -576,7 +542,7 @@
   }
   function clearWorkTag(){ const old = document.querySelector('#output .work-tag'); if(old) old.remove(); }
 
-  // --- fetch with timeout ---
+  // --- Robust fetch with timeout and explicit abort ---
   function fetchJSONWithTimeout(url, timeoutMs){
     const ctrl = new AbortController();
     const id = setTimeout(()=>ctrl.abort('timeout'), timeoutMs);
@@ -593,7 +559,9 @@
       return null;
     }
   }
+
   async function fetchQuote(){
+    // try only_quote first, then a plain fast fallback
     const first = await safeGetJSON(ENDPOINT + QUERY_QUOTE, IS_PHONE ? 13000 : 9000);
     if (first && first.text) return first;
     const second = await safeGetJSON(ENDPOINT + QUERY_QUOTE_FALLBACK, IS_PHONE ? 10000 : 8000);
@@ -602,28 +570,30 @@
   async function fetchTTS(text){
     return await safeGetJSON(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000);
   }
+  async function fetchContextOnDemand(text, author, work){
+    const res = await safeGetJSON(ENDPOINT + buildCTX(text, author, work), IS_PHONE ? 12000 : 9000);
+    const ctx = (res && res.context && res.context.summary) ? String(res.context.summary).trim() : '';
+    return ctx;
+  }
 
-  function typeOut(text, done){
-    if(!outputContainer.classList.contains('active')){
-      outputContainer.classList.add('active');
-    }
-    typed.textContent='';
-    output.classList.add('typing');
-    (function loop(i=0){
-      typed.textContent = text.slice(0,i);
-      placeBubble();
-      if(i<text.length){
-        setTimeout(()=>loop(i+1), CHAR_MS + ((i%7)?0:Math.random()*10));
-      }else{
-        output.classList.remove('typing');
-        placeBubble();
-        done && done();
-      }
-    })();
+  function showGlasses(){ glassesBtn.classList.add('on'); }
+  function hideGlasses(){ glassesBtn.classList.remove('on'); }
+
+  function showQuoteView(){
+    viewMode = 'quote';
+    ctxWrap.classList.remove('active');
+    outputContainer.classList.add('active');
+    placeBubble();
+  }
+  function showContextView(){
+    viewMode = 'context';
+    outputContainer.classList.remove('active');
+    ctxWrap.classList.add('active');
+    placeBubble();
   }
 
   function startGame(){
-    unlockAudio(); // primes audio + web speech
+    unlockAudio();            // unlock on first tap/keypress
     if(!intro) return;
     scheduleBlink();
 
@@ -634,39 +604,30 @@
   intro.addEventListener('pointerdown', startGame, {passive:true});
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(); }});
 
-  function startCloseTimer(ms){
-    if(closeTimer) { clearTimeout(closeTimer); closeTimer=null; }
-    closeTimer = setTimeout(()=>{
-      ctxWrap.classList.remove('active');
-      outputContainer.classList.remove('active');
-      clearWorkTag();
-      setTimeout(closeDoor, 500);
-    }, ms);
-  }
-
-  async function speakQuote(text){
-    // Try server MP3 first; then web speech; otherwise fake talk briefly
-    try{
-      const tts = await fetchTTS(text);
-      if(tts && tts.audioBase64){
-        await new Promise(res=> playAudio(tts.audioBase64, res));
-        return true;
+  // Toggle button behavior
+  glassesBtn.addEventListener('click', async ()=>{
+    if(viewMode === 'quote'){
+      // If we don't yet have context, fetch it now
+      if(!haveContext){
+        ctxText.textContent = 'getting the note…';
+        const note = await fetchContextOnDemand(currentQuote.text, currentQuote.author, currentQuote.work);
+        if(note){ ctxText.textContent = note; haveContext = true; }
+        else { ctxText.textContent = 'no note this time—try another line.'; }
       }
-    }catch(_){}
-    await speakWeb(text);
-    return true;
-  }
+      showContextView();
+    }else{
+      showQuoteView();
+    }
+  });
 
   function summon(){
-    unlockAudio();
+    unlockAudio();            // ensure iOS audio unlocked
     if(busy) return;
     try{ clickSnd.currentTime=0; clickSnd.play(); }catch(_){}
     busy=true;
     ctxWrap.classList.remove('active');
     stopAudio(); clearWorkTag();
-    hasContext=false; showingContext=false;
-    toggleBtn.setAttribute('aria-label','Show note');
-
+    hideGlasses();
     openDoor();
 
     (async ()=>{
@@ -678,14 +639,39 @@
 
         if(!data || !data.text){
           const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
+          const finish = ()=>{ /* we keep bubble up until audio ends; then close shortly after */ setTimeout(()=>{ outputContainer.classList.remove('active'); setTimeout(closeDoor, 400); }, 600); };
           if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-          typeOut(sanitize(fallback), async ()=>{
+          typeOut(sanitize(fallback), ()=>{
             showWork(null, null);
             placeBubble();
-            showBubble(); // always show bubble first
-            await speakQuote(fallback);
-            // fail: close shortly after speech ends
-            startCloseTimer(FAIL_AFTER_END_MS);
+            showGlasses(); // still show so user can try toggling (will say no note)
+            currentQuote = { text:fallback, author:null, work:null };
+            haveContext = false;
+            fetchTTS(fallback).then(tts=>{
+              if(tts && tts.audioBase64) playAudio(tts.audioBase64, finish);
+              else {
+                // Try Web Speech as backup
+                if(ENABLE_WEB_SPEECH_FALLBACK && 'speechSynthesis' in window){
+                  try{
+                    const u = new SpeechSynthesisUtterance(fallback);
+                    u.rate=0.95; u.onstart=()=>startMouth(); u.onend=()=>{ stopMouth(); finish(); };
+                    speechSynthesis.cancel(); speechSynthesis.speak(u);
+                    return;
+                  }catch(_){}
+                }
+                startMouth(); setTimeout(()=>{ stopMouth(); finish(); }, 2400);
+              }
+            }).catch(()=>{
+              if(ENABLE_WEB_SPEECH_FALLBACK && 'speechSynthesis' in window){
+                try{
+                  const u = new SpeechSynthesisUtterance(fallback);
+                  u.rate=0.95; u.onstart=()=>startMouth(); u.onend=()=>{ stopMouth(); finish(); };
+                  speechSynthesis.cancel(); speechSynthesis.speak(u);
+                  return;
+                }catch(_){}
+              }
+              startMouth(); setTimeout(()=>{ stopMouth(); finish(); }, 2400);
+            });
           });
           return;
         }
@@ -693,31 +679,79 @@
         const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
         const ctx  = (data.context && (data.context.summary||'').trim()) || '';
-        hasContext = !!ctx;
-        if (hasContext) { ctxText.textContent = ctx; }
-        else { ctxText.textContent = ''; }
+
+        currentQuote = { text, author, work };
+        haveContext = !!ctx;
 
         // TYPE the quote
-        typeOut(text, async ()=>{
+        typeOut(text, ()=>{
+          // attribution immediately
           showWork(work, author);
           placeBubble();
-          showBubble(); // quote first; context only on glasses tap
+          // don’t auto-show context; user toggles with glasses
+          showQuoteView();
+          showGlasses();
+          if(haveContext){ ctxText.textContent = ctx; }
+          else { ctxText.textContent = ''; }
         });
 
-        // Speak (server mp3 → web speech)
-        speakQuote(text);
+        // Phase 2: TTS in background; not tied to closeouts
+        fetchTTS(text).then(tts=>{
+          if(tts && tts.audioBase64){
+            playAudio(tts.audioBase64, ()=>{ /* bubble stays; close via timer below */ });
+          }else{
+            // web speech fallback
+            if(ENABLE_WEB_SPEECH_FALLBACK && 'speechSynthesis' in window){
+              try{
+                const u = new SpeechSynthesisUtterance(text);
+                u.rate=0.95; u.onstart=()=>startMouth(); u.onend=()=>stopMouth();
+                speechSynthesis.cancel(); speechSynthesis.speak(u);
+              }catch(_){}
+            }else{
+              startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
+              setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
+            }
+          }
+        }).catch(()=>{
+          if(ENABLE_WEB_SPEECH_FALLBACK && 'speechSynthesis' in window){
+            try{
+              const u = new SpeechSynthesisUtterance(text);
+              u.rate=0.95; u.onstart=()=>startMouth(); u.onend=()=>stopMouth();
+              speechSynthesis.cancel(); speechSynthesis.speak(u);
+            }catch(_){}
+          }else{
+            startMouth(); const approx=Math.min(7, Math.max(2.2, text.length/16));
+            setTimeout(()=>{ stopMouth(); }, (approx+0.2)*1000);
+          }
+        });
 
-        // Success: keep up for standard linger
-        startCloseTimer(SUCCESS_LINGER_MS);
+        // Closeouts not tied to TTS; user can still toggle while visible
+        setTimeout(()=>{
+          ctxWrap.classList.remove('active');
+          outputContainer.classList.remove('active');
+          hideGlasses();
+          clearWorkTag();
+          setTimeout(closeDoor, 500);
+        }, Math.max(CTX_LINGER_MS, BUBBLE_LINGER_MS - SHOW_CTX_AFTER_MS));
 
       }catch(e){
         console.error('summon hard error', e);
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
         if(!outputContainer.classList.contains('active')) outputContainer.classList.add('active');
-        typeOut(sanitize(fallback), async ()=>{
-          showBubble();
-          await speakQuote(fallback);
-          startCloseTimer(FAIL_AFTER_END_MS);
+        showGlasses(); haveContext = false; currentQuote = { text:fallback, author:null, work:null };
+        typeOut(sanitize(fallback), ()=>{
+          if(ENABLE_WEB_SPEECH_FALLBACK && 'speechSynthesis' in window){
+            try{
+              const u = new SpeechSynthesisUtterance(fallback);
+              u.rate=0.95; u.onstart=()=>startMouth(); u.onend=()=>{ stopMouth(); setTimeout(()=>{ outputContainer.classList.remove('active'); setTimeout(closeDoor, 400); }, 600); };
+              speechSynthesis.cancel(); speechSynthesis.speak(u);
+              return;
+            }catch(_){}
+          }
+          startMouth(); setTimeout(()=>{
+            stopMouth();
+            setTimeout(()=>{ outputContainer.classList.remove('active'); setTimeout(closeDoor, 400); }, 600);
+          }, 2400);
         });
       }
     })();
