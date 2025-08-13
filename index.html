@@ -484,7 +484,7 @@
     const guyRect = chunkletContainer.getBoundingClientRect();
     if(!guyRect.width) return;
 
-    const baseX = guyRect.left + guyRect.width/2 + (IS_PHONE ? 20 : 24);
+    const baseX = guyRect.left + guyRect.width/2 + (IS_PHONE ? 75 : 80);
     const offset = IS_PHONE ? 52 : 58;
     const baseY = Math.min(window.innerHeight - 72, guyRect.bottom + offset);
 
