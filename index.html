@@ -13,7 +13,6 @@
 
 <style>
   :root{
-    /* change to your deployed URL if different */
     --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
     /* Figure + face */
@@ -36,7 +35,7 @@
     --door-w: 0.099;
     --door-h: 0.248;
 
-    --bubble-gap: 18px; /* gap between bubble bottom and chunklet head */
+    --bubble-gap: 18px;
     --tail-x: 50%;
   }
 
@@ -108,7 +107,7 @@
   .typing .cursor{ opacity:1; animation:blink 1s steps(1,end) infinite; }
   .output .work-tag{ opacity:.95; text-transform:uppercase; margin-left:.6em; font-size:.72em; letter-spacing:-0.06em; word-spacing:-0.04em; color:#333; display:block; margin-top:12px; }
 
-  /* Entrance */
+  /* Entrance animations */
   @keyframes emergePop{0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85);}40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1;}60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);}100%{transform:translate(-50%,-12px) scale(1,1) rotate(0deg);}}
   @keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0)}20%{transform:translate(-50%,10px)}30%{transform:translate(-50%,20px)}40%{transform:translate(-50%,30px)}55%{transform:translate(-50%,45px)}70%{transform:translate(-50%,58px)}85%{transform:translate(-50%,66px) scale(1.02,.98)}100%{transform:translate(-50%,70px)}}
   @keyframes shadowEmerge{0%{opacity:0; transform:translateX(-50%) scale(0.4);}60%{opacity:.55; transform:translateX(-50%) scale(0.75);}100%{opacity:.65; transform:translateX(-50%) scale(0.85);}}
@@ -132,7 +131,9 @@
 
   /* Glasses toggle button — fixed near Chunklet, not the bubble */
   .glasses-btn{
-    position:fixed; z-index:65; width:64px; height:64px; border:0; background:transparent; padding:0; display:none;
+    position:fixed;
+    z-index:95; /* keep above everything */
+    width:64px; height:64px; border:0; background:transparent; padding:0; display:none;
     transform:translate(-50%,-50%);
     pointer-events:auto;
   }
@@ -170,7 +171,7 @@
 </div>
 
 <!-- Single persistent audio element for ALL sounds (click + TTS) -->
-<audio id="mainPlayer" src="click.mp3" preload="auto" playsinline></audio>
+<audio id="mainPlayer" src="click.mp3" preload="auto" playsinline webkit-playsinline></audio>
 
 <div class="scene-container" id="gameRoot" aria-hidden="true">
   <div class="scene-bg">
@@ -270,9 +271,9 @@
   const output            = document.getElementById('output');
 
   const mainPlayer        = document.getElementById('mainPlayer');
+  mainPlayer.crossOrigin  = 'anonymous';
   const CLICK_MP3         = 'click.mp3';
 
-  // helpful logging if audio fails
   mainPlayer.addEventListener('error', () => {
     const el = mainPlayer;
     const code = el.error && el.error.code;
@@ -306,33 +307,45 @@
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
-  /* ---- helpers: platform + web speech ---- */
+  /* ---- platform info ---- */
   const isiOS = /iP(hone|od|ad)/.test(navigator.userAgent);
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
+  /* ---- Web Speech fallback ---- */
   function speakWithWebSpeech(text){
     return new Promise(resolve=>{
       if(!('speechSynthesis' in window)){ resolve(false); return; }
-      const u = new SpeechSynthesisUtterance(text);
-      const voices = speechSynthesis.getVoices();
-      const pick = voices.find(v=>/en(-|_)GB/i.test(v.lang)) || voices.find(v=>/en(-|_)US/i.test(v.lang)) || voices[0];
-      if(pick) u.voice = pick;
-      u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0;
 
-      let ended=false;
-      u.onend = ()=>{ if(!ended){ ended=true; stopMouth(); resolve(true); } };
-      u.onerror = ()=>{ if(!ended){ ended=true; stopMouth(); resolve(false); } };
+      function doSpeak(){
+        const u = new SpeechSynthesisUtterance(text);
+        const voices = speechSynthesis.getVoices();
+        const pick = voices.find(v=>/en(-|_)GB/i.test(v.lang)) || voices.find(v=>/en(-|_)US/i.test(v.lang)) || voices[0];
+        if(pick) u.voice = pick;
+        u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0;
 
-      startMouth();
-      const approx = Math.max(2.4, Math.min(10, text.length/14));
-      setTimeout(()=>{ if(!ended){ ended=true; stopMouth(); resolve(true); } }, approx*1000 + 600);
+        let ended=false;
+        u.onend = ()=>{ if(!ended){ ended=true; stopMouth(); resolve(true); } };
+        u.onerror = ()=>{ if(!ended){ ended=true; stopMouth(); resolve(false); } };
 
-      try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }
-      catch(_){ stopMouth(); resolve(false); }
+        startMouth();
+        const approx = Math.max(2.4, Math.min(10, text.length/14));
+        setTimeout(()=>{ if(!ended){ ended=true; stopMouth(); resolve(true); } }, approx*1000 + 600);
+
+        try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }
+        catch(_){ stopMouth(); resolve(false); }
+      }
+
+      // Safari sometimes populates voices async
+      const voicesNow = speechSynthesis.getVoices();
+      if (voicesNow && voicesNow.length){ doSpeak(); }
+      else{
+        const to = setTimeout(doSpeak, 300);
+        speechSynthesis.addEventListener('voiceschanged', ()=>{ clearTimeout(to); doSpeak(); }, { once:true });
+      }
     });
   }
 
-  /* ---- AUDIO UNLOCK (mobile-safe) ---- */
+  /* ---- AUDIO / ANALYSER ---- */
   function ensureCtx(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
   function ensureAnalyser(){ ensureCtx(); if(!analyser){ analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.0; timeData=new Float32Array(analyser.fftSize);} }
 
@@ -396,12 +409,11 @@
 
   function tick(){
     if(!animating) return; raf=requestAnimationFrame(tick);
-    const active = tagPlaying;
-    const now=performance.now();
-    if(active){
+    if(tagPlaying){
       if(analyser && mediaSource){
         const e=rmsLevel();
         let target=level;
+        const now=performance.now();
         while(target<4 && e>=THRESH_UP[target]) target++;
         while(target>0 && e<THRESH_DOWN[target-1]) target--;
         if(target<level && (now-lastChange)<CLOSE_GRACE_MS) target=level;
@@ -409,7 +421,7 @@
         const speakScale = 1 - Math.min(0.22, level*0.04);
         eyeL.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
         eyeR.style.transform = `translate(-50%,-50%) scaleY(${speakScale})`;
-      }else{
+      } else {
         setClosed();
       }
       return;
@@ -467,13 +479,27 @@
     outputContainer.style.setProperty('--tail-x', tailPct + '%');
   }
 
-  // GLASSES: fixed relative to Chunklet, not the bubble
+  // GLASSES: fixed near Chunklet + clamped to viewport
   function placeGlasses(){
     const guyRect = chunkletContainer.getBoundingClientRect();
     if(!guyRect.width) return;
-    const x = guyRect.left + guyRect.width/2 + (IS_PHONE ? 75 : 80);
+
+    const baseX = guyRect.left + guyRect.width/2 + (IS_PHONE ? 20 : 24);
     const offset = IS_PHONE ? 52 : 58;
-    const y = Math.min(window.innerHeight - 72, guyRect.bottom + offset);
+    const baseY = Math.min(window.innerHeight - 72, guyRect.bottom + offset);
+
+    const btnW = IS_PHONE ? 58 : 64;
+    const btnH = IS_PHONE ? 58 : 64;
+    const margin = 8;
+
+    const minX = margin + btnW/2;
+    const maxX = window.innerWidth - margin - btnW/2;
+    const minY = margin + btnH/2;
+    const maxY = window.innerHeight - margin - btnH/2;
+
+    const x = Math.max(minX, Math.min(maxX, baseX));
+    const y = Math.max(minY, Math.min(maxY, baseY));
+
     glassesBtn.style.left = x + 'px';
     glassesBtn.style.top  = y + 'px';
   }
@@ -521,27 +547,25 @@
     }, ms);
   }
 
-  // Create a tiny WAV beep as a fallback if click.mp3 is missing or blocked
+  // tiny WAV beep generator (fallback if click.mp3 missing)
   function makeBeepURL(freq=1100, duration=0.07, sampleRate=44100){
     const samples = Math.floor(duration * sampleRate);
-    const buffer  = new ArrayBuffer(44 + samples * 2); // 16-bit mono
+    const buffer  = new ArrayBuffer(44 + samples * 2);
     const view    = new DataView(buffer);
-
     function writeStr(off, s){ for (let i=0;i<s.length;i++) view.setUint8(off+i, s.charCodeAt(i)); }
     writeStr(0, 'RIFF');
     view.setUint32(4, 36 + samples*2, true);
     writeStr(8, 'WAVE');
     writeStr(12,'fmt ');
     view.setUint32(16, 16, true);
-    view.setUint16(20, 1,  true);      // PCM
-    view.setUint16(22, 1,  true);      // mono
+    view.setUint16(20, 1,  true);
+    view.setUint16(22, 1,  true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true); // byteRate = sr * ch * 2
-    view.setUint16(32, 2,  true);      // blockAlign
-    view.setUint16(34, 16, true);      // bitsPerSample
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2,  true);
+    view.setUint16(34, 16, true);
     writeStr(36,'data');
     view.setUint32(40, samples*2, true);
-
     let offset = 44;
     for (let i=0;i<samples;i++){
       const t = i / sampleRate;
@@ -549,17 +573,12 @@
       view.setInt16(offset, (amp * 0x7FFF) | 0, true);
       offset += 2;
     }
-
     const blob = new Blob([buffer], {type:'audio/wav'});
     return URL.createObjectURL(blob);
   }
 
-  // Common helper: play click or fallback beep through mainPlayer
   async function playClickOrBeep(){
-    // Revoke any TTS url, we’re about to use the player for SFX
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
-    mainPlayer.pause();
-
     try{
       mainPlayer.src = CLICK_MP3;
       mainPlayer.load();
@@ -567,7 +586,7 @@
       await mainPlayer.play();
       return true;
     }catch(err){
-      console.warn('click.mp3 failed, falling back to synthesized beep', err);
+      console.warn('click.mp3 failed, falling back to beep', err);
       try{
         const beepURL = makeBeepURL(1200, 0.06);
         mainPlayer.src = beepURL;
@@ -583,19 +602,21 @@
     }
   }
 
-  // Play TTS using the persistent mainPlayer (unlocks mouth via analyser)
+  // Play TTS using the persistent mainPlayer (then analyser drives mouth)
   async function playAudio(b64,onEnd){
     try{
       ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
 
       const bin=Uint8Array.from(atob(b64.split(',')[1]), c=>c.charCodeAt(0));
-      const blob=new Blob([bin], {type:'audio/mp3'});
+      const blob=new Blob([bin], {type:'audio/mpeg'}); // mp3 mime
 
-      // Revoke any previous object URL
       if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
 
       currentObjectURL=URL.createObjectURL(blob);
       mainPlayer.src=currentObjectURL;
+      mainPlayer.load();
+      mainPlayer.currentTime = 0;
+      mainPlayer.volume = 1;
 
       mainPlayer.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
       mainPlayer.onended= ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; } onEnd&&onEnd(); };
@@ -604,9 +625,9 @@
       if (audioCtx && audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch(_){} }
       await mainPlayer.play();
     }catch(err){
-      console.warn('Audio play blocked/failed; fallback mouth only', err);
-      startMouth(); const approx=Math.min(7, Math.max(2.2, (typed.textContent||'').length/16));
-      setTimeout(()=>{ stopMouth(); onEnd&&onEnd(); }, (approx+0.2)*1000);
+      console.warn('TTS play blocked/failed; using Web Speech fallback', err);
+      await speakWithWebSpeech(typed.textContent || '');
+      onEnd && onEnd();
     }
   }
   function stopAudio(){
@@ -652,13 +673,11 @@
   }
 
   async function startGame(e){
-    // INTRO TAP — do the priming sound here
     if (e){ e.preventDefault(); e.stopPropagation(); }
 
-    unlockAudio();              // create/resume AudioContext
+    unlockAudio();
     attachAnalyserToMediaElement();
 
-    // Play click or beep on the intro tap to satisfy iOS gesture gate
     try{
       const ok = await playClickOrBeep();
       primed = ok;
@@ -674,7 +693,6 @@
     intro.style.opacity='0';
     setTimeout(()=>{ intro.remove(); gameRoot.removeAttribute('aria-hidden'); }, 280);
   }
-  // Use passive:false so we can preventDefault
   intro.addEventListener('pointerdown', startGame, {passive:false});
   intro.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ startGame(e); }});
 
@@ -697,16 +715,13 @@
   glassesBtn.addEventListener('click', toggleView);
 
   async function summon(ev){
-    // Ignore the ghost click right after intro
     if (performance.now() < gestureGuardUntil) { ev && ev.preventDefault(); return; }
 
     unlockAudio();
     if(busy) return;
 
-    // Optional: play click again when the door is tapped
-    try{
-      await playClickOrBeep();
-    }catch(_){}
+    // optional click on door
+    try{ await playClickOrBeep(); }catch(_){}
 
     busy=true;
     ctxWrap.classList.remove('active');
@@ -725,15 +740,12 @@
           const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
           const text = sanitize(fallback);
           typeOut(text, async ()=>{
-            if(isiOS && isSafari){
-              await speakWithWebSpeech(text);
+            // try MP3 TTS first, then Web Speech
+            const tts = await fetchTTS(text);
+            if(tts && tts.audioBase64){
+              await new Promise(res=>playAudio(tts.audioBase64, res));
             }else{
-              const tts = await fetchTTS(text);
-              if(tts && tts.audioBase64){
-                await new Promise(res=>playAudio(tts.audioBase64, res));
-              }else{
-                await speakWithWebSpeech(text);
-              }
+              await speakWithWebSpeech(text);
             }
             setTimeout(()=>{ outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 400); }, 400);
           });
@@ -756,12 +768,8 @@
           }
         });
 
-        // Phase 2: TTS vs Web Speech
+        // Phase 2: TTS first; fallback to Web Speech if needed (works on iOS)
         (async ()=>{
-          if(isiOS && isSafari){
-            await speakWithWebSpeech(text);
-            return;
-          }
           try{
             const tts = await fetchTTS(text);
             if(tts && tts.audioBase64){
@@ -788,15 +796,15 @@
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
         const text = sanitize(fallback);
         typeOut(text, async ()=>{
-          if(isiOS && isSafari){
-            await speakWithWebSpeech(text);
-          }else{
+          try{
             const tts = await fetchTTS(text);
             if(tts && tts.audioBase64){
               await new Promise(res=>playAudio(tts.audioBase64, res));
             }else{
               await speakWithWebSpeech(text);
             }
+          }catch(_){
+            await speakWithWebSpeech(text);
           }
           setTimeout(()=>{ outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 400); }, 400);
         });
@@ -859,7 +867,6 @@ C=toggle  R=reset`;
     if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
   });
 
-  // initial layout
   positionDoorAndChunklet();
 })();
 </script>
