@@ -737,7 +737,7 @@
         const data = await fetchQuote();
 
         if(!data || !data.text){
-          const fallback = "oh crap! let me ugh... I have to go return some video tapes, I'll be right back.";
+          const fallback = "um. ahhh, you know what? it's the funniest thing, I completely forgot what I was about to say. Let me go back inside and eat a peanut butter cup and I'll be right back.";
           const text = sanitize(fallback);
           typeOut(text, async ()=>{
             // try MP3 TTS first, then Web Speech
