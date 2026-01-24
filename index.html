@@ -248,7 +248,7 @@
   const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&context=1';
   const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=0&tts=0';
   // Phase 2: TTS for whatever text we displayed
-  const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=onyx&text=${encodeURIComponent(t)}`;
+  const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=fable&text=${encodeURIComponent(t)}`;
 
   const CHAR_MS  = parseInt(css.getPropertyValue('--char-ms'),10) || 20;
 
