@@ -245,7 +245,7 @@
 
   // Phase 1: fast quote + context (no TTS)
   const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&context=1';
-  const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=0&tts=0';
+  const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=1&tts=0';
   // Phase 2: TTS for whatever text we displayed
   const buildTTS = (t)=> `?only_tts=1&accent=scottish&voice=fable&text=${encodeURIComponent(t)}`;
 
@@ -739,6 +739,8 @@
           const fallback = "um. ahhh... it's the funniest thing, I completely forgot what I was about to say. Let me go back inside, eat a peanut butter cup then please click on the door again and I'll be right back.";
           const text = sanitize(fallback);
           typeOut(text, async ()=>{
+            glassesBtn.classList.add('show');
+            placeGlasses();
             // try MP3 TTS first, then Web Speech
             const tts = await fetchTTS(text);
             if(tts && tts.audioBase64){
@@ -758,13 +760,11 @@
         // TYPE the quote
         typeOut(text, async ()=>{
           showWork(work, author);
-          placeBubble(); placeGlasses();
-
           if(lastContextText){
             ctxText.textContent = lastContextText;
-            glassesBtn.classList.add('show');
-            placeGlasses();
           }
+          glassesBtn.classList.add('show');
+          placeBubble(); placeGlasses();
         });
 
         // Phase 2: TTS first; fallback to Web Speech if needed (works on iOS)
