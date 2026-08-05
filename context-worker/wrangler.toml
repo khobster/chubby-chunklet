@@ -1,0 +1,7 @@
+name = "chunklet-context"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# Free Workers AI binding — no API key needed.
+[ai]
+binding = "AI"
