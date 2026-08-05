@@ -16,11 +16,11 @@
     --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
 
     /* Figure + face */
-    --figure-scale: 1.08;
-    --mouth-top:39%;
-    --mouth-left:49%;
-    --mouth-w:20px;
-    --mouth-h:20px;
+    --figure-scale: 0.80;
+    --mouth-top:45%;
+    --mouth-left:47%;
+    --mouth-w:22px;
+    --mouth-h:22px;
     --mouth-scale-0:.08;
 
     --eye-top:34.2%;
@@ -29,11 +29,11 @@
 
     --char-ms:18;
 
-    /* Door hotspot (in image-relative coords) */
-    --door-x: 0.472;
-    --door-y: 0.579;
-    --door-w: 0.099;
-    --door-h: 0.248;
+    /* Door hotspot (in image-relative coords) — cuckoo clock opening */
+    --door-x: 0.501;
+    --door-y: 0.406;
+    --door-w: 0.061;
+    --door-h: 0.122;
 
     --bubble-gap: 18px;
     --tail-x: 50%;
@@ -80,6 +80,14 @@
   .door-open .door-left{ transform:rotateY(85deg); }
   .door-open .door-right{ transform:rotateY(-85deg); }
 
+  /* Cuckoo clock has its own painted shutters + resting figure — hide the fake brown doors,
+     keep the container as the invisible click hotspot. No ground shadow (he's up in the clock). */
+  .door-left, .door-right{ display:none; }
+  .ground-shadow{ display:none; }
+  /* The peg figure already has painted eyes — hide the overlay eye-dots so there's no doubling.
+     Only the animating mouth-ellipse is drawn (over his smile) so his mouth moves when he talks. */
+  .eye-dot{ display:none; }
+
   /* Chunklet */
   .chunklet-container{ position:absolute; transform:translate(-50%, -30px); opacity:0; transition:opacity 0.3s; z-index:60; pointer-events:none; }
   .chunklet-container.active{ opacity:1; }
@@ -111,7 +119,8 @@
 
   /* Entrance animations */
   @keyframes emergePop{0%{transform:translate(-50%,-60px) scale(.86,.92) rotate(-3deg); opacity:0; filter:brightness(.85);}40%{transform:translate(-50%,-28px) scale(1.06,.94) rotate(-2deg); opacity:1;}60%{transform:translate(-50%,-18px) scale(.96,1.04) rotate(2deg);}100%{transform:translate(-50%,-12px) scale(1,1) rotate(0deg);}}
-  @keyframes waddleDown{0%{transform:translate(-50%,-12px)}10%{transform:translate(-50%,0)}20%{transform:translate(-50%,10px)}30%{transform:translate(-50%,20px)}40%{transform:translate(-50%,30px)}55%{transform:translate(-50%,45px)}70%{transform:translate(-50%,58px)}85%{transform:translate(-50%,66px) scale(1.02,.98)}100%{transform:translate(-50%,70px)}}
+  /* Cuckoo settle: he springs out of the opening and bobs in place (no walking down). */
+  @keyframes waddleDown{0%{transform:translate(-50%,-12px)}18%{transform:translate(-50%,-4px)}36%{transform:translate(-50%,-13px)}56%{transform:translate(-50%,-6px)}76%{transform:translate(-50%,-12px)}100%{transform:translate(-50%,-10px)}}
   @keyframes shadowEmerge{0%{opacity:0; transform:translateX(-50%) scale(0.4);}60%{opacity:.55; transform:translateX(-50%) scale(0.75);}100%{opacity:.65; transform:translateX(-50%) scale(0.85);}}
   @keyframes shadowWaddle{0%{opacity:.65; transform:translateX(-50%) scale(0.85);}25%{opacity:.70; transform:translateX(-50%) scale(0.95);}50%{opacity:.60; transform:translateX(-50%) scale(0.88);}75%{opacity:.72; transform:translateX(-50%) scale(1.00);}100%{opacity:.68; transform:translateX(-50%) scale(1.05);}}
   .chunklet-container.emerge{animation:emergePop .7s cubic-bezier(.22,1,.36,1) forwards;}
@@ -145,11 +154,11 @@
   /* Mobile (portrait-first) */
   @media (max-width: 600px) {
     :root{
-      --figure-scale:.70;
-      --mouth-w:16px;
-      --mouth-h:16px;
-      --mouth-top:38.6%;
-      --mouth-left:49%;
+      --figure-scale:.60;
+      --mouth-w:18px;
+      --mouth-h:18px;
+      --mouth-top:44%;
+      --mouth-left:47%;
 
       --eye-top:33.8%;
       --eye-gap:14px;
@@ -177,7 +186,7 @@
 
 <div class="scene-container" id="gameRoot" aria-hidden="true">
   <div class="scene-bg">
-    <img src="skullbones.png" alt="Scene background" />
+    <img src="cuckoo.png" alt="Scene background" />
 
     <div class="door-container" id="doorTrigger" aria-label="Open the door" role="button" tabindex="0">
       <div class="door-left">
@@ -194,7 +203,7 @@
 
     <div class="chunklet-container" id="chunkletContainer" aria-hidden="true">
       <div class="chunklet-wrap">
-        <img src="littleboytalk.png" alt="Chubby Chunklet" class="chunklet-img" />
+        <img src="peg.png" alt="Chubby Chunklet" class="chunklet-img" />
         <div class="eyes-overlay" id="eyes">
           <div class="eye-dot eye-left"></div>
           <div class="eye-dot eye-right"></div>
@@ -306,6 +315,7 @@
 
   let currentView = 'quote'; // 'quote' | 'context'
   let lastContextText = '';
+  let lastTimings = []; // server lip-sync track (seconds + openness) for fallback mouth
 
   const sanitize = txt=>{ txt=(txt||'').trim().replace(/!+$/,'').replace(/\s+/g,' '); return /[.?!]$/.test(txt)?txt:txt+'.'; };
 
@@ -326,15 +336,16 @@
         u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0;
 
         let ended=false;
-        u.onend = ()=>{ if(!ended){ ended=true; stopMouth(); resolve(true); } };
-        u.onerror = ()=>{ if(!ended){ ended=true; stopMouth(); resolve(false); } };
+        // Mouth is driven separately (analyser for real mp3, timings track for fallback),
+        // so this function no longer touches the mouth — it only produces the voice.
+        u.onend = ()=>{ if(!ended){ ended=true; resolve(true); } };
+        u.onerror = ()=>{ if(!ended){ ended=true; resolve(false); } };
 
-        startMouth();
         const approx = Math.max(2.4, Math.min(10, text.length/14));
-        setTimeout(()=>{ if(!ended){ ended=true; stopMouth(); resolve(true); } }, approx*1000 + 600);
+        setTimeout(()=>{ if(!ended){ ended=true; resolve(true); } }, approx*1000 + 600);
 
         try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }
-        catch(_){ stopMouth(); resolve(false); }
+        catch(_){ resolve(false); }
       }
 
       // Safari sometimes populates voices async
@@ -408,6 +419,41 @@
   function setClosed(){ setLevel(0); }
   function startMouth(){ if(animating) return; animating=true; raf=requestAnimationFrame(tick); }
   function stopMouth(){ animating=false; cancelAnimationFrame(raf); setClosed(); }
+
+  // Force the mouth shut and clear inline eye transforms so blinking works again after talking.
+  function forceCloseMouth(){
+    level=0;
+    mouth.style.transform = `scale(${SX[0]}, ${SY[0]})`;
+    eyeL.style.transform = '';
+    eyeR.style.transform = '';
+  }
+  // Fallback lip-sync: animate the mouth from the server 'timings' track (t in seconds,
+  // open 0..1) instead of live audio. Used when the real TTS mp3 is unavailable so
+  // Chunklet doesn't look frozen while the browser voice speaks.
+  function animateMouthFromTimings(timings){
+    animating=false; cancelAnimationFrame(raf); // make sure the analyser loop isn't fighting us
+    if(!timings || !timings.length){ forceCloseMouth(); return { stop: forceCloseMouth }; }
+    const dur = timings[timings.length-1].t || 0;
+    const start = performance.now();
+    let id;
+    (function frame(){
+      const el = (performance.now()-start)/1000;
+      if(el >= dur){ forceCloseMouth(); return; }
+      let i=0; while(i<timings.length && timings[i].t <= el) i++;
+      const a = timings[Math.max(0,i-1)], b = timings[Math.min(timings.length-1,i)];
+      const span = Math.max(1e-4, b.t - a.t);
+      const f = Math.max(0, Math.min(1, (el - a.t)/span));
+      const open = a.open + (b.open - a.open)*f;
+      const sy = SY[0] + open*(SY[4]-SY[0]);
+      const sx = 1.00 + open*0.03;
+      mouth.style.transform = `scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
+      const es = 1 - Math.min(0.22, open*0.18);
+      eyeL.style.transform = `translate(-50%,-50%) scaleY(${es.toFixed(3)})`;
+      eyeR.style.transform = `translate(-50%,-50%) scaleY(${es.toFixed(3)})`;
+      id = requestAnimationFrame(frame);
+    })();
+    return { stop: ()=>{ cancelAnimationFrame(id); forceCloseMouth(); } };
+  }
 
   function tick(){
     if(!animating) return; raf=requestAnimationFrame(tick);
@@ -628,7 +674,9 @@
       await mainPlayer.play();
     }catch(err){
       console.warn('TTS play blocked/failed; using Web Speech fallback', err);
-      await speakWithWebSpeech(typed.textContent || '');
+      const anim = animateMouthFromTimings(lastTimings);
+      try{ await speakWithWebSpeech(typed.textContent || ''); }
+      finally{ anim.stop(); }
       onEnd && onEnd();
     }
   }
@@ -672,6 +720,21 @@
   }
   async function fetchTTS(text){
     return await safeGetJSON(ENDPOINT + buildTTS(text), IS_PHONE ? 11000 : 9000);
+  }
+
+  // Speak: play the real mp3 (analyser drives the mouth) when the TTS backend returns audio;
+  // otherwise use the browser voice with the timings track driving the mouth so the lips
+  // still move. One place, used by every summon path.
+  async function speak(text){
+    let tts=null;
+    try{ tts = await fetchTTS(text); }catch(_){}
+    if(tts && tts.audioBase64){
+      await new Promise(res=>playAudio(tts.audioBase64, res));
+      return;
+    }
+    const anim = animateMouthFromTimings(lastTimings);
+    try{ await speakWithWebSpeech(text); }
+    finally{ anim.stop(); }
   }
 
   async function startGame(e){
@@ -726,6 +789,7 @@
     try{ await playClickOrBeep(); }catch(_){}
 
     busy=true;
+    lastTimings = []; // clear stale lip-sync track from a previous summon
     ctxWrap.classList.remove('active');
     glassesBtn.classList.remove('show');
     stopAudio(); clearWorkTag();
@@ -744,13 +808,7 @@
           typeOut(text, async ()=>{
             glassesBtn.classList.add('show');
             placeGlasses();
-            // try MP3 TTS first, then Web Speech
-            const tts = await fetchTTS(text);
-            if(tts && tts.audioBase64){
-              await new Promise(res=>playAudio(tts.audioBase64, res));
-            }else{
-              await speakWithWebSpeech(text);
-            }
+            await speak(text);
             setTimeout(()=>{ outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 400); }, 400);
           });
           return;
@@ -758,6 +816,7 @@
 
         const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
+        lastTimings = Array.isArray(data.timings) ? data.timings : [];
         lastContextText  = (data.context && (data.context.summary||'').trim()) || '';
 
         // TYPE the quote
@@ -771,18 +830,7 @@
         });
 
         // Phase 2: TTS first; fallback to Web Speech if needed (works on iOS)
-        (async ()=>{
-          try{
-            const tts = await fetchTTS(text);
-            if(tts && tts.audioBase64){
-              await new Promise(res=>playAudio(tts.audioBase64, res));
-            }else{
-              await speakWithWebSpeech(text);
-            }
-          }catch(_){
-            await speakWithWebSpeech(text);
-          }
-        })();
+        (async ()=>{ try{ await speak(text); }catch(_){ } })();
 
         // Visual closeouts on a timer
         setTimeout(()=>{
@@ -798,16 +846,7 @@
         const fallback = "geez I'm sorry I ugh, need a few more seconds. try again and I'll be right back.";
         const text = sanitize(fallback);
         typeOut(text, async ()=>{
-          try{
-            const tts = await fetchTTS(text);
-            if(tts && tts.audioBase64){
-              await new Promise(res=>playAudio(tts.audioBase64, res));
-            }else{
-              await speakWithWebSpeech(text);
-            }
-          }catch(_){
-            await speakWithWebSpeech(text);
-          }
+          try{ await speak(text); }catch(_){ }
           setTimeout(()=>{ outputContainer.classList.remove('active'); clearWorkTag(); setTimeout(closeDoor, 400); }, 400);
         });
       }
@@ -818,7 +857,7 @@
   doorTrigger.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); summon(e); } });
 
   // calibration (unchanged)
-  const calHud=document.getElementById('calHud'); let calOn=false; const STORAGE_KEY='cc_vars';
+  const calHud=document.getElementById('calHud'); let calOn=false; const STORAGE_KEY='cc_vars_cuckoo';
   function getVar(name,fallback){ const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v)?(fallback??0):v; }
   function setVar(name,value){ document.documentElement.style.setProperty(name,String(value)); persistVars(); positionDoorAndChunklet(); updateHud(); }
   function persistVars(){
