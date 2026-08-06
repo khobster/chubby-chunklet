@@ -311,6 +311,9 @@
   // How fast he talks. Lower = slower, so you actually see the mouth open AND fully close on
   // each word (instead of a fast blah-blah flap). Drives both the browser voice and the mouth.
   const SPEAK_RATE = 0.58;
+  // Phones use the browser voice, and iOS voices slur/stretch badly at low rates (0.58 sounds
+  // drunk in Safari). Keep them near normal speed; the mouth still pulses on word boundaries.
+  const PHONE_SPEAK_RATE = 0.95;
 
   const intro = document.getElementById('intro');
   const gameRoot = document.getElementById('gameRoot');
@@ -396,7 +399,7 @@
         const voices = speechSynthesis.getVoices();
         const pick = pickSmoothVoice(voices);
         if(pick) u.voice = pick;
-        u.rate = SPEAK_RATE; u.pitch = 1.0; u.volume = 1.0;
+        u.rate = IS_PHONE ? PHONE_SPEAK_RATE : SPEAK_RATE; u.pitch = 1.0; u.volume = 1.0;
 
         let ended=false;
         // Drive the mouth off REAL word boundaries so his jaw pops on each word actually spoken.
