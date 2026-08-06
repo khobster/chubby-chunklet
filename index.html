@@ -438,18 +438,24 @@
   }
 
   function unlockAudio(){
-    try{
-      ensureCtx();
-      if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
-      attachAnalyserToMediaElement();
-      // gesture-safe tiny silent beep
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      gain.gain.value = 0;
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.02);
-    }catch(_){}
+    // DESKTOP ONLY: prime the WebAudio graph (needed for Kokoro's analyser-driven mouth).
+    // On phones we use the Web Speech path, which needs NO AudioContext — and worse, a running
+    // AudioContext silences speechSynthesis in Safari on iOS (WebKit audio-session bug). So we
+    // never touch WebAudio on mobile; that's what lets the browser voice actually play in Safari.
+    if(!IS_PHONE){
+      try{
+        ensureCtx();
+        if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+        attachAnalyserToMediaElement();
+        // gesture-safe tiny silent beep
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0;
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.02);
+      }catch(_){}
+    }
     // iOS: unlock speechSynthesis INSIDE the tap gesture. Later on, speak() runs after
     // an await fetchQuote(), by which point user activation has expired and iOS silently
     // refuses to speak — unless the engine was already invoked during a gesture. A muted
@@ -901,7 +907,7 @@
     if (e){ e.preventDefault(); e.stopPropagation(); }
 
     unlockAudio();
-    attachAnalyserToMediaElement();
+    if(!IS_PHONE) attachAnalyserToMediaElement();
 
     try{
       const ok = await playClickOrBeep();
