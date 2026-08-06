@@ -903,7 +903,10 @@
     scheduleBlink();
 
     // Start downloading the neural voice in the background so it's ready by the time he speaks.
-    try{ window.loadKokoro && window.loadKokoro(); }catch(_){}
+    // DESKTOP ONLY: the Kokoro-82M model runs in WASM on phones (no mobile WebGPU), which
+    // blows past iOS Safari's per-tab memory cap and crashes the tab. Phones use the browser
+    // voice instead (see speak()), which is the intended mobile fallback.
+    if(!IS_PHONE){ try{ window.loadKokoro && window.loadKokoro(); }catch(_){} }
 
     intro.style.transition='opacity .28s ease';
     intro.style.opacity='0';
