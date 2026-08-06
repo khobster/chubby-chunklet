@@ -450,6 +450,18 @@
       osc.start();
       osc.stop(audioCtx.currentTime + 0.02);
     }catch(_){}
+    // iOS: unlock speechSynthesis INSIDE the tap gesture. Later on, speak() runs after
+    // an await fetchQuote(), by which point user activation has expired and iOS silently
+    // refuses to speak — unless the engine was already invoked during a gesture. A muted
+    // empty utterance here does exactly that, with no audible sound.
+    try{
+      if('speechSynthesis' in window){
+        const warm = new SpeechSynthesisUtterance(' ');
+        warm.volume = 0;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(warm);
+      }
+    }catch(_){}
   }
 
   function typeOut(text, done){
