@@ -96,6 +96,16 @@
   /* His eyes are painted on the sprite — hide the overlay dots (kept in DOM only for the JS refs). */
   .eyes-overlay{ position:absolute; top:0; left:0; width:0; height:0; }
   .eye-dot{ display:none; }
+  /* Blink: peach eyelids that drop over the baked-on eyes. Same skin color as the face, so their
+     sides vanish (peach on peach) and only the covering of the black dot + a faint lash line read.
+     Positioned as a fraction of the sprite, like .peg-mouth. scaleY(0) = open; scaleY(1) = closed. */
+  .peg-lid{ position:absolute; width:6.4%; height:5.6%; transform:translateX(-50%) scaleY(0);
+            transform-origin:top center; background:#facfbb; border-radius:40% 40% 55% 55%;
+            border-bottom:1.5px solid rgba(120,70,55,.28); pointer-events:none; z-index:61;
+            transition:transform .07s ease-in; }
+  .peg-lid.left{  left:38.1%; top:20.4%; }
+  .peg-lid.right{ left:48.1%; top:20.4%; }
+  .peg-lid.blink{ transform:translateX(-50%) scaleY(1); }
 
   /* Bubble */
   /* Comic-book speech bubble, pinned near the bottom with the tail pointing up at the clock. */
@@ -212,6 +222,9 @@
           <div class="eye-dot eye-left"></div>
           <div class="eye-dot eye-right"></div>
         </div>
+        <!-- Peach eyelids that drop over the baked-on eyes to blink (see scheduleBlink). -->
+        <div class="peg-lid left"  id="lidL"></div>
+        <div class="peg-lid right" id="lidR"></div>
       </div>
     </div>
 
@@ -340,6 +353,8 @@
   const eyesWrap = document.getElementById('eyes');
   const eyeL = eyesWrap.querySelector('.eye-left');
   const eyeR = eyesWrap.querySelector('.eye-right');
+  const lidL = document.getElementById('lidL');
+  const lidR = document.getElementById('lidR');
 
   const ctxWrap = document.getElementById('ctx');
   const ctxText = document.getElementById('ctxText');
@@ -707,8 +722,8 @@
     clearTimeout(blinkTO);
     const ms = Math.round(BLINK_MIN + Math.random()*(BLINK_MAX-BLINK_MIN));
     blinkTO = setTimeout(()=>{
-      eyeL.classList.add('blink'); eyeR.classList.add('blink');
-      setTimeout(()=>{ eyeL.classList.remove('blink'); eyeR.classList.remove('blink'); scheduleBlink(); }, 120);
+      lidL.classList.add('blink'); lidR.classList.add('blink');
+      setTimeout(()=>{ lidL.classList.remove('blink'); lidR.classList.remove('blink'); scheduleBlink(); }, 110);
     }, ms);
   }
 
@@ -979,7 +994,7 @@
         const data = await fetchQuote();
 
         if(!data || !data.text){
-          const fallback = "um. ahhh... it's the funniest thing, I completely forgot what I was about to say. Let me go back inside, eat a peanut butter cup then please click on the door again and I'll be right back.";
+          const fallback = "um. ahhh... it's the funniest thing, I completely forgot what I was about to say. Let me go back inside, eat a peanut butter cup then please press the little red button again and I'll be right back.";
           const text = sanitize(fallback);
           typeOut(text, async ()=>{
             placeGlasses();
