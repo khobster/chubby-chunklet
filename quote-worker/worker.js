@@ -2,25 +2,30 @@
 // (chubby-chunklet-dev-chunklet) with the same request/response shape, so callers only
 // swap the URL.
 //
-// pool.json = [text, work, author] rows pre-mined from the Lambda's own public-domain texts
-// with its own cleaning + scoring: only the top 25% of each Shakespeare play / other author,
-// which is all the Lambda's pickLine ever drew from. Rebuild it with mine.js (see README).
+// pool.json = [text, work, author] rows mined from Project Gutenberg texts (mine.py) and kept
+// by a taste audit (audit.py, local Ollama). See README for the rebuild steps.
 import POOL from "./pool.json";
 
+// Each press: weighted category -> uniform author (or play) -> uniform line, so a huge book
+// (Proust, Dickens) can't crowd out a small one (Blake, Gibran). Weights needn't sum to 100.
 const CATEGORY_WEIGHTS = {
-  shakespeare_tragedy: 18, shakespeare_comedy: 16, shakespeare_history: 8,
-  shakespeare_romance: 5, shakespeare_poetry: 5,
-  ancient_greek: 6, ancient_roman: 2, medieval: 2, renaissance: 6,
-  enlightenment: 4, romantic: 8, modern_fiction: 20,
+  shakespeare_tragedy: 14, shakespeare_comedy: 12, shakespeare_history: 6,
+  shakespeare_romance: 4, shakespeare_poetry: 4,
+  ancient: 5, philosophers: 7, medieval_renaissance: 4, satire: 7, poets: 9,
+  gothic_adventure: 5, novel_19c: 7, russian: 3, modern: 7,
 };
 const AUTHOR_CATEGORIES = {
-  ancient_greek: ["Sophocles"],
-  ancient_roman: ["Virgil"],
-  medieval: ["Dante", "Chaucer"],
-  renaissance: ["Montaigne", "Cervantes", "John Milton"],
-  enlightenment: ["Voltaire"],
-  romantic: ["Walt Whitman", "Emily Dickinson", "Oscar Wilde"],
-  modern_fiction: ["Kafka", "Marcel Proust", "James Joyce", "Oscar Wilde", "Emily Dickinson", "Walt Whitman"],
+  ancient: ["Homer", "Sophocles", "Virgil"],
+  philosophers: ["Marcus Aurelius", "Lao Tzu", "Montaigne", "Henry David Thoreau", "Ralph Waldo Emerson",
+    "Friedrich Nietzsche", "Kahlil Gibran"],
+  medieval_renaissance: ["Dante", "Chaucer", "Cervantes", "John Milton"],
+  satire: ["Voltaire", "Jonathan Swift", "Mark Twain", "Oscar Wilde", "Lewis Carroll"],
+  poets: ["William Blake", "Samuel Taylor Coleridge", "John Keats", "Robert Burns", "Walt Whitman",
+    "Emily Dickinson", "W. B. Yeats", "Edgar Allan Poe"],
+  gothic_adventure: ["Mary Shelley", "Edgar Allan Poe", "Robert Louis Stevenson", "Arthur Conan Doyle", "Herman Melville"],
+  novel_19c: ["Charles Dickens", "Jane Austen", "Charlotte Brontë", "Emily Brontë"],
+  russian: ["Fyodor Dostoevsky", "Leo Tolstoy"],
+  modern: ["Kafka", "Marcel Proust", "James Joyce", "F. Scott Fitzgerald", "Virginia Woolf", "Ernest Hemingway"],
 };
 const SHAKESPEARE_CATEGORIES = {
   tragedy: ["Hamlet", "Macbeth", "Othello", "King Lear", "Romeo and Juliet", "Julius Caesar",
@@ -32,7 +37,8 @@ const SHAKESPEARE_CATEGORIES = {
   history: ["King John", "Richard II", "Richard III", "Henry IV Part 1", "Henry IV Part 2", "Henry V",
     "Henry VI Part 1", "Henry VI Part 2", "Henry VI Part 3", "Henry VIII"],
   romance: ["The Winter's Tale", "The Tempest", "Pericles", "Cymbeline", "The Two Noble Kinsmen"],
-  poetry: ["Sonnets"],
+  poetry: ["Sonnets", "Venus and Adonis", "The Rape of Lucrece", "A Lover's Complaint",
+    "The Passionate Pilgrim", "The Phoenix and the Turtle"],
 };
 
 // Index once per isolate: Shakespeare by work, everyone else by author.
@@ -44,8 +50,9 @@ for (const [text, work, author] of POOL) {
 }
 const rand = (arr) => arr[(Math.random() * arr.length) | 0];
 
+const WEIGHT_TOTAL = Object.values(CATEGORY_WEIGHTS).reduce((a, b) => a + b, 0);
 function selectByWeight() {
-  const r = Math.random() * 100;
+  const r = Math.random() * WEIGHT_TOTAL;
   let c = 0;
   for (const [cat, w] of Object.entries(CATEGORY_WEIGHTS)) { c += w; if (r < c) return cat; }
   return "shakespeare_tragedy";
