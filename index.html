@@ -39,6 +39,11 @@
     --btn-x: 0.502;
     --btn-y: 0.514;
 
+    /* Where the 3D-glasses string hangs from (bottom of the clock) + string length (fraction of bg height) */
+    --hang-x: 0.502;
+    --hang-y: 0.700;
+    --hang-len: 0.100;
+
     /* Clip-frame sizing + figure placement inside it (sprite already = only the visible part) */
     --win-grow: 1.18;  /* a little taller than the bbox so the pop-in isn't clipped */
     --win-shift: 0;    /* move the clip-frame up/down (fraction of opening height; neg = up) */
@@ -144,16 +149,49 @@
   }
   .tweet-text{ letter-spacing:.01em; }
 
-  /* Glasses toggle button — fixed near Chunklet, not the bubble */
+  /* Glasses toggle: hang on a string from under the clock (anchor = --hang-x/--hang-y on the
+     bg, length = --hang-len). The button's top edge sits at the anchor and clips, so the string
+     unspools out of the clock; then the whole thing swings from that point and settles.
+     --g-w / --g-drop are set in px by placeGlasses(). The tie point on glasses.png is the
+     bridge, at 62.5% / 55% of the square image. */
   .glasses-btn{
-    position:fixed;
-    z-index:95; /* keep above everything */
-    width:64px; height:64px; border:0; background:transparent; padding:0; display:none;
-    transform:translate(-50%,-50%);
-    pointer-events:auto;
+    position:fixed; z-index:95; display:none;
+    --g-w:84px; --g-drop:90px;
+    width:calc(var(--g-w) * 1.3); height:calc(var(--g-drop) + var(--g-w) * .32 + 16px);
+    border:0; background:transparent; padding:0; cursor:pointer;
+    transform:translateX(-50%); transform-origin:50% 0;
+    overflow:hidden; pointer-events:auto; -webkit-tap-highlight-color:transparent;
   }
-  .glasses-btn img{ width:100%; height:100%; display:block; filter: drop-shadow(0 6px 14px rgba(0,0,0,.45)); }
-  .glasses-btn.show{ display:block; }
+  .glasses-btn .g-drop, .glasses-btn .g-sway{ position:absolute; inset:0; transform-origin:50% 0; }
+  .glasses-btn .g-string{ position:absolute; left:50%; top:0; width:2px; margin-left:-1px;
+    height:calc(var(--g-drop) - var(--g-w) * .03); background:linear-gradient(#2a180c, #5b3a20); border-radius:1px; }
+  .glasses-btn img{ position:absolute; display:block; width:var(--g-w); height:var(--g-w);
+    left:calc(50% - var(--g-w) * .625); top:calc(var(--g-drop) - var(--g-w) * .55);
+    filter:drop-shadow(0 6px 8px rgba(0,0,0,.35)); }
+  .glasses-btn.show{ display:block; animation:gSwing 3.4s .6s ease-in-out both; }
+  .glasses-btn.show .g-drop{ animation:gDrop .8s cubic-bezier(.3,1.3,.55,1) both; }
+  .glasses-btn .g-sway.nudge{ animation:gNudge 1s ease-in-out; }
+  @keyframes gDrop{ from{ transform:translateY(-100%); } to{ transform:translateY(0); } }
+  @keyframes gSwing{
+    0%  { transform:translateX(-50%) rotate(0deg); }
+    12% { transform:translateX(-50%) rotate(9deg); }
+    30% { transform:translateX(-50%) rotate(-7deg); }
+    47% { transform:translateX(-50%) rotate(4.5deg); }
+    63% { transform:translateX(-50%) rotate(-2.8deg); }
+    78% { transform:translateX(-50%) rotate(1.4deg); }
+    90% { transform:translateX(-50%) rotate(-.5deg); }
+    100%{ transform:translateX(-50%) rotate(0deg); }
+  }
+  @keyframes gNudge{ 0%{ transform:rotate(0); } 25%{ transform:rotate(-5deg); } 55%{ transform:rotate(3deg); } 80%{ transform:rotate(-1deg); } 100%{ transform:rotate(0); } }
+  @media (prefers-reduced-motion: reduce){
+    .glasses-btn.show, .glasses-btn.show .g-drop, .glasses-btn .g-sway.nudge{ animation:none; }
+  }
+
+  /* Voice audition toast (press V) */
+  .voice-toast{ position:fixed; left:50%; top:14px; transform:translateX(-50%); z-index:120;
+    background:rgba(20,12,6,.88); color:#f3e6cf; font:500 14px/1.3 Rubik, system-ui, sans-serif;
+    padding:8px 14px; border-radius:999px; opacity:0; transition:opacity .25s; pointer-events:none; white-space:nowrap; }
+  .voice-toast.on{ opacity:1; }
 
   /* Little red "call" button in the middle of the clock + black flashing arrow */
   .hidden{ display:none !important; }
@@ -191,7 +229,6 @@
     .output{ font-size:clamp(17px, 4.7vw, 22px); letter-spacing:-0.045em; }
     .speech-bubble{ border-width:5px; border-radius:26px; padding:12px 14px; }
     .bubble-tail{ width:36px; height:24px; }
-    .glasses-btn{ width:58px; height:58px; }
   }
 </style>
 </head>
@@ -259,8 +296,12 @@
 
 <!-- toggle -->
 <button id="glassesBtn" class="glasses-btn" aria-label="Toggle note">
-  <img src="glasses.png" alt="">
+  <span class="g-drop"><span class="g-sway" id="glassesSway">
+    <span class="g-string"></span>
+    <img src="glasses.png" alt="">
+  </span></span>
 </button>
+<div class="voice-toast" id="voiceToast" aria-live="polite"></div>
 
 <div class="cal-hud" id="calHud"></div>
 
@@ -275,7 +316,9 @@
     try {
       const mod = await import("https://esm.sh/kokoro-js@1.2.0");
       const KokoroTTS = mod.KokoroTTS || (mod.default && mod.default.KokoroTTS);
-      const webgpu = ('gpu' in navigator);
+      // Some browsers expose navigator.gpu but can't hand out an adapter; only use WebGPU if we get one.
+      let webgpu = false;
+      try { webgpu = !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (_) {}
       k.tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
         dtype: webgpu ? "fp32" : "q8",
         device: webgpu ? "webgpu" : "wasm",
@@ -286,11 +329,44 @@
       k.error = e; console.warn("Kokoro load failed; using browser voice:", e);
     } finally { k.loading = false; }
   };
-  window.kokoroGenerate = async function(text, voice){
+  // Speak sentence by sentence and stitch with real silences. Kokoro reads one long chunk in a
+  // single breath (flat, rushed); per-sentence it resets its intonation and lands each ending,
+  // and the gaps give old verse its dramatic beats.
+  const PAUSE = { ".":0.34, "!":0.38, "?":0.40, ";":0.24, ":":0.24, "\u2026":0.55 };
+  function splitForSpeech(text){
+    const parts = [];
+    const re = /[^.!?;:\u2026]+(?:\.\.\.|[.!?;:\u2026]+)?/g;
+    for (const m of (text.replace(/\.\.\./g, "\u2026").match(re) || [])){
+      const t = m.trim(); if (!t) continue;
+      const end = t.slice(-1);
+      if (parts.length && t.split(/\s+/).length < 2){ parts[parts.length-1].text += " " + t; continue; }
+      parts.push({ text:t, pause: PAUSE[end] ?? 0.2 });
+    }
+    return parts.length ? parts : [{ text, pause:0 }];
+  }
+  function wavBlob(samples, sr){
+    const buf = new ArrayBuffer(44 + samples.length*2), v = new DataView(buf);
+    const w = (o,s)=>{ for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+    w(0,"RIFF"); v.setUint32(4, 36 + samples.length*2, true); w(8,"WAVE"); w(12,"fmt ");
+    v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+    v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+    w(36,"data"); v.setUint32(40, samples.length*2, true);
+    for (let i=0;i<samples.length;i++){ const x=Math.max(-1,Math.min(1,samples[i])); v.setInt16(44+i*2, x<0?x*0x8000:x*0x7fff, true); }
+    return new Blob([buf], { type:"audio/wav" });
+  }
+  window.kokoroGenerate = async function(text, voice, speed){
     const k = window.__kokoro;
     if (!k.ready || !k.tts) return null;
-    const audio = await k.tts.generate(text, { voice: voice || "bm_george" });
-    return audio.toBlob(); // WAV Blob
+    const chunks = []; let sr = 24000, n = 0;
+    for (const p of splitForSpeech(text)){
+      const a = await k.tts.generate(p.text, { voice: voice || "bm_george", speed: speed || 1 });
+      sr = a.sampling_rate || sr;
+      chunks.push(a.audio, new Float32Array(Math.round(sr * p.pause)));
+    }
+    for (const c of chunks) n += c.length;
+    const all = new Float32Array(n); let o = 0;
+    for (const c of chunks){ all.set(c, o); o += c.length; }
+    return wavBlob(all, sr);
   };
 </script>
 
@@ -327,6 +403,19 @@
   // Phones use the browser voice, and iOS voices slur/stretch badly at low rates (0.58 sounds
   // drunk in Safari). Keep them near normal speed; the mouth still pulses on word boundaries.
   const PHONE_SPEAK_RATE = 0.95;
+
+  // Kokoro voice presets (desktop). Press V to audition: cycles + re-reads the current line.
+  // `rate` < 1 plays the audio slower WITHOUT pitch correction, so he drops lower and older.
+  const VOICES = [
+    { name:"George (classic)",        id:"bm_george", speed:1.00, rate:1.00 },
+    { name:"George, the Professor",   id:"bm_george", speed:1.04, rate:0.90 },
+    { name:"Lewis",                   id:"bm_lewis",  speed:1.00, rate:1.00 },
+    { name:"Lewis, Dean of Faculty",  id:"bm_lewis",  speed:1.06, rate:0.86 },
+    { name:"Fable",                   id:"bm_fable",  speed:1.00, rate:1.00 },
+    { name:"Daniel",                  id:"bm_daniel", speed:1.00, rate:1.00 },
+  ];
+  let voiceIdx = 2;   // default: Lewis
+  try{ const v = parseInt(localStorage.getItem('cc_voice'),10); if(VOICES[v]) voiceIdx = v; }catch(_){}
 
   const intro = document.getElementById('intro');
   const gameRoot = document.getElementById('gameRoot');
@@ -683,11 +772,22 @@
     }
   }
 
-  // GLASSES ("3D shades"): fixed bottom-right corner — the tap-for-context toggle.
+  // GLASSES ("3D shades"): dangle on a string from the bottom of the clock (the tap-for-context toggle).
   function placeGlasses(){
-    const btnW = IS_PHONE ? 58 : 64;
-    glassesBtn.style.left = (window.innerWidth  - btnW/2 - 12) + 'px';
-    glassesBtn.style.top  = (window.innerHeight - btnW/2 - 12) + 'px';
+    const r = hostEl.getBoundingClientRect();
+    const natW = bgImg.naturalWidth, natH = bgImg.naturalHeight;
+    if(!natW || !natH) return;
+    const scale = Math.max(r.width/natW, r.height/natH);
+    const dispW = natW*scale, dispH = natH*scale;
+    const cs = getComputedStyle(document.documentElement);
+    const hx = parseFloat(cs.getPropertyValue('--hang-x')) || 0.502;
+    const hy = parseFloat(cs.getPropertyValue('--hang-y')) || 0.70;
+    const len = parseFloat(cs.getPropertyValue('--hang-len')) || 0.10;
+    const gw = Math.round(Math.max(70, Math.min(124, dispH*0.10)));
+    glassesBtn.style.left = (r.left + (r.width-dispW)/2 + dispW*hx) + 'px';
+    glassesBtn.style.top  = (r.top + (r.height-dispH)/2 + dispH*hy) + 'px';
+    glassesBtn.style.setProperty('--g-w', gw + 'px');
+    glassesBtn.style.setProperty('--g-drop', Math.round(Math.max(gw*0.5, dispH*len)) + 'px');
   }
 
   new ResizeObserver(()=>{ placeBubble(); placeGlasses(); }).observe(outputContainer);
@@ -887,13 +987,15 @@
 
   // Play a real audio Blob (Kokoro) through the persistent element; the analyser drives the
   // mouth off the actual waveform (tightest lip-sync — the old-chunklet path).
-  function playRealAudio(blob){
+  function playRealAudio(blob, rate){
     return new Promise(async (resolve)=>{
       try{
         ensureCtx(); ensureAnalyser(); attachAnalyserToMediaElement();
         if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
         currentObjectURL = URL.createObjectURL(blob);
         mainPlayer.src = currentObjectURL; mainPlayer.load(); mainPlayer.currentTime=0; mainPlayer.volume=1;
+        mainPlayer.preservesPitch = mainPlayer.mozPreservesPitch = mainPlayer.webkitPreservesPitch = !(rate < 1);
+        mainPlayer.defaultPlaybackRate = mainPlayer.playbackRate = rate || 1;
         mainPlayer.onplay = ()=>{ setClosed(); startMouth(); tagPlaying=true; };
         mainPlayer.onended = ()=>{ tagPlaying=false; stopMouth(); if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;} resolve(); };
         mainPlayer.onerror = ()=>{ tagPlaying=false; stopMouth(); resolve(); };
@@ -903,15 +1005,30 @@
     });
   }
   async function speakKokoro(text){
-    const gen = window.kokoroGenerate(text, 'bm_george');   // British male, fits the character
-    const blob = await Promise.race([ gen, new Promise((_,rej)=>setTimeout(()=>rej(new Error('kokoro timeout')), 16000)) ]);
+    const v = VOICES[voiceIdx];
+    const gen = window.kokoroGenerate(text, v.id, v.speed);
+    const blob = await Promise.race([ gen, new Promise((_,rej)=>setTimeout(()=>rej(new Error('kokoro timeout')), 25000)) ]);
     if(!blob) throw new Error('kokoro no audio');
-    await playRealAudio(blob);
+    await playRealAudio(blob, v.rate);
+  }
+
+  const voiceToast = document.getElementById('voiceToast');
+  let voiceToastT = 0, lastSpokenText = '';
+  function cycleVoice(){
+    voiceIdx = (voiceIdx + 1) % VOICES.length;
+    try{ localStorage.setItem('cc_voice', String(voiceIdx)); }catch(_){}
+    const ready = window.__kokoro && window.__kokoro.ready;
+    voiceToast.textContent = `Voice: ${VOICES[voiceIdx].name}` + (ready ? '' : ' (neural voice still loading)');
+    voiceToast.classList.add('on');
+    clearTimeout(voiceToastT); voiceToastT = setTimeout(()=>voiceToast.classList.remove('on'), 2200);
+    // If he's out, have him say the same line again in the new voice.
+    if(busy && doorOpen && lastSpokenText && ready){ stopAudio(); speak(lastSpokenText).catch(()=>{}); }
   }
 
   // Speak: prefer the smooth Kokoro neural voice (real audio → analyser mouth); if it's not
   // ready or errors/too-slow, fall back to the browser voice (word-boundary mouth).
   async function speak(text){
+    lastSpokenText = text;
     if(window.__kokoro && window.__kokoro.ready){
       try{ await speakKokoro(text); return; }
       catch(e){ console.warn('Kokoro speak failed; browser voice:', e); }
@@ -967,7 +1084,11 @@
     if(!lastContextText) return;
     currentView === 'quote' ? showContextView() : showQuoteView();
   }
-  glassesBtn.addEventListener('click', toggleView);
+  const glassesSway = document.getElementById('glassesSway');
+  glassesBtn.addEventListener('click', ()=>{
+    toggleView();
+    glassesSway.classList.remove('nudge'); void glassesSway.offsetWidth; glassesSway.classList.add('nudge');
+  });
 
   async function summon(ev){
     if (performance.now() < gestureGuardUntil) { ev && ev.preventDefault(); return; }
@@ -1100,6 +1221,7 @@ C=toggle  R=reset`;
   loadVars();
   window.addEventListener('keydown', (e)=>{
     if(e.key==='c'||e.key==='C'){ toggleCal(); return; }
+    if((e.key==='v'||e.key==='V') && !calOn){ cycleVoice(); return; }
     if(!calOn) return;
     if(e.key==='r'||e.key==='R'){ resetSaved(); return; }
   });
