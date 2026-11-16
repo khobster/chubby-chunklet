@@ -14,8 +14,9 @@ Used by: this site (`index.html`, `airmail.html`), the heist newsletter
 public-domain texts (all of Shakespeare + Virgil, Chaucer, Dante, Milton, Montaigne,
 Cervantes, Voltaire, Sophocles, Whitman, Dickinson, Wilde, Proust, Joyce, Kafka) using
 the Lambda's own cleaning and color scoring, keeping the top 25% of each play/author
-(all the Lambda ever picked from). The source texts are still in the Lambda's deploy
-package if the pool ever needs rebuilding.
+(all the Lambda ever picked from). The Lambda was deleted 2026-11-15; its code and the
+source texts are backed up at `~/Documents/chubby-chunklet-lambda-backup.zip` (not in git)
+if the pool ever needs rebuilding.
 
 ## Deploy / test
 
