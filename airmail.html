@@ -14,7 +14,7 @@
 
   <style>
     :root{
-      --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+      --endpoint: https://chunklet-quotes.kevin-murawinski.workers.dev;
 
       --ivy-h: 22vh;          /* lower wall so sky dominates */
       --mouth-top:39%;
@@ -231,7 +231,7 @@
   <script>
     /* ===== Endpoint / basics ===== */
     const ENDPOINT = getComputedStyle(document.documentElement).getPropertyValue('--endpoint').trim()
-      || 'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+      || 'https://chunklet-quotes.kevin-murawinski.workers.dev';
     const QUERY = '?style=canon&modern=0&accent=scottish';
     const CHAR_MS = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--char-ms'),10) || 18;
 

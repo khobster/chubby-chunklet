@@ -13,7 +13,7 @@
 
 <style>
   :root{
-    --endpoint: https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet;
+    --endpoint: https://chunklet-quotes.kevin-murawinski.workers.dev;
 
     /* Figure + face */
     --figure-scale: 0.80;
@@ -374,7 +374,7 @@
 (() => {
   const css = getComputedStyle(document.documentElement);
   const ENDPOINT = (css.getPropertyValue('--endpoint') || '').trim() ||
-    'https://pu30nzsu59.execute-api.us-east-1.amazonaws.com/dev/chunklet';
+    'https://chunklet-quotes.kevin-murawinski.workers.dev';
 
   // Snippet-specific context via the free Cloudflare Worker (see context-worker/README.md).
   // Paste your deployed Worker URL here; leave "" to just use the Wikipedia fallback.
