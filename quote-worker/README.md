@@ -30,7 +30,7 @@ python3 build_pool.py candidates.json scores.jsonl pool.json
 ```
 
 The Gutenberg ids are the keys of `BOOKS` in `mine.py` (fetch `https://www.gutenberg.org/cache/epub/{id}/pg{id}.txt`).
-The few named keys (`virgil`, `dante`, `proust`...) are the old Lambda's texts, backed up in
+All source texts + candidates.json + scores.jsonl are saved in `~/Documents/chubby-chunklet-texts/` (not in git). The named keys (`virgil`, `dante`, `proust`...) came from the old Lambda, also backed up in
 `~/Documents/chubby-chunklet-lambda-backup.zip` (not in git). Shakespeare is Gutenberg #100.
 
 Each press in the Worker: weighted category (Shakespeare tragedy/comedy/history/romance/poetry,
