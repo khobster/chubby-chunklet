@@ -114,7 +114,7 @@
 
   /* Bubble */
   /* Comic-book speech bubble, pinned near the bottom with the tail pointing up at the clock. */
-  .output-container{ position:fixed; left:50%; transform:translateX(-50%); width:auto; max-width:min(90vw, 540px); z-index:40; opacity:0; transition:opacity 0.35s; pointer-events:none; text-align:center; }
+  .output-container{ position:fixed; left:50%; transform:translateX(-50%); width:max-content; max-width:min(92vw, 540px); z-index:40; opacity:0; transition:opacity 0.35s; pointer-events:none; text-align:center; }
   .output-container.active{ opacity:1; }
   .bubble-wrap{ position:relative; display:inline-block; }
   .speech-bubble{ position:relative; background:#fff; border:5px solid #000; border-radius:24px; padding:11px 18px; color:#111; box-shadow:0 5px 0 #000, 0 12px 26px rgba(0,0,0,.35); display:inline-block; max-width:100%; }
@@ -277,9 +277,7 @@
 <div class="output-container" id="outputContainer" aria-live="polite">
   <div class="bubble-wrap">
     <div class="speech-bubble" id="bubble">
-      <div class="output" id="output">
-        <span id="typed"></span><span id="cursor" class="cursor"></span>
-      </div>
+      <div class="output" id="output"><span id="typed"></span><span id="cursor" class="cursor"></span></div>
     </div>
     <svg class="bubble-tail" id="bubbleTail" viewBox="0 0 44 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <path d="M4,2 C 14,20 30,20 40,2" fill="#fff" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -544,7 +542,13 @@
     }
   }
 
+  // iPhones mute "ambient" web audio (incl. the speech voice) when the silent switch is on.
+  // Declaring the page as media playback lets him talk on silent, like a video would.
+  function setPlaybackSession(){ try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(_){} }
+  setPlaybackSession();
+
   function unlockAudio(){
+    setPlaybackSession();
     // DESKTOP ONLY: prime the WebAudio graph (needed for Kokoro's analyser-driven mouth).
     // On phones we use the Web Speech path, which needs NO AudioContext — and worse, a running
     // AudioContext silences speechSynthesis in Safari on iOS (WebKit audio-session bug). So we
@@ -760,7 +764,10 @@
     const guyRect  = chunkletContainer.getBoundingClientRect();
     if(!cardRect.width) return;
     // Sit the bubble in the lower-middle (not glued to the very bottom); tail points up at him.
+    // Just under his doorway (room for the tail) so the bubble never covers him; never above 44%.
     let top = Math.round(window.innerHeight * 0.44);
+    const winRect = cuckooWindow.getBoundingClientRect();
+    if(winRect.height) top = Math.max(top, Math.round(winRect.bottom + 30));
     const maxTop = window.innerHeight - cardRect.height - 12;
     if(top > maxTop) top = maxTop;                // don't overflow the bottom
     outputContainer.style.top = Math.max(8, top) + 'px';
@@ -784,10 +791,19 @@
     const hy = parseFloat(cs.getPropertyValue('--hang-y')) || 0.70;
     const len = parseFloat(cs.getPropertyValue('--hang-len')) || 0.10;
     const gw = Math.round(Math.max(70, Math.min(124, dispH*0.10)));
-    glassesBtn.style.left = (r.left + (r.width-dispW)/2 + dispW*hx) + 'px';
-    glassesBtn.style.top  = (r.top + (r.height-dispH)/2 + dispH*hy) + 'px';
+    let ax = r.left + (r.width-dispW)/2 + dispW*hx, ay = r.top + (r.height-dispH)/2 + dispH*hy;
+    let drop = Math.round(Math.max(gw*0.5, dispH*len));
+    // Phones: the bubble sits right over the clock's hanging spot, so the glasses hang from
+    // under the bubble instead (shorter string if the screen runs out).
+    const b = outputContainer.classList.contains('active') ? document.getElementById('bubble').getBoundingClientRect() : null;
+    if(b && b.height && ay < b.bottom + 4 && ay + drop + gw > b.top){
+      ay = b.bottom - 2;
+      drop = Math.max(14, Math.min(drop, Math.round(window.innerHeight - ay - gw*0.55 - 10)));
+    }
+    glassesBtn.style.left = ax + 'px';
+    glassesBtn.style.top  = ay + 'px';
     glassesBtn.style.setProperty('--g-w', gw + 'px');
-    glassesBtn.style.setProperty('--g-drop', Math.round(Math.max(gw*0.5, dispH*len)) + 'px');
+    glassesBtn.style.setProperty('--g-drop', drop + 'px');
   }
 
   new ResizeObserver(()=>{ placeBubble(); placeGlasses(); }).observe(outputContainer);
