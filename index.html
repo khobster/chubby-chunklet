@@ -380,6 +380,13 @@
 
   const IS_PHONE = window.matchMedia('(max-width: 600px)').matches;
 
+  // Every pool line pre-rendered in Kokoro's Lewis voice (voice/render.py): a/<id>.m4a plus a
+  // mouth track per 100 ids in m/<id/100>.json (one 0-9 loudness digit per 40 ms). Phones can't
+  // run the model, so this is how they get the desktop voice; desktop uses it too when on Lewis.
+  const VOICE_BASE = "https://chunklet-voice.pages.dev";
+  const PRERENDERED_VOICE = 2;   // VOICES index the files were rendered in (Lewis)
+  const MOUTH_FPS = 25;
+
   // Phase 1: fast quote + context (no TTS)
   const QUERY_QUOTE = '?only_quote=1&style=canon&modern=0&context=1';
   const QUERY_QUOTE_FALLBACK = '?style=canon&modern=0&context=1&tts=0';
@@ -653,7 +660,7 @@
   // track (slowed) only if boundary events never fire; last resort a gentle gabber.
   let talkRAF=null, mouthEnergy=0, pulseCount=0;
   function pulseMouth(strength){ mouthEnergy = Math.min(1.25, Math.max(mouthEnergy, strength||1)); pulseCount++; }
-  function startTalkMouth(timings){
+  function startTalkMouth(timings, openAt){
     stopTalkMouth();
     animating=false; cancelAnimationFrame(raf);
     mouthEnergy=0; pulseCount=0;
@@ -668,7 +675,9 @@
       const now=performance.now();
       const dt=Math.min(0.05,(now-prev)/1000); prev=now;
       let open;
-      if(pulseCount>=2){
+      if(openAt){
+        open = openAt();
+      } else if(pulseCount>=2){
         // word-boundary driven: each word snaps the jaw open, then it decays fully shut fast
         mouthEnergy = Math.max(0, mouthEnergy - dt*1000/CLOSE_MS);
         const flutter = 0.5 + 0.5*Math.sin((now-start)/1000 * (2*Math.PI) * 5.5);
@@ -874,6 +883,8 @@
   }
 
   async function playClickOrBeep(){
+    // Drop the last line's handlers so the click doesn't re-trigger its mouth/finish logic.
+    mainPlayer.onplay = mainPlayer.onended = mainPlayer.onpause = mainPlayer.onerror = null;
     if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
     try{
       mainPlayer.src = CLICK_MP3;
@@ -1029,22 +1040,72 @@
   }
 
   const voiceToast = document.getElementById('voiceToast');
-  let voiceToastT = 0, lastSpokenText = '';
+  let voiceToastT = 0, lastSpokenText = '', lastSpokenId = null;
   function cycleVoice(){
     voiceIdx = (voiceIdx + 1) % VOICES.length;
     try{ localStorage.setItem('cc_voice', String(voiceIdx)); }catch(_){}
-    const ready = window.__kokoro && window.__kokoro.ready;
+    const ready = (window.__kokoro && window.__kokoro.ready) || (voiceIdx === PRERENDERED_VOICE && lastSpokenId != null);
     voiceToast.textContent = `Voice: ${VOICES[voiceIdx].name}` + (ready ? '' : ' (neural voice still loading)');
     voiceToast.classList.add('on');
     clearTimeout(voiceToastT); voiceToastT = setTimeout(()=>voiceToast.classList.remove('on'), 2200);
     // If he's out, have him say the same line again in the new voice.
-    if(busy && doorOpen && lastSpokenText && ready){ stopAudio(); speak(lastSpokenText).catch(()=>{}); }
+    if(busy && doorOpen && lastSpokenText && ready){ stopAudio(); speak(lastSpokenText, lastSpokenId).catch(()=>{}); }
   }
 
-  // Speak: prefer the smooth Kokoro neural voice (real audio → analyser mouth); if it's not
-  // ready or errors/too-slow, fall back to the browser voice (word-boundary mouth).
-  async function speak(text){
-    lastSpokenText = text;
+  // Pre-rendered Lewis line: fetched once per id (started as soon as the quote arrives, so it
+  // downloads while the bubble types out).
+  const voiceCache = new Map();
+  function fetchPrerendered(id){
+    if(!voiceCache.has(id)){
+      const get = (url, as)=> fetch(url).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r[as](); });
+      const p = Promise.all([
+        get(`${VOICE_BASE}/a/${id}.m4a`, 'blob'),
+        get(`${VOICE_BASE}/m/${Math.floor(id/100)}.json`, 'json').then(j=>j[id]||''),
+      ]);
+      p.catch(()=>voiceCache.delete(id));
+      voiceCache.set(id, p);
+    }
+    return voiceCache.get(id);
+  }
+  // Phones: plain <audio> (no AudioContext; see unlockAudio) with the jaw read off the
+  // pre-computed mouth track at the player's own clock, so it can't drift from the voice.
+  function playTracked(blob, track){
+    return new Promise(async (resolve)=>{
+      let done=false;
+      const finish = ok=>{ if(done) return; done=true; stopTalkMouth(); if(currentObjectURL){URL.revokeObjectURL(currentObjectURL);currentObjectURL=null;} resolve(ok); };
+      try{
+        if(currentObjectURL){ URL.revokeObjectURL(currentObjectURL); currentObjectURL=null; }
+        currentObjectURL = URL.createObjectURL(blob);
+        mainPlayer.src = currentObjectURL; mainPlayer.load(); mainPlayer.currentTime=0; mainPlayer.volume=1;
+        mainPlayer.preservesPitch = mainPlayer.webkitPreservesPitch = true;
+        mainPlayer.defaultPlaybackRate = mainPlayer.playbackRate = 1;
+        mainPlayer.onplay = ()=> startTalkMouth(null, ()=>{
+          const d = track.charCodeAt(Math.floor(mainPlayer.currentTime*MOUTH_FPS)) - 48;
+          return d>=0 && d<=9 ? d/9 : 0;
+        });
+        mainPlayer.onended = ()=>finish(true);
+        mainPlayer.onpause = ()=>finish(true);
+        mainPlayer.onerror = ()=>finish(false);
+        await mainPlayer.play();
+      }catch(e){ console.warn('pre-rendered voice play failed', e); finish(false); }
+    });
+  }
+  async function speakPrerendered(id){
+    const [blob, track] = await Promise.race([ fetchPrerendered(id), new Promise((_,rej)=>setTimeout(()=>rej(new Error('voice fetch timeout')), 10000)) ]);
+    if(IS_PHONE) return await playTracked(blob, track);
+    await playRealAudio(blob, VOICES[PRERENDERED_VOICE].rate);
+    return true;
+  }
+
+  // Speak: the pre-rendered Lewis file when the line has one (phones always, desktop on Lewis);
+  // else the live Kokoro neural voice (real audio → analyser mouth); if that's not ready or
+  // errors/too-slow, the browser voice (word-boundary mouth).
+  async function speak(text, id){
+    lastSpokenText = text; lastSpokenId = id;
+    if(id != null && (IS_PHONE || voiceIdx === PRERENDERED_VOICE)){
+      try{ if(await speakPrerendered(id)) return; }
+      catch(e){ console.warn('Pre-rendered voice failed; falling back:', e); }
+    }
     if(window.__kokoro && window.__kokoro.ready){
       try{ await speakKokoro(text); return; }
       catch(e){ console.warn('Kokoro speak failed; browser voice:', e); }
@@ -1144,6 +1205,8 @@
         const work = data.work || null, author = data.author || null;
         const text = sanitize(data.text);
         lastTimings = Array.isArray(data.timings) ? data.timings : [];
+        const quoteId = Number.isInteger(data.id) ? data.id : null;
+        if(quoteId != null && (IS_PHONE || voiceIdx === PRERENDERED_VOICE)) fetchPrerendered(quoteId);
         lastContextText  = (data.context && (data.context.summary||'').trim()) || '';
 
         // TYPE the quote
@@ -1162,7 +1225,7 @@
         }
 
         // Phase 2: TTS first; fallback to Web Speech if needed (works on iOS)
-        (async ()=>{ try{ await speak(text); }catch(_){ } })();
+        (async ()=>{ try{ await speak(text, quoteId); }catch(_){ } })();
 
         // Visual closeouts on a timer
         setTimeout(()=>{

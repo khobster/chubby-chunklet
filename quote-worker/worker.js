@@ -43,11 +43,11 @@ const SHAKESPEARE_CATEGORIES = {
 
 // Index once per isolate: Shakespeare by work, everyone else by author.
 const BY_WORK = {}, BY_AUTHOR = {};
-for (const [text, work, author] of POOL) {
-  const e = { text, work, author };
+POOL.forEach(([text, work, author], id) => {
+  const e = { text, work, author, id };
   if (author === "Shakespeare") (BY_WORK[work] ||= []).push(e);
   else (BY_AUTHOR[author] ||= []).push(e);
-}
+});
 const rand = (arr) => arr[(Math.random() * arr.length) | 0];
 
 const WEIGHT_TOTAL = Object.values(CATEGORY_WEIGHTS).reduce((a, b) => a + b, 0);
@@ -63,10 +63,11 @@ function selectByWeight() {
 // start anyway, so a uniform pick of the work/author is equivalent.
 function pickLine(authorQ) {
   if (authorQ) {
-    const rows = POOL.filter((r) => r[2].toLowerCase().includes(authorQ));
-    if (!rows.length) return { text: "Nothing from that author today.", work: "Unknown", author: authorQ };
-    const [text, work, author] = rand(rows);
-    return { text, work, author };
+    const ids = [];
+    POOL.forEach((r, i) => { if (r[2].toLowerCase().includes(authorQ)) ids.push(i); });
+    if (!ids.length) return { text: "Nothing from that author today.", work: "Unknown", author: authorQ, id: null };
+    const id = rand(ids), [text, work, author] = POOL[id];
+    return { text, work, author, id };
   }
   const cat = selectByWeight();
   if (cat.startsWith("shakespeare_")) {
@@ -76,8 +77,8 @@ function pickLine(authorQ) {
     const authors = AUTHOR_CATEGORIES[cat].filter((a) => BY_AUTHOR[a]);
     if (authors.length) return rand(BY_AUTHOR[rand(authors)]);
   }
-  const [text, work, author] = rand(POOL);
-  return { text, work, author };
+  const id = (Math.random() * POOL.length) | 0, [text, work, author] = POOL[id];
+  return { text, work, author, id };
 }
 
 function sanitizeOutgoing(t) {
@@ -126,13 +127,14 @@ export default {
     // TTS moved into the browser (Kokoro); keep the old phase answering so callers fall back cleanly.
     if (qs.get("only_tts") === "1") return json({ audioBase64: null, diag: { phase: "tts", returned: false } });
 
-    const { text: raw, work, author } = pickLine((qs.get("author") || "").toLowerCase());
+    const { text: raw, work, author, id } = pickLine((qs.get("author") || "").toLowerCase());
     const text = sanitizeOutgoing(raw);
     return json({
       text,
       audioBase64: null,
       timings: fabricateTimingsFor(text),
       work, author,
+      id, // pool row; the phone voice plays chunklet-voice.pages.dev/a/<id>.m4a (voice/render.py)
       context: null, // the page fetches line-specific context from chunklet-context
       idleMouth: false,
       diag: { phase: qs.get("only_quote") === "1" ? "quote" : "legacy", source: "cf-worker" },
